@@ -88,6 +88,31 @@ def _prepare_scene(df,scene):
     metric=scene['metric']; w=df[['date','company',metric]].copy(); w[metric]=pd.to_numeric(w[metric],errors='coerce'); w=w.dropna(); dates=list(dict.fromkeys(w.date.astype(str))); companies=list(dict.fromkeys(w.company.astype(str))); pivot=w.pivot_table(index='date',columns='company',values=metric,aggfunc='sum').reindex(dates).fillna(0); return dates,companies,pivot
 
 
+def _horizontal_bar_geometry(x, reveal, mode, full_width):
+    """Reference-video wipe: reveal WIDTH only; bar height always equals full data value."""
+    out=[]
+    for j,f in enumerate(reveal):
+        f=float(np.clip(f,0,1)); w=full_width*f
+        if mode=='右→左': center=x[j]+full_width/2-w/2
+        else: center=x[j]-full_width/2+w/2
+        out.append((center,w))
+    return out
+
+
+def _label_period_blend(reveal, mode):
+    """Labels use full period values. Only between bars do their Y positions interpolate."""
+    n=len(reveal)
+    if n==0:return 0,0,0.0
+    j=_active_bar_index(reveal,mode); f=float(np.clip(reveal[j],0,1))
+    if mode=='右→左': prev=min(n-1,j+1)
+    else: prev=max(0,j-1)
+    # Most of the time labels are locked to the active period's full geometry.
+    # A short smooth blend at the start avoids a one-frame jump between periods.
+    blend=ease_in_out(np.clip(f/.28,0,1))
+    if j==prev: blend=1.0
+    return prev,j,blend
+
+
 def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress):
     ax.clear(); fig.texts.clear(); _style_axis(ax,bg,text,grid)
     p=np.clip(float(progress),0,1); title_a=fade_window(p,0,.16); sub_a=fade_window(p,.06,.24)*.84; chart_a=fade_window(p,.10,.28); late_a=fade_window(p,.76,.96)
@@ -100,46 +125,78 @@ def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress
     if chart in ('積み上げ棒','100%積み上げ'):
         shown=pivot.copy()
         if chart=='100%積み上げ': shown=shown.div(shown.sum(axis=1).replace(0,np.nan),axis=0).fillna(0)*100
-        reveal=_bar_reveal(p,len(dates),mode); bottom=np.zeros(len(dates)); segments=[]
-        for company in companies:
-            raw=shown[company].to_numpy(float) if company in shown else np.zeros(len(dates)); vals=raw*reveal; centers=bottom+vals/2; ax.bar(x,vals,bottom=bottom,color=cmap[company],width=.68,label=company,alpha=chart_a); segments.append((company,raw,vals,centers)); bottom+=vals
+        reveal=_bar_reveal(p,len(dates),mode)
 
-        # Reference video behavior: the labels sit immediately to the right of the
-        # current animation frontier. No leader lines and no collision solver: their
-        # Y position is the exact centre of each live stacked segment, so the labels
-        # move only when the data itself moves.
+        if mode=='一気に表示':
+            # Keep the explicit simultaneous mode as vertical growth.
+            bottom=np.zeros(len(dates)); segments=[]
+            for company in companies:
+                raw=shown[company].to_numpy(float) if company in shown else np.zeros(len(dates)); vals=raw*reveal; centers=bottom+vals/2
+                ax.bar(x,vals,bottom=bottom,color=cmap[company],width=.68,label=company,alpha=chart_a); segments.append((company,raw,vals,centers)); bottom+=vals
+        else:
+            # The reference does NOT grow bars bottom-to-top. Every period has its full
+            # data height immediately; the animation is a horizontal wipe through time.
+            geometry=_horizontal_bar_geometry(x,reveal,mode,.68); running=np.zeros(len(dates)); segments=[]
+            for company in companies:
+                raw=shown[company].to_numpy(float) if company in shown else np.zeros(len(dates)); centers=running+raw/2
+                for j,(cx,w) in enumerate(geometry):
+                    if w>1e-5: ax.bar(cx,raw[j],bottom=running[j],color=cmap[company],width=w,align='center',alpha=chart_a)
+                segments.append((company,raw,raw.copy(),centers)); running+=raw
+            bottom=running
+
         if label_mode!='なし' and len(dates):
-            j=_active_bar_index(reveal,mode); factor=float(reveal[j]); label_x=x[j]+.44; running=0.0
-            for company,raw,vals,centers in segments:
-                current=float(raw[j]*factor); label_y=running+current/2; running+=current
-                ax.text(label_x,label_y,_series_label(company,current,scene,decimals),color=cmap[company],fontsize=live_size,va='center',ha='left',fontweight='bold',alpha=1,zorder=9,clip_on=False)
-            if chart=='積み上げ棒':
-                ax.text(label_x,running+ymax*.022,f"合計 {_fmt_value(running,decimals)}{scene.get('unit','')}",color=text,fontsize=live_size,va='bottom',ha='left',fontweight='bold',alpha=1,zorder=9,clip_on=False)
+            if mode=='一気に表示':
+                j=len(dates)-1; factor=float(reveal[j]); label_x=x[j]+.44; running=0.0
+                for company,raw,vals,centers in segments:
+                    current=float(raw[j]*factor); label_y=running+current/2; running+=current
+                    ax.text(label_x,label_y,_series_label(company,current,scene,decimals),color=cmap[company],fontsize=live_size,va='center',ha='left',fontweight='bold',alpha=1,zorder=9,clip_on=False)
+            else:
+                prev,j,blend=_label_period_blend(reveal,mode); factor=float(reveal[j]);
+                # X follows the horizontal reveal front inside the active bar.
+                if mode=='右→左': label_x=x[j]+.34-.68*factor-.10
+                else: label_x=x[j]-.34+.68*factor+.10
+                prev_running=0.0; cur_running=0.0
+                for company,raw,vals,centers in segments:
+                    pv=float(raw[prev]); cv=float(raw[j]); py=prev_running+pv/2; cy=cur_running+cv/2
+                    label_y=(1-blend)*py+blend*cy; display=(1-blend)*pv+blend*cv
+                    ax.text(label_x,label_y,_series_label(company,display,scene,decimals),color=cmap[company],fontsize=live_size,va='center',ha='left' if mode!='右→左' else 'right',fontweight='bold',alpha=1,zorder=9,clip_on=False)
+                    prev_running+=pv; cur_running+=cv
+                if chart=='積み上げ棒':
+                    total=(1-blend)*prev_running+blend*cur_running
+                    ax.text(label_x,total+ymax*.022,f"合計 {_fmt_value(total,decimals)}{scene.get('unit','')}",color=text,fontsize=live_size,va='bottom',ha='left' if mode!='右→左' else 'right',fontweight='bold',alpha=1,zorder=9,clip_on=False)
 
-        # Optional historical numeric labels remain available, but reference-style
-        # live labels above are present from frame one.
-        if label_mode!='なし' and p>=.45:
+        if label_mode!='なし' and p>=.45 and mode=='一気に表示':
             for company,raw,vals,centers in segments:
                 for k,val in enumerate(vals):
                     if reveal[k]>=.96 and (label_mode=='すべて' or (label_mode=='自動' and val>=ymax*.065)):
                         ax.text(x[k],centers[k],_fmt_value(val,decimals),ha='center',va='center',fontsize=scene.get('data_label_size',7),fontweight='bold',color=_contrast_text(cmap[company]),alpha=late_a,zorder=7)
-        ax.set_xlim(-.45,max(1,len(dates)-1)+2.8)
+        ax.set_xlim(-.65,max(1,len(dates)-1)+2.8)
 
     elif chart=='棒グラフ':
         width=.76/max(1,len(companies)); reveal=_bar_reveal(p,len(dates),mode); series=[]
         for i,company in enumerate(companies):
-            raw=pivot[company].to_numpy(float) if company in pivot else np.zeros(len(dates)); vals=raw*reveal; xpos=x+(i-(len(companies)-1)/2)*width; ax.bar(xpos,vals,width=width,color=cmap[company],label=company,alpha=chart_a); series.append((company,raw,vals,xpos))
-            if label_mode!='なし' and p>=.45:
-                for k,val in enumerate(vals):
-                    if reveal[k]>=.96 and val>0 and label_mode in ('自動','すべて','合計のみ'): ax.text(xpos[k],val+ymax*.012,_fmt_value(val,decimals),color=text,ha='center',va='bottom',fontsize=scene.get('data_label_size',7),fontweight='bold',alpha=late_a,clip_on=False)
+            raw=pivot[company].to_numpy(float) if company in pivot else np.zeros(len(dates)); xpos=x+(i-(len(companies)-1)/2)*width
+            if mode=='一気に表示':
+                vals=raw*reveal; ax.bar(xpos,vals,width=width,color=cmap[company],label=company,alpha=chart_a)
+            else:
+                vals=raw.copy(); geom=_horizontal_bar_geometry(xpos,reveal,mode,width)
+                for j,(cx,w) in enumerate(geom):
+                    if w>1e-5: ax.bar(cx,raw[j],width=w,color=cmap[company],alpha=chart_a)
+            series.append((company,raw,vals,xpos))
 
-        # Grouped bars: same frontier rule. Each company label is attached directly
-        # to the live bar tip, without a floating lane or leader line.
         if label_mode!='なし' and len(dates):
-            j=_active_bar_index(reveal,mode); factor=float(reveal[j])
-            for company,raw,vals,xpos in series:
-                current=float(raw[j]*factor); ax.text(float(xpos[j])+width*.60,current,_series_label(company,current,scene,decimals),color=cmap[company],fontsize=live_size,va='center',ha='left',fontweight='bold',alpha=1,zorder=9,clip_on=False)
-        ax.set_xlim(-.45,max(1,len(dates)-1)+2.8)
+            if mode=='一気に表示':
+                j=len(dates)-1; factor=float(reveal[j])
+                for company,raw,vals,xpos in series:
+                    current=float(raw[j]*factor); ax.text(float(xpos[j])+width*.60,current,_series_label(company,current,scene,decimals),color=cmap[company],fontsize=live_size,va='center',ha='left',fontweight='bold',alpha=1,zorder=9,clip_on=False)
+            else:
+                prev,j,blend=_label_period_blend(reveal,mode); factor=float(reveal[j])
+                for company,raw,vals,xpos in series:
+                    pv=float(raw[prev]); cv=float(raw[j]); current=(1-blend)*pv+blend*cv
+                    if mode=='右→左': lx=float(xpos[j])+width/2-width*factor-.08; ha='right'
+                    else: lx=float(xpos[j])-width/2+width*factor+.08; ha='left'
+                    ax.text(lx,current,_series_label(company,current,scene,decimals),color=cmap[company],fontsize=live_size,va='center',ha=ha,fontweight='bold',alpha=1,zorder=9,clip_on=False)
+        ax.set_xlim(-.65,max(1,len(dates)-1)+2.8)
 
     else:
         draw=ease_in_out(np.clip((p-.10)/.72,0,1)); pos=draw*max(0,len(dates)-1); whole=int(np.floor(pos)); frac=pos-whole; endpoints=[]
@@ -155,8 +212,6 @@ def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress
         if scene.get('end_labels',True):
             adjusted=_spread_label_positions([v for _,_,v in endpoints],0,ymax,gap)
             for (company,end_x,actual_y),label_y in zip(endpoints,adjusted):
-                # The reference line charts also keep the label at the moving endpoint.
-                # A tiny vertical separation is used only when two series overlap.
                 ax.text(end_x+.18,label_y,_series_label(company,actual_y,scene,decimals),color=cmap[company],fontsize=live_size,va='center',fontweight='bold',alpha=1,bbox=dict(boxstyle='round,pad=.12',facecolor=bg,edgecolor='none',alpha=.90),clip_on=False)
         ax.set_xlim(-.2,max(1,len(dates)-1)+2.45)
 
