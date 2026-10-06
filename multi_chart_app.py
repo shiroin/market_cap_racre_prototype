@@ -37,10 +37,14 @@ def color_map(companies,palette_text):
     palette=[x.strip() for x in palette_text.split(",") if x.strip()] or DEFAULT_COLORS
     return {c:palette[i%len(palette)] for i,c in enumerate(companies)}
 
-st.title("複数グラフ動画ジェネレーター v1.1")
-st.caption(f"Google Sheets / CSV → 複数Scene → アニメーションMP4 ｜ 使用フォント: {FONT}")
+st.title("複数グラフ動画ジェネレーター v1.2")
+st.caption(f"Google Sheets / CSV → 複数Scene → 高速MP4 ｜ 使用フォント: {FONT}")
 with st.sidebar:
-    st.header("動画全体"); ratio=st.selectbox("縦横比",["9:16","1:1","16:9"],index=0); fps=st.select_slider("FPS",[24,30,60],value=30); transition=st.slider("Scene間クロスフェード（秒）",.10,1.20,.45,.05)
+    st.header("動画全体"); ratio=st.selectbox("縦横比",["9:16","1:1","16:9"],index=0)
+    render_mode=st.selectbox("生成品質",["高速プレビュー","標準","高画質"],index=0,help="まず高速プレビューで確認し、最後だけ標準/高画質がおすすめです。")
+    mode_settings={"高速プレビュー":(12,"preview"),"標準":(24,"standard"),"高画質":(30,"high")}; fps,quality=mode_settings[render_mode]
+    st.caption({"高速プレビュー":"360×640相当 / 12fps","標準":"720×1280相当 / 24fps","高画質":"1080×1920相当 / 30fps"}[render_mode])
+    transition=st.slider("Scene間クロスフェード（秒）",.10,1.20,.45,.05)
     preset_name=st.selectbox("デザイン",list(PRESETS.keys())); preset=PRESETS[preset_name]; bg=st.color_picker("背景",preset["bg"]); text=st.color_picker("文字",preset["text"]); grid=st.color_picker("グリッド",preset["grid"]); palette_text=st.text_input("企業カラー（カンマ区切り）",",".join(DEFAULT_COLORS[:4]))
 source=st.radio("データソース",["直接編集","CSVアップロード","Google Sheets"],horizontal=True); df=DEFAULT_DATA.copy()
 if source=="CSVアップロード":
@@ -69,17 +73,18 @@ for i in range(int(scene_count)):
         scenes.append({"chart":chart,"metric":metric,"title":title,"subtitle":subtitle,"unit":unit,"source":source_text,"duration":duration,"hold":hold,"title_size":title_size,"legend":legend,"end_labels":end_labels,"latest_values":latest_values,"end_label_size":end_label_size,"label_gap":label_gap,"value_decimals":value_decimals})
 preview_scene=st.selectbox("プレビューするScene",range(1,len(scenes)+1),format_func=lambda x:f"Scene {x}"); preview_progress=st.slider("アニメーション位置",.05,1.0,1.0,.05)
 try:
-    preview=render_story_frame(cleaned,scenes[preview_scene-1],ratio,bg,text,grid,cmap,preview_progress); st.pyplot(preview,use_container_width=False); plt.close(preview)
+    preview=render_story_frame(cleaned,scenes[preview_scene-1],ratio,bg,text,grid,cmap,preview_progress,"preview"); st.pyplot(preview,use_container_width=False); plt.close(preview)
 except Exception as e: st.warning(f"プレビューできません: {e}")
-if st.button("MP4を生成",type="primary",use_container_width=True):
+if st.button(f"MP4を生成（{render_mode}）",type="primary",use_container_width=True):
     if shutil.which("ffmpeg") is None: st.error("FFmpegが見つかりません。macOSでは `brew install ffmpeg` を実行してください。")
     else:
         try:
-            with st.spinner("アニメーションとScene遷移を生成しています…"):
-                workdir=Path(tempfile.mkdtemp(prefix="multi_chart_video_")); paths=[]; durations=[]
-                for i,scene in enumerate(scenes):
-                    p=workdir/f"scene_{i:02d}.mp4"; save_scene_v2(cleaned,scene,p,ratio,fps,bg,text,grid,cmap); paths.append(p); durations.append(scene["duration"]+scene["hold"])
-                output=workdir/"multi_chart_video_v11.mp4"; concat_with_crossfade(paths,durations,output,transition)
-            st.video(str(output)); st.download_button("MP4を保存",output.read_bytes(),"multi_chart_video_v11.mp4","video/mp4",use_container_width=True)
+            progress=st.progress(0,text="動画生成を開始します…")
+            workdir=Path(tempfile.mkdtemp(prefix="multi_chart_video_")); paths=[]; durations=[]
+            for i,scene in enumerate(scenes):
+                progress.progress(int(i/max(1,len(scenes))*85),text=f"Scene {i+1}/{len(scenes)} を生成中…")
+                p=workdir/f"scene_{i:02d}.mp4"; save_scene_v2(cleaned,scene,p,ratio,fps,bg,text,grid,cmap,quality); paths.append(p); durations.append(scene["duration"]+scene["hold"])
+            progress.progress(90,text="Sceneを結合中…"); output=workdir/"multi_chart_video_v12.mp4"; concat_with_crossfade(paths,durations,output,transition); progress.progress(100,text="完成しました")
+            st.video(str(output)); st.download_button("MP4を保存",output.read_bytes(),"multi_chart_video_v12.mp4","video/mp4",use_container_width=True)
         except Exception as e: st.error(f"生成に失敗しました: {e}")
 with st.expander("入力CSV例"): st.code("date,company,inventory,sales,inventory_months\n2022Q1,カチタス,520,310,5.03\n2022Q2,カチタス,545,320,5.11\n2022Q1,スター・マイカHD,650,250,7.80",language="text")
