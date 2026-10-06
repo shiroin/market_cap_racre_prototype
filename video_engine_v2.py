@@ -1,6 +1,5 @@
 import shutil
 import subprocess
-import tempfile
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -43,11 +42,18 @@ def _spread_label_positions(values, ymin, ymax, min_gap_ratio=.055):
     return placed.tolist()
 
 
-def render_story_frame(df, scene, ratio, bg, text, grid, cmap, progress=1.0):
+def _figure_spec(ratio, quality="preview"):
+    # Keep the physical canvas compact and control output pixels via DPI.
+    sizes = {"9:16": (3.6, 6.4), "1:1": (4.0, 4.0), "16:9": (6.4, 3.6)}
+    dpi = {"preview": 100, "standard": 200, "high": 300}.get(quality, 200)
+    return sizes[ratio], dpi
+
+
+def render_story_frame(df, scene, ratio, bg, text, grid, cmap, progress=1.0, quality="preview"):
     metric=scene["metric"]; work=df[["date","company",metric]].copy(); work[metric]=pd.to_numeric(work[metric],errors="coerce"); work=work.dropna()
     dates=list(dict.fromkeys(work["date"].astype(str))); companies=list(dict.fromkeys(work["company"].astype(str)))
     pivot=work.pivot_table(index="date",columns="company",values=metric,aggfunc="sum").reindex(dates).fillna(0)
-    sizes={"9:16":(5.4,9.6),"1:1":(7,7),"16:9":(9.6,5.4)}; fig=plt.figure(figsize=sizes[ratio],dpi=120); fig.patch.set_facecolor(bg)
+    size,dpi=_figure_spec(ratio,quality); fig=plt.figure(figsize=size,dpi=dpi); fig.patch.set_facecolor(bg)
     ax=fig.add_axes([.10,.15,.72,.66] if ratio=="9:16" else [.09,.16,.75,.65]); _style_axis(ax,bg,text,grid)
     raw_p=np.clip(float(progress),0,1); title_alpha=fade_window(raw_p,0,.16); subtitle_alpha=fade_window(raw_p,.06,.24)*.84; chart_alpha=fade_window(raw_p,.10,.28); label_alpha=fade_window(raw_p,.80,.98)
     fig.text(.075,.93,scene["title"],color=text,fontsize=scene.get("title_size",22),fontweight="bold",ha="left",alpha=title_alpha)
@@ -95,20 +101,30 @@ def render_story_frame(df, scene, ratio, bg, text, grid, cmap, progress=1.0):
     return fig
 
 
-def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap):
-    frames=max(2,int(scene.get("duration",2.5)*fps)); hold=max(0,int(scene.get("hold",1.0)*fps)); folder=Path(tempfile.mkdtemp(prefix="story_frames_"))
+def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality="standard"):
+    """Render frames directly into FFmpeg stdin. No intermediate PNG files."""
+    frames=max(2,int(scene.get("duration",2.5)*fps)); hold=max(0,int(scene.get("hold",1.0)*fps))
+    first=render_story_frame(df,scene,ratio,bg,text,grid,cmap,1.0/max(2,frames),quality)
+    first.canvas.draw(); width,height=first.canvas.get_width_height(); plt.close(first)
+    cmd=["ffmpeg","-y","-loglevel","error","-f","rawvideo","-vcodec","rawvideo","-pix_fmt","rgba","-s",f"{width}x{height}","-r",str(fps),"-i","-","-an","-c:v","libx264","-preset","veryfast","-crf","20","-pix_fmt","yuv420p","-movflags","+faststart",str(path)]
+    proc=subprocess.Popen(cmd,stdin=subprocess.PIPE,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
     try:
         for i in range(frames+hold):
-            p=1.0 if i>=frames else (i+1)/frames; fig=render_story_frame(df,scene,ratio,bg,text,grid,cmap,p); fig.savefig(folder/f"frame_{i:05d}.png",facecolor=bg); plt.close(fig)
-        subprocess.run(["ffmpeg","-y","-framerate",str(fps),"-i",str(folder/"frame_%05d.png"),"-c:v","libx264","-pix_fmt","yuv420p","-movflags","+faststart",str(path)],check=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-    finally: shutil.rmtree(folder,ignore_errors=True)
+            p=1.0 if i>=frames else (i+1)/frames
+            fig=render_story_frame(df,scene,ratio,bg,text,grid,cmap,p,quality); fig.canvas.draw()
+            proc.stdin.write(np.asarray(fig.canvas.buffer_rgba(),dtype=np.uint8).tobytes()); plt.close(fig)
+        proc.stdin.close(); stderr=proc.stderr.read(); code=proc.wait()
+        if code != 0: raise RuntimeError(stderr.decode("utf-8",errors="replace")[-3000:])
+    except Exception:
+        if proc.stdin and not proc.stdin.closed: proc.stdin.close()
+        proc.kill(); proc.wait(); raise
 
 
 def concat_with_crossfade(paths,durations,output,transition=.45):
     if len(paths)==1: shutil.copyfile(paths[0],output); return
-    transition=max(.05,float(transition)); cmd=["ffmpeg","-y"]
+    transition=max(.05,float(transition)); cmd=["ffmpeg","-y","-loglevel","error"]
     for path in paths: cmd += ["-i",str(path)]
     filters=[]; previous="[0:v]"; elapsed=float(durations[0])
     for i in range(1,len(paths)):
         out=f"[v{i}]"; safe_t=min(transition,max(.05,durations[i-1]/2),max(.05,durations[i]/2)); offset=max(.01,elapsed-safe_t); filters.append(f"{previous}[{i}:v]xfade=transition=fade:duration={safe_t:.3f}:offset={offset:.3f}{out}"); previous=out; elapsed+=float(durations[i])-safe_t
-    cmd += ["-filter_complex",";".join(filters),"-map",previous,"-c:v","libx264","-pix_fmt","yuv420p","-movflags","+faststart",str(output)]; subprocess.run(cmd,check=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    cmd += ["-filter_complex",";".join(filters),"-map",previous,"-c:v","libx264","-preset","veryfast","-crf","20","-pix_fmt","yuv420p","-movflags","+faststart",str(output)]; subprocess.run(cmd,check=True,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
