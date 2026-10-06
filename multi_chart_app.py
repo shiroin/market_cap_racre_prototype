@@ -1,6 +1,8 @@
+import re
 import shutil
 import tempfile
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -60,6 +62,25 @@ def parse_palette(text):
     return [x.strip() for x in text.split(",") if x.strip()] or DEFAULT_COLORS
 
 
+def google_sheets_csv_url(url):
+    """Accept a normal Google Sheets share/edit URL or an existing CSV export URL."""
+    url = url.strip()
+    match = re.search(r"/spreadsheets/d/([a-zA-Z0-9_-]+)", url)
+    if not match:
+        return url
+    sheet_id = match.group(1)
+    parsed = urlparse(url)
+    query = parse_qs(parsed.query)
+    gid = query.get("gid", [None])[0]
+    if gid is None and parsed.fragment:
+        frag = parse_qs(parsed.fragment)
+        gid = frag.get("gid", [None])[0]
+    export = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
+    if gid:
+        export += f"&gid={gid}"
+    return export
+
+
 st.title("複数グラフ動画ジェネレーター v1.3")
 st.caption(f"Google Sheets / CSV / Excel → 複数Scene → 高速MP4 ｜ 使用フォント: {FONT}")
 
@@ -104,12 +125,15 @@ if source == "ファイルアップロード":
             st.error(f"ファイル読み込み失敗: {type(e).__name__}: {e}")
             st.stop()
 elif source == "Google Sheets":
-    url = st.text_input("CSV公開URL（Google SheetsのCSV出力URL）")
+    url = st.text_input("Google Sheets URL", help="通常の共有URL（/edit?usp=sharing）をそのまま貼り付けられます。CSV出力URLにも対応します。")
     if url:
         try:
-            df = pd.read_csv(url)
+            csv_url = google_sheets_csv_url(url)
+            df = pd.read_csv(csv_url)
+            st.success(f"Google Sheets読み込み成功（{len(df):,}行）")
         except Exception as e:
-            st.error(f"読み込み失敗: {e}")
+            st.error(f"読み込み失敗: {type(e).__name__}: {e}")
+            st.caption("共有設定が「リンクを知っている全員が閲覧可」になっているか確認してください。通常の /edit URL はアプリ側でCSV URLへ自動変換します。")
 
 st.subheader("データ")
 st.caption("必須: date / company。数値列はSceneの指標として選べます。")
