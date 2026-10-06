@@ -30,13 +30,16 @@ def _log(message):
 def ease_in_out(t):
     t=np.clip(float(t),0.0,1.0); return 3*t*t-2*t*t*t
 
+
 def fade_window(p,start=0.0,end=0.18):
     return 1.0 if end<=start else ease_in_out(np.clip((p-start)/(end-start),0,1))
+
 
 def _style_axis(ax,bg,text,grid):
     ax.set_facecolor(bg); ax.tick_params(colors=text,labelsize=9,length=0,pad=7)
     for s in ax.spines.values(): s.set_visible(False)
     ax.grid(axis="y",color=grid,linewidth=.8,alpha=.55); ax.set_axisbelow(True)
+
 
 def _spread_label_positions(values,ymin,ymax,min_gap_ratio=.055):
     if not values:return []
@@ -44,18 +47,22 @@ def _spread_label_positions(values,ymin,ymax,min_gap_ratio=.055):
     for idx in order: placed[idx]=max(values[idx],last+gap,low); last=placed[idx]
     overflow=placed[order[-1]]-high
     if overflow>0: placed-=overflow
-    for j in range(len(order)-2,-1,-1): a,b=order[j],order[j+1]; placed[a]=min(placed[a],placed[b]-gap)
+    for j in range(len(order)-2,-1,-1):
+        a,b=order[j],order[j+1]; placed[a]=min(placed[a],placed[b]-gap)
     under=low-placed[order[0]]
     if under>0: placed+=under
     return placed.tolist()
+
 
 def _figure_spec(ratio,quality="preview"):
     sizes={"9:16":(3.6,6.4),"1:1":(4.,4.),"16:9":(6.4,3.6)}
     dpi={"preview":100,"standard":200,"high":150}.get(quality,200)
     return sizes[ratio],dpi
 
+
 def _output_size(ratio,quality):
     return None if quality!="high" else {"9:16":(1080,1920),"1:1":(1080,1080),"16:9":(1920,1080)}[ratio]
+
 
 def _bar_reveal(raw_p,count,mode):
     if count<=0:return np.zeros(0,dtype=float)
@@ -64,10 +71,26 @@ def _bar_reveal(raw_p,count,mode):
     timeline=p*count; factors=np.clip(timeline-np.arange(count,dtype=float),0,1); partial=(factors>0)&(factors<1); factors[partial]=[ease_in_out(v) for v in factors[partial]]
     return factors[::-1] if mode=="右→左" else factors
 
+
+def _active_bar_index(reveal,mode):
+    if len(reveal)==0:return 0
+    visible=np.flatnonzero(reveal>1e-6)
+    if len(visible):
+        return int(visible[0] if mode=="右→左" else visible[-1])
+    return len(reveal)-1 if mode=="右→左" else 0
+
+
 def _contrast_text(hex_color):
     r,g,b=to_rgb(hex_color); return "#172033" if .2126*r+.7152*g+.0722*b>.62 else "#FFFFFF"
 
+
 def _fmt_value(value,decimals=0):return f"{value:,.{int(decimals)}f}"
+
+
+def _series_label(company,value,scene,decimals):
+    if scene.get("latest_values",True):
+        return f"{company}  {_fmt_value(value,decimals)}{scene.get('unit','')}"
+    return company
 
 
 def _prepare_scene(df,scene):
@@ -79,29 +102,59 @@ def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress
     raw_p=np.clip(float(progress),0,1); title_alpha=fade_window(raw_p,0,.16); subtitle_alpha=fade_window(raw_p,.06,.24)*.84; chart_alpha=fade_window(raw_p,.10,.28); label_alpha=fade_window(raw_p,.76,.96)
     fig.text(.075,.93,scene["title"],color=text,fontsize=scene.get("title_size",22),fontweight="bold",ha="left",alpha=title_alpha)
     if scene.get("subtitle"):fig.text(.075,.885,scene["subtitle"],color=text,fontsize=max(8,scene.get("title_size",22)-7),ha="left",alpha=subtitle_alpha)
-    if scene.get("source"):fig.text(.075,.052,f"出典: {scene['source']}",color=text,fontsize=7,ha="left",alpha=.58*label_alpha)
+    if scene.get("source"):fig.text(.075,.052,f"出典: {scene['source']}",color=text,fontsize=7,ha="left",alpha=.58*max(chart_alpha,.35))
     x=np.arange(len(dates),dtype=float); chart=scene["chart"]; ymax=100. if chart=="100%積み上げ" else float(max(1.,pivot.sum(axis=1).max() if chart=="積み上げ棒" else pivot.to_numpy().max()))*1.22; ax.set_ylim(0,ymax)
-    decimals=int(scene.get("value_decimals",0)); label_mode=scene.get("data_labels","自動"); reveal_mode=scene.get("bar_animation","左→右")
+    decimals=int(scene.get("value_decimals",0)); label_mode=scene.get("data_labels","自動"); reveal_mode=scene.get("bar_animation","左→右"); live_size=scene.get("end_label_size",8)
+
     if chart in ("積み上げ棒","100%積み上げ"):
         shown=pivot.copy()
         if chart=="100%積み上げ":shown=shown.div(shown.sum(axis=1).replace(0,np.nan),axis=0).fillna(0)*100
         reveal=_bar_reveal(raw_p,len(dates),reveal_mode); bottom=np.zeros(len(dates)); segments=[]
         for company in companies:
-            raw=shown[company].to_numpy(float) if company in shown else np.zeros(len(dates)); vals=raw*reveal; centers=bottom+vals/2; ax.bar(x,vals,bottom=bottom,color=cmap[company],width=.68,label=company,alpha=chart_alpha); segments.append((company,vals,centers)); bottom+=vals
+            raw=shown[company].to_numpy(float) if company in shown else np.zeros(len(dates)); vals=raw*reveal; centers=bottom+vals/2; ax.bar(x,vals,bottom=bottom,color=cmap[company],width=.68,label=company,alpha=chart_alpha); segments.append((company,raw,vals,centers)); bottom+=vals
+
+        # Persistent side labels: identify every stacked colour from frame 1.
+        if label_mode!="なし" and len(dates):
+            j=_active_bar_index(reveal,reveal_mode); factor=float(reveal[j]); anchors=[]
+            running=0.0
+            for company,raw,vals,centers in segments:
+                current=float(raw[j]*factor); anchor=running+current/2 if factor>1e-6 else float(raw[j])/2+running
+                anchors.append((company,current,anchor)); running += current if factor>1e-6 else float(raw[j])
+            adjusted=_spread_label_positions([a for _,_,a in anchors],0,ymax,scene.get("label_gap",.055))
+            label_x=x[j]+.62
+            for (company,current,anchor),label_y in zip(anchors,adjusted):
+                ax.plot([x[j]+.35,label_x-.08],[anchor,label_y],color=cmap[company],linewidth=.9,alpha=.75,zorder=8)
+                ax.text(label_x,label_y,_series_label(company,current,scene,decimals),color=cmap[company],fontsize=live_size,va="center",ha="left",fontweight="bold",alpha=1.0,zorder=9,bbox=dict(boxstyle="round,pad=.18",facecolor=bg,edgecolor="none",alpha=.92))
+
+        # Optional in-bar numeric labels remain available once a bar has settled.
         if label_mode!="なし" and raw_p>=.45:
-            for company,vals,centers in segments:
+            for company,raw,vals,centers in segments:
                 for j,val in enumerate(vals):
                     if reveal[j]>=.96 and (label_mode=="すべて" or (label_mode=="自動" and val>=ymax*.065)):
                         ax.text(x[j],centers[j],_fmt_value(val,decimals),ha="center",va="center",fontsize=scene.get("data_label_size",7),fontweight="bold",color=_contrast_text(cmap[company]),alpha=label_alpha,zorder=7)
             for j,total in enumerate(bottom):
                 if reveal[j]>=.96 and label_mode in ("自動","すべて","合計のみ"):ax.text(x[j],total+ymax*.016,_fmt_value(total,decimals),color=text,ha="center",va="bottom",fontsize=scene.get("data_label_size",7),fontweight="bold",alpha=label_alpha,clip_on=False)
+        ax.set_xlim(-.45,max(1,len(dates)-1)+2.6)
+
     elif chart=="棒グラフ":
-        width=.76/max(1,len(companies)); reveal=_bar_reveal(raw_p,len(dates),reveal_mode)
+        width=.76/max(1,len(companies)); reveal=_bar_reveal(raw_p,len(dates),reveal_mode); series=[]
         for i,company in enumerate(companies):
-            raw=pivot[company].to_numpy(float) if company in pivot else np.zeros(len(dates)); vals=raw*reveal; xpos=x+(i-(len(companies)-1)/2)*width; ax.bar(xpos,vals,width=width,color=cmap[company],label=company,alpha=chart_alpha)
+            raw=pivot[company].to_numpy(float) if company in pivot else np.zeros(len(dates)); vals=raw*reveal; xpos=x+(i-(len(companies)-1)/2)*width; ax.bar(xpos,vals,width=width,color=cmap[company],label=company,alpha=chart_alpha); series.append((company,raw,vals,xpos))
             if label_mode!="なし" and raw_p>=.45:
                 for j,val in enumerate(vals):
                     if reveal[j]>=.96 and val>0 and label_mode in ("自動","すべて","合計のみ"):ax.text(xpos[j],val+ymax*.012,_fmt_value(val,decimals),color=text,ha="center",va="bottom",fontsize=scene.get("data_label_size",7),fontweight="bold",alpha=label_alpha,clip_on=False)
+
+        # Persistent side labels for the currently growing/latest visible date.
+        if label_mode!="なし" and len(dates):
+            j=_active_bar_index(reveal,reveal_mode); factor=float(reveal[j]); anchors=[]
+            for company,raw,vals,xpos in series:
+                current=float(raw[j]*factor); anchor=current if factor>1e-6 else float(raw[j]); anchors.append((company,current,anchor,float(xpos[j])))
+            adjusted=_spread_label_positions([a for _,_,a,_ in anchors],0,ymax,scene.get("label_gap",.055)); label_x=x[j]+.72
+            for (company,current,anchor,bar_x),label_y in zip(anchors,adjusted):
+                ax.plot([bar_x+width/2,label_x-.08],[anchor,label_y],color=cmap[company],linewidth=.9,alpha=.75,zorder=8)
+                ax.text(label_x,label_y,_series_label(company,current,scene,decimals),color=cmap[company],fontsize=live_size,va="center",ha="left",fontweight="bold",alpha=1.0,zorder=9,bbox=dict(boxstyle="round,pad=.18",facecolor=bg,edgecolor="none",alpha=.92))
+        ax.set_xlim(-.45,max(1,len(dates)-1)+2.6)
+
     else:
         draw_p=ease_in_out(np.clip((raw_p-.10)/.72,0,1)); pos=draw_p*max(0,len(dates)-1); whole=int(np.floor(pos)); frac=pos-whole; endpoints=[]
         for company in companies:
@@ -114,13 +167,14 @@ def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress
                 else:end_x,end_y=x[-1],vals[-1]
                 ax.plot(xs,ys,color=cmap[company],linewidth=2.8,solid_capstyle="round",alpha=chart_alpha); ax.scatter([end_x],[end_y],color=cmap[company],s=18,zorder=4,alpha=chart_alpha)
             endpoints.append((company,end_x,end_y))
-        if scene.get("end_labels",True) and raw_p>=.10:
+        # Labels exist from the very first frame and follow the line heads.
+        if scene.get("end_labels",True):
             adjusted=_spread_label_positions([v for _,_,v in endpoints],0,ymax,scene.get("label_gap",.055))
             for (company,end_x,actual_y),label_y in zip(endpoints,adjusted):
-                ax.plot([end_x+.04,end_x+.22],[actual_y,label_y],color=cmap[company],linewidth=.9,alpha=.65*chart_alpha)
-                label=company+(f"  {_fmt_value(actual_y,decimals)}{scene.get('unit','')}" if scene.get("latest_values",True) else "")
-                ax.text(end_x+.27,label_y,label,color=cmap[company],fontsize=scene.get("end_label_size",8),va="center",fontweight="bold",alpha=chart_alpha,bbox=dict(boxstyle="round,pad=.18",facecolor=bg,edgecolor="none",alpha=.90))
+                ax.plot([end_x+.04,end_x+.22],[actual_y,label_y],color=cmap[company],linewidth=.9,alpha=.75)
+                ax.text(end_x+.27,label_y,_series_label(company,actual_y,scene,decimals),color=cmap[company],fontsize=live_size,va="center",fontweight="bold",alpha=1.0,bbox=dict(boxstyle="round,pad=.18",facecolor=bg,edgecolor="none",alpha=.92))
         ax.set_xlim(-.2,max(1,len(dates)-1)+2.45)
+
     ax.set_xticks(x); ax.set_xticklabels(dates,color=text,alpha=chart_alpha); ax.set_ylabel(scene.get("unit",""),color=text,fontsize=9,alpha=chart_alpha)
     if scene.get("legend",False):
         leg=ax.legend(frameon=False,fontsize=8,ncol=2,loc="upper left")
