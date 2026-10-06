@@ -75,6 +75,22 @@ def _active_bar_index(reveal,mode):
     return len(reveal)-1 if mode=="右→左" else 0
 
 
+def _label_front(reveal, mode):
+    """Return a smooth label front between the previous settled bar and growing bar."""
+    n=len(reveal)
+    if n==0:return 0,0,0.0
+    if mode=="一気に表示":
+        j=n-1; return j,j,float(reveal[j])
+    j=_active_bar_index(reveal,mode); f=float(np.clip(reveal[j],0,1))
+    if mode=="右→左":
+        previous=min(n-1,j+1)
+    else:
+        previous=max(0,j-1)
+    # Smoothstep again only controls label travel; it prevents a hard jump when the next bar starts.
+    travel=ease_in_out(f)
+    return previous,j,travel
+
+
 def _contrast_text(hex_color):
     r,g,b=to_rgb(hex_color); return "#172033" if .2126*r+.7152*g+.0722*b>.62 else "#FFFFFF"
 
@@ -88,22 +104,6 @@ def _series_label(company,value,scene,decimals):
 
 def _prepare_scene(df,scene):
     metric=scene["metric"]; work=df[["date","company",metric]].copy(); work[metric]=pd.to_numeric(work[metric],errors="coerce"); work=work.dropna(); dates=list(dict.fromkeys(work["date"].astype(str))); companies=list(dict.fromkeys(work["company"].astype(str))); pivot=work.pivot_table(index="date",columns="company",values=metric,aggfunc="sum").reindex(dates).fillna(0); return dates,companies,pivot
-
-
-def _fixed_stack_lanes(shown,companies,ymax,gap):
-    """Stable label lanes based on the final stack. They never jump between frames."""
-    if shown.empty:return []
-    final=shown.iloc[-1]; running=0.0; anchors=[]
-    for company in companies:
-        v=float(final.get(company,0)); anchors.append(running+v/2); running+=v
-    return _spread_label_positions(anchors,0,ymax,gap)
-
-
-def _fixed_group_lanes(pivot,companies,ymax,gap):
-    """Stable company lanes based on final values, independent of animation progress."""
-    if pivot.empty:return []
-    final=[float(pivot[c].iloc[-1]) if c in pivot else 0.0 for c in companies]
-    return _spread_label_positions(final,0,ymax,gap)
 
 
 def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress):
@@ -122,22 +122,33 @@ def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress
         for company in companies:
             raw=shown[company].to_numpy(float) if company in shown else np.zeros(len(dates)); vals=raw*reveal; centers=bottom+vals/2; ax.bar(x,vals,bottom=bottom,color=cmap[company],width=.68,label=company,alpha=chart_alpha); segments.append((company,raw,vals,centers)); bottom+=vals
 
-        # Reference-video style: labels live in fixed lanes at the far right.
-        # Only the short leader line moves; the text itself does not wobble.
+        # Labels follow the animation front like the reference video. Instead of jumping
+        # from one year to the next, their X/Y positions interpolate smoothly.
         if label_mode!="なし" and len(dates):
-            j=_active_bar_index(reveal,reveal_mode); factor=float(reveal[j]); lanes=_fixed_stack_lanes(shown,companies,ymax,gap); label_x=max(1,len(dates)-1)+.72; running=0.0
-            for (company,raw,vals,centers),label_y in zip(segments,lanes):
-                current=float(raw[j]*factor); anchor=running+current/2; running+=current
-                ax.plot([x[j]+.35,label_x-.10],[anchor,label_y],color=cmap[company],linewidth=.9,alpha=.72,zorder=8)
+            prev_j,j,travel=_label_front(reveal,reveal_mode); factor=float(reveal[j]); label_x=(1-travel)*x[prev_j]+travel*x[j]+.62
+            prev_running=0.0; cur_running=0.0; anchors=[]
+            for company,raw,vals,centers in segments:
+                prev_val=float(raw[prev_j]) if prev_j!=j else float(raw[j]*factor)
+                cur_val=float(raw[j]*factor)
+                prev_anchor=prev_running+prev_val/2; cur_anchor=cur_running+cur_val/2
+                anchor=(1-travel)*prev_anchor+travel*cur_anchor
+                display_value=(1-travel)*prev_val+travel*cur_val
+                anchors.append((company,display_value,anchor))
+                prev_running+=prev_val; cur_running+=cur_val
+            spread=_spread_label_positions([a for _,_,a in anchors],0,ymax,gap)
+            # Keep collision correction gentle: mostly follow the segment, only 35% toward the separated lane.
+            for (company,current,anchor),safe_y in zip(anchors,spread):
+                label_y=anchor*.65+safe_y*.35
+                ax.plot([label_x-.22,label_x-.08],[anchor,label_y],color=cmap[company],linewidth=.9,alpha=.72,zorder=8)
                 ax.text(label_x,label_y,_series_label(company,current,scene,decimals),color=cmap[company],fontsize=live_size,va="center",ha="left",fontweight="bold",alpha=1.0,zorder=9)
 
         if label_mode!="なし" and raw_p>=.45:
             for company,raw,vals,centers in segments:
-                for j,val in enumerate(vals):
-                    if reveal[j]>=.96 and (label_mode=="すべて" or (label_mode=="自動" and val>=ymax*.065)):
-                        ax.text(x[j],centers[j],_fmt_value(val,decimals),ha="center",va="center",fontsize=scene.get("data_label_size",7),fontweight="bold",color=_contrast_text(cmap[company]),alpha=label_alpha,zorder=7)
-            for j,total in enumerate(bottom):
-                if reveal[j]>=.96 and label_mode in ("自動","すべて","合計のみ"):ax.text(x[j],total+ymax*.016,_fmt_value(total,decimals),color=text,ha="center",va="bottom",fontsize=scene.get("data_label_size",7),fontweight="bold",alpha=label_alpha,clip_on=False)
+                for k,val in enumerate(vals):
+                    if reveal[k]>=.96 and (label_mode=="すべて" or (label_mode=="自動" and val>=ymax*.065)):
+                        ax.text(x[k],centers[k],_fmt_value(val,decimals),ha="center",va="center",fontsize=scene.get("data_label_size",7),fontweight="bold",color=_contrast_text(cmap[company]),alpha=label_alpha,zorder=7)
+            for k,total in enumerate(bottom):
+                if reveal[k]>=.96 and label_mode in ("自動","すべて","合計のみ"):ax.text(x[k],total+ymax*.016,_fmt_value(total,decimals),color=text,ha="center",va="bottom",fontsize=scene.get("data_label_size",7),fontweight="bold",alpha=label_alpha,clip_on=False)
         ax.set_xlim(-.45,max(1,len(dates)-1)+2.6)
 
     elif chart=="棒グラフ":
@@ -145,15 +156,18 @@ def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress
         for i,company in enumerate(companies):
             raw=pivot[company].to_numpy(float) if company in pivot else np.zeros(len(dates)); vals=raw*reveal; xpos=x+(i-(len(companies)-1)/2)*width; ax.bar(xpos,vals,width=width,color=cmap[company],label=company,alpha=chart_alpha); series.append((company,raw,vals,xpos))
             if label_mode!="なし" and raw_p>=.45:
-                for j,val in enumerate(vals):
-                    if reveal[j]>=.96 and val>0 and label_mode in ("自動","すべて","合計のみ"):ax.text(xpos[j],val+ymax*.012,_fmt_value(val,decimals),color=text,ha="center",va="bottom",fontsize=scene.get("data_label_size",7),fontweight="bold",alpha=label_alpha,clip_on=False)
+                for k,val in enumerate(vals):
+                    if reveal[k]>=.96 and val>0 and label_mode in ("自動","すべて","合計のみ"):ax.text(xpos[k],val+ymax*.012,_fmt_value(val,decimals),color=text,ha="center",va="bottom",fontsize=scene.get("data_label_size",7),fontweight="bold",alpha=label_alpha,clip_on=False)
 
-        # Fixed right-side lanes keep grouped-bar labels visually anchored.
         if label_mode!="なし" and len(dates):
-            j=_active_bar_index(reveal,reveal_mode); factor=float(reveal[j]); lanes=_fixed_group_lanes(pivot,companies,ymax,gap); label_x=max(1,len(dates)-1)+.82
-            for (company,raw,vals,xpos),label_y in zip(series,lanes):
-                current=float(raw[j]*factor); anchor=current; bar_x=float(xpos[j])
-                ax.plot([bar_x+width/2,label_x-.10],[anchor,label_y],color=cmap[company],linewidth=.9,alpha=.72,zorder=8)
+            prev_j,j,travel=_label_front(reveal,reveal_mode); factor=float(reveal[j]); label_x=(1-travel)*x[prev_j]+travel*x[j]+.72; anchors=[]
+            for company,raw,vals,xpos in series:
+                prev_val=float(raw[prev_j]) if prev_j!=j else float(raw[j]*factor); cur_val=float(raw[j]*factor)
+                current=(1-travel)*prev_val+travel*cur_val; anchors.append((company,current,current))
+            spread=_spread_label_positions([a for _,_,a in anchors],0,ymax,gap)
+            for (company,current,anchor),safe_y in zip(anchors,spread):
+                label_y=anchor*.65+safe_y*.35
+                ax.plot([label_x-.22,label_x-.08],[anchor,label_y],color=cmap[company],linewidth=.9,alpha=.72,zorder=8)
                 ax.text(label_x,label_y,_series_label(company,current,scene,decimals),color=cmap[company],fontsize=live_size,va="center",ha="left",fontweight="bold",alpha=1.0,zorder=9)
         ax.set_xlim(-.45,max(1,len(dates)-1)+2.6)
 
