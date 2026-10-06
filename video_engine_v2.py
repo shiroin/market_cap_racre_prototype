@@ -106,17 +106,20 @@ def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress
         draw_p=ease_in_out(np.clip((raw_p-.10)/.72,0,1)); pos=draw_p*max(0,len(dates)-1); whole=int(np.floor(pos)); frac=pos-whole; endpoints=[]
         for company in companies:
             vals=pivot[company].to_numpy(float) if company in pivot else np.zeros(len(dates))
-            if len(dates)==1:end_x,end_y=0,vals[0]; ax.scatter([0],[end_y],color=cmap[company],s=22,alpha=chart_alpha)
+            if len(dates)==1:
+                end_x,end_y=0,vals[0]; ax.scatter([0],[end_y],color=cmap[company],s=22,alpha=chart_alpha)
             else:
                 xs=list(x[:whole+1]); ys=list(vals[:whole+1])
                 if whole<len(dates)-1:end_x=x[whole]+frac; end_y=vals[whole]+(vals[whole+1]-vals[whole])*frac; xs.append(end_x); ys.append(end_y)
                 else:end_x,end_y=x[-1],vals[-1]
                 ax.plot(xs,ys,color=cmap[company],linewidth=2.8,solid_capstyle="round",alpha=chart_alpha); ax.scatter([end_x],[end_y],color=cmap[company],s=18,zorder=4,alpha=chart_alpha)
-            endpoints.append((company,vals[-1]))
-        if scene.get("end_labels",True) and raw_p>=.80:
-            adjusted=_spread_label_positions([v for _,v in endpoints],0,ymax,scene.get("label_gap",.055))
-            for (company,actual_y),label_y in zip(endpoints,adjusted):
-                ax.plot([x[-1]+.04,x[-1]+.22],[actual_y,label_y],color=cmap[company],linewidth=.9,alpha=.65*label_alpha); label=company+(f"  {_fmt_value(actual_y,decimals)}{scene.get('unit','')}" if scene.get("latest_values",True) else ""); ax.text(x[-1]+.27,label_y,label,color=cmap[company],fontsize=scene.get("end_label_size",8),va="center",fontweight="bold",alpha=label_alpha,bbox=dict(boxstyle="round,pad=.18",facecolor=bg,edgecolor="none",alpha=.90))
+            endpoints.append((company,end_x,end_y))
+        if scene.get("end_labels",True) and raw_p>=.10:
+            adjusted=_spread_label_positions([v for _,_,v in endpoints],0,ymax,scene.get("label_gap",.055))
+            for (company,end_x,actual_y),label_y in zip(endpoints,adjusted):
+                ax.plot([end_x+.04,end_x+.22],[actual_y,label_y],color=cmap[company],linewidth=.9,alpha=.65*chart_alpha)
+                label=company+(f"  {_fmt_value(actual_y,decimals)}{scene.get('unit','')}" if scene.get("latest_values",True) else "")
+                ax.text(end_x+.27,label_y,label,color=cmap[company],fontsize=scene.get("end_label_size",8),va="center",fontweight="bold",alpha=chart_alpha,bbox=dict(boxstyle="round,pad=.18",facecolor=bg,edgecolor="none",alpha=.90))
         ax.set_xlim(-.2,max(1,len(dates)-1)+2.45)
     ax.set_xticks(x); ax.set_xticklabels(dates,color=text,alpha=chart_alpha); ax.set_ylabel(scene.get("unit",""),color=text,fontsize=9,alpha=chart_alpha)
     if scene.get("legend",False):
