@@ -154,7 +154,7 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality="standard"):
 
 
 def _stream_copy_concat(paths,output):
-    """Join already-compatible scene MP4s without decoding or re-encoding frames."""
+    """Join compatible scene MP4s without decoding/re-encoding; memory use stays tiny."""
     list_path=None
     try:
         fd,list_path=tempfile.mkstemp(prefix="video_concat_",suffix=".txt"); os.close(fd)
@@ -177,8 +177,8 @@ def _pair_crossfade(left,right,left_duration,right_duration,output,transition):
     return left_duration+right_duration-safe
 
 
-def concat_with_crossfade(paths,durations,output,transition=.45,low_memory=False):
-    """Use zero-copy hard cuts for constrained high-quality jobs; crossfade otherwise."""
+def concat_with_crossfade(paths,durations,output,transition=.45,low_memory=True):
+    """Safe default: stream-copy hard cuts. Set low_memory=False only on roomy hosts."""
     if len(paths)==1:shutil.copyfile(paths[0],output); return
     if low_memory:
         _stream_copy_concat(paths,output); return
