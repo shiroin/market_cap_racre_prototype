@@ -43,10 +43,21 @@ def _spread_label_positions(values, ymin, ymax, min_gap_ratio=.055):
 
 
 def _figure_spec(ratio, quality="preview"):
-    # Keep the physical canvas compact and control output pixels via DPI.
     sizes = {"9:16": (3.6, 6.4), "1:1": (4.0, 4.0), "16:9": (6.4, 3.6)}
     dpi = {"preview": 100, "standard": 200, "high": 300}.get(quality, 200)
     return sizes[ratio], dpi
+
+
+def _left_to_right_bar_reveal(raw_p, count):
+    """Return per-period reveal factors: completed bars stay at 1, current bar grows 0->1."""
+    if count <= 0:
+        return np.zeros(0, dtype=float)
+    timeline = ease_in_out(np.clip((raw_p-.10)/.72, 0, 1)) * count
+    factors = np.clip(timeline - np.arange(count, dtype=float), 0, 1)
+    # Ease only the currently growing bar; completed bars remain exactly 1.
+    partial = (factors > 0) & (factors < 1)
+    factors[partial] = [ease_in_out(v) for v in factors[partial]]
+    return factors
 
 
 def render_story_frame(df, scene, ratio, bg, text, grid, cmap, progress=1.0, quality="preview"):
@@ -65,10 +76,16 @@ def render_story_frame(df, scene, ratio, bg, text, grid, cmap, progress=1.0, qua
     if chart in ("積み上げ棒","100%積み上げ"):
         shown=pivot.copy()
         if chart=="100%積み上げ": shown=shown.div(shown.sum(axis=1).replace(0,np.nan),axis=0).fillna(0)*100
-        bottom=np.zeros(len(dates)); grow=ease_in_out(np.clip((raw_p-.10)/.72,0,1))
+        reveal=_left_to_right_bar_reveal(raw_p,len(dates))
+        bottom=np.zeros(len(dates))
         for company in companies:
-            vals=shown[company].to_numpy(float)*grow if company in shown else np.zeros(len(dates)); ax.bar(x,vals,bottom=bottom,color=cmap[company],width=.68,label=company,alpha=chart_alpha); bottom+=vals
-        if scene.get("latest_values",True) and raw_p>=.82 and chart=="積み上げ棒": ax.text(x[-1],bottom[-1]+ymax*.018,f"{bottom[-1]:,.0f}{scene.get('unit','')}",color=text,ha="center",va="bottom",fontsize=9,fontweight="bold",alpha=label_alpha)
+            vals=shown[company].to_numpy(float)*reveal if company in shown else np.zeros(len(dates))
+            ax.bar(x,vals,bottom=bottom,color=cmap[company],width=.68,label=company,alpha=chart_alpha)
+            bottom+=vals
+        visible=np.flatnonzero(reveal>0)
+        if scene.get("latest_values",True) and visible.size and chart=="積み上げ棒":
+            active=int(visible[-1]); active_alpha=min(1.0, chart_alpha*max(.35,reveal[active]))
+            ax.text(x[active],bottom[active]+ymax*.018,f"{bottom[active]:,.0f}{scene.get('unit','')}",color=text,ha="center",va="bottom",fontsize=9,fontweight="bold",alpha=active_alpha)
     elif chart=="棒グラフ":
         width=.76/max(1,len(companies)); grow=ease_in_out(np.clip((raw_p-.10)/.72,0,1))
         for i,company in enumerate(companies):
