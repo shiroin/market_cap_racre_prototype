@@ -157,19 +157,21 @@ for i in range(int(scene_count)):
         bar_animation = "左→右"
         data_labels = "自動"
         data_label_size = 7
+        bar_gap = 0.32
         if chart in ("積み上げ棒", "100%積み上げ", "棒グラフ"):
             st.markdown("**棒グラフ表示**")
             b1, b2, b3 = st.columns(3)
             bar_animation = b1.selectbox("表示パターン", ["左→右", "右→左", "一気に表示"], index=0, key=f"bar_animation_{i}")
             data_labels = b2.selectbox("データラベル", ["自動", "すべて", "合計のみ", "なし"], index=0, key=f"data_labels_{i}", help="自動は狭い積み上げ部分の数値を省略し、重なりを防ぎます。")
             data_label_size = b3.slider("データラベルサイズ", 6, 14, 8, key=f"data_label_size_{i}")
+            bar_gap = st.slider("棒と棒の隙間", 0.0, 0.80, 0.32, 0.02, key=f"bar_gap_{i}", help="0にすると隣り合う期間の棒がぴったり接します。値を大きくすると棒の間隔が広がります。")
 
         scenes.append({
             "chart":chart, "metric":metric, "title":title, "subtitle":subtitle, "unit":unit, "source":source_text,
             "duration":duration, "hold":hold, "title_size":title_size, "legend":legend, "end_labels":end_labels,
             "latest_values":latest_values, "end_label_size":end_label_size, "label_gap":label_gap,
             "value_decimals":value_decimals, "bar_animation":bar_animation, "data_labels":data_labels,
-            "data_label_size":data_label_size
+            "data_label_size":data_label_size, "bar_gap":bar_gap
         })
 
 preview_scene = st.selectbox("プレビューするScene", range(1, len(scenes)+1), format_func=lambda x:f"Scene {x}")
