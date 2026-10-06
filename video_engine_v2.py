@@ -51,8 +51,6 @@ def _spread_label_positions(values,ymin,ymax,min_gap_ratio=.055):
 
 def _figure_spec(ratio,quality="preview"):
     sizes={"9:16":(3.6,6.4),"1:1":(4.,4.),"16:9":(6.4,3.6)}
-    # Render-safe high mode: 540x960 internally for 9:16, then Lanczos upscale.
-    # This cuts the Matplotlib canvas to 25% of native 1080x1920 pixels.
     dpi={"preview":100,"standard":200,"high":150}.get(quality,200)
     return sizes[ratio],dpi
 
@@ -135,7 +133,6 @@ def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality="pr
 
 
 def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality="standard"):
-    """Low-memory persistent-canvas renderer for constrained web instances."""
     started=time.monotonic(); frames=max(2,int(scene.get("duration",2.5)*fps)); hold=max(0,int(scene.get("hold",1.0)*fps)); dates,companies,pivot=_prepare_scene(df,scene); fig,ax=_make_canvas(ratio,bg,quality)
     _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,1/max(2,frames)); fig.canvas.draw(); width,height=fig.canvas.get_width_height(); _log(f"scene start title={scene.get('title','')} quality={quality} canvas={width}x{height} frames={frames+hold}")
     cmd=["ffmpeg","-y","-loglevel","error","-threads","1","-filter_threads","1","-f","rawvideo","-vcodec","rawvideo","-pix_fmt","rgba","-s",f"{width}x{height}","-r",str(fps),"-i","-","-an"]; target=_output_size(ratio,quality)
@@ -156,6 +153,23 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality="standard"):
     finally:plt.close(fig)
 
 
+def _stream_copy_concat(paths,output):
+    """Join already-compatible scene MP4s without decoding or re-encoding frames."""
+    list_path=None
+    try:
+        fd,list_path=tempfile.mkstemp(prefix="video_concat_",suffix=".txt"); os.close(fd)
+        with open(list_path,"w",encoding="utf-8") as f:
+            for path in paths:
+                escaped=str(os.path.abspath(path)).replace("'", "'\\''")
+                f.write(f"file '{escaped}'\n")
+        _log(f"concat stream-copy start scenes={len(paths)}")
+        cmd=["ffmpeg","-y","-loglevel","error","-f","concat","-safe","0","-i",list_path,"-c","copy","-movflags","+faststart",str(output)]
+        subprocess.run(cmd,check=True,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
+        _log(f"concat stream-copy complete size={os.path.getsize(output)/1024/1024:.1f}MB")
+    finally:
+        if list_path and os.path.exists(list_path):os.remove(list_path)
+
+
 def _pair_crossfade(left,right,left_duration,right_duration,output,transition):
     safe=min(max(.05,float(transition)),max(.05,left_duration/2),max(.05,right_duration/2)); offset=max(.01,left_duration-safe)
     cmd=["ffmpeg","-y","-loglevel","error","-threads","1","-filter_threads","1","-i",str(left),"-i",str(right),"-filter_complex",f"[0:v][1:v]xfade=transition=fade:duration={safe:.3f}:offset={offset:.3f}[v]","-map","[v]","-an","-c:v","libx264","-threads","1","-preset","veryfast","-crf","20","-pix_fmt","yuv420p","-movflags","+faststart",str(output)]
@@ -163,10 +177,12 @@ def _pair_crossfade(left,right,left_duration,right_duration,output,transition):
     return left_duration+right_duration-safe
 
 
-def concat_with_crossfade(paths,durations,output,transition=.45):
-    """Pairwise concat keeps at most two decoders active instead of all scenes."""
+def concat_with_crossfade(paths,durations,output,transition=.45,low_memory=False):
+    """Use zero-copy hard cuts for constrained high-quality jobs; crossfade otherwise."""
     if len(paths)==1:shutil.copyfile(paths[0],output); return
-    _log(f"concat start scenes={len(paths)} mode=pairwise")
+    if low_memory:
+        _stream_copy_concat(paths,output); return
+    _log(f"concat start scenes={len(paths)} mode=pairwise-crossfade")
     tmpdir=tempfile.mkdtemp(prefix="video_concat_"); current=paths[0]; current_duration=float(durations[0]); owned=None
     try:
         for i in range(1,len(paths)):
