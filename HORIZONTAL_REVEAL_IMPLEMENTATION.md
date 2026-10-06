@@ -1,0 +1,1 @@
+Implementation note: chronological bar animation must reveal each full-height bar horizontally by width. It must not multiply values by animation progress. Live labels use the active period's full values and full stacked segment centers.
