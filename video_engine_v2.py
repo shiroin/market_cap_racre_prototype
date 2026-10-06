@@ -187,7 +187,14 @@ def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress
                 ax.text(end_x+.18,label_y,_series_label(company,actual_y,scene,decimals),color=cmap[company],fontsize=live_size,va='center',fontweight='bold',alpha=1,bbox=dict(boxstyle='round,pad=.12',facecolor=bg,edgecolor='none',alpha=.90),clip_on=False)
         ax.set_xlim(-.2,max(1,len(dates)-1)+2.45)
 
-    ax.set_xticks(x); ax.set_xticklabels(dates,color=text,alpha=chart_a); ax.set_ylabel(scene.get('unit',''),color=text,fontsize=9,alpha=chart_a)
+    # Keep the time axis readable: show every second annual/quarterly period,
+    # while always retaining the latest period label.
+    tick_idx=list(range(0,len(dates),2))
+    if len(dates) and (len(dates)-1) not in tick_idx:
+        tick_idx.append(len(dates)-1)
+    ax.set_xticks(x[tick_idx] if len(tick_idx) else [])
+    ax.set_xticklabels([dates[i] for i in tick_idx],color=text,alpha=chart_a)
+    ax.set_ylabel(scene.get('unit',''),color=text,fontsize=9,alpha=chart_a)
     if scene.get('legend',False):
         leg=ax.legend(frameon=False,fontsize=8,ncol=2,loc='upper left')
         for t in leg.get_texts(): t.set_color(text); t.set_alpha(chart_a)
