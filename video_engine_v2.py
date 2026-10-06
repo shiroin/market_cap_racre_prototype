@@ -188,9 +188,11 @@ def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress
         ax.set_xlim(-.2,max(1,len(dates)-1)+2.45)
 
     # Keep the time axis readable by anchoring labels to the latest period.
-    # Walk backwards every two periods so the latest label is always shown and
-    # an odd leftover period at the far left is intentionally omitted.
-    tick_idx=list(range(len(dates)-1,-1,-2))[::-1] if len(dates) else []
+    # Up to 10 periods: show every 2nd label. 11+ periods: show every 4th label.
+    # Walk backwards from the latest period so the rightmost label is always kept;
+    # any unmatched oldest periods are intentionally omitted.
+    tick_step=2 if len(dates)<=10 else 4
+    tick_idx=list(range(len(dates)-1,-1,-tick_step))[::-1] if len(dates) else []
     ax.set_xticks(x[tick_idx] if len(tick_idx) else [])
     ax.set_xticklabels([dates[i] for i in tick_idx],color=text,alpha=chart_a)
     ax.set_ylabel(scene.get('unit',''),color=text,fontsize=9,alpha=chart_a)
