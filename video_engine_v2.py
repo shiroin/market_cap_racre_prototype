@@ -104,17 +104,32 @@ def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress
         for company in companies:
             raw=shown[company].to_numpy(float) if company in shown else np.zeros(len(dates)); vals=raw*reveal; centers=bottom+vals/2; ax.bar(x,vals,bottom=bottom,color=cmap[company],width=.68,label=company,alpha=chart_a); segments.append((company,raw,vals,centers)); bottom+=vals
 
-        # Reference video behavior: the labels sit immediately to the right of the
-        # current animation frontier. No leader lines and no collision solver: their
-        # Y position is the exact centre of each live stacked segment, so the labels
-        # move only when the data itself moves.
+        # Reference-video motion: labels do NOT grow vertically with the bars.
+        # They are already sitting at the full-value positions for the current date
+        # before that bar is revealed. As the frontier advances, the whole label
+        # stack glides horizontally and its Y positions interpolate only between the
+        # *final* segment centres of adjacent dates. This avoids the distracting
+        # bottom-to-top sweep while preserving the gentle data-driven vertical motion.
         if label_mode!='なし' and len(dates):
-            j=_active_bar_index(reveal,mode); factor=float(reveal[j]); label_x=x[j]+.44; running=0.0
+            j=_active_bar_index(reveal,mode)
+            if mode=='一気に表示':
+                prev_j=j; travel=1.0
+            elif mode=='右→左':
+                prev_j=min(len(dates)-1,j+1); travel=ease_in_out(float(reveal[j]))
+            else:
+                prev_j=max(0,j-1); travel=ease_in_out(float(reveal[j]))
+            label_x=(1-travel)*x[prev_j]+travel*x[j]+.44
+            prev_running=0.0; cur_running=0.0
             for company,raw,vals,centers in segments:
-                current=float(raw[j]*factor); label_y=running+current/2; running+=current
-                ax.text(label_x,label_y,_series_label(company,current,scene,decimals),color=cmap[company],fontsize=live_size,va='center',ha='left',fontweight='bold',alpha=1,zorder=9,clip_on=False)
+                prev_full=float(raw[prev_j]); cur_full=float(raw[j])
+                prev_y=prev_running+prev_full/2; cur_y=cur_running+cur_full/2
+                label_y=(1-travel)*prev_y+travel*cur_y
+                display_value=(1-travel)*prev_full+travel*cur_full
+                ax.text(label_x,label_y,_series_label(company,display_value,scene,decimals),color=cmap[company],fontsize=live_size,va='center',ha='left',fontweight='bold',alpha=1,zorder=9,clip_on=False)
+                prev_running+=prev_full; cur_running+=cur_full
             if chart=='積み上げ棒':
-                ax.text(label_x,running+ymax*.022,f"合計 {_fmt_value(running,decimals)}{scene.get('unit','')}",color=text,fontsize=live_size,va='bottom',ha='left',fontweight='bold',alpha=1,zorder=9,clip_on=False)
+                total_y=(1-travel)*prev_running+travel*cur_running
+                ax.text(label_x,total_y+ymax*.022,f"合計 {_fmt_value(total_y,decimals)}{scene.get('unit','')}",color=text,fontsize=live_size,va='bottom',ha='left',fontweight='bold',alpha=1,zorder=9,clip_on=False)
 
         # Optional historical numeric labels remain available, but reference-style
         # live labels above are present from frame one.
@@ -133,12 +148,23 @@ def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress
                 for k,val in enumerate(vals):
                     if reveal[k]>=.96 and val>0 and label_mode in ('自動','すべて','合計のみ'): ax.text(xpos[k],val+ymax*.012,_fmt_value(val,decimals),color=text,ha='center',va='bottom',fontsize=scene.get('data_label_size',7),fontweight='bold',alpha=late_a,clip_on=False)
 
-        # Grouped bars: same frontier rule. Each company label is attached directly
-        # to the live bar tip, without a floating lane or leader line.
+        # Reference-video motion for grouped bars: keep labels at the full bar-tip
+        # heights instead of making them rise from zero with the reveal. Between
+        # dates they glide from the previous full-value anchor to the next one.
         if label_mode!='なし' and len(dates):
-            j=_active_bar_index(reveal,mode); factor=float(reveal[j])
+            j=_active_bar_index(reveal,mode)
+            if mode=='一気に表示':
+                prev_j=j; travel=1.0
+            elif mode=='右→左':
+                prev_j=min(len(dates)-1,j+1); travel=ease_in_out(float(reveal[j]))
+            else:
+                prev_j=max(0,j-1); travel=ease_in_out(float(reveal[j]))
             for company,raw,vals,xpos in series:
-                current=float(raw[j]*factor); ax.text(float(xpos[j])+width*.60,current,_series_label(company,current,scene,decimals),color=cmap[company],fontsize=live_size,va='center',ha='left',fontweight='bold',alpha=1,zorder=9,clip_on=False)
+                prev_y=float(raw[prev_j]); cur_y=float(raw[j])
+                label_y=(1-travel)*prev_y+travel*cur_y
+                display_value=(1-travel)*prev_y+travel*cur_y
+                label_x=(1-travel)*float(xpos[prev_j])+travel*float(xpos[j])+width*.60
+                ax.text(label_x,label_y,_series_label(company,display_value,scene,decimals),color=cmap[company],fontsize=live_size,va='center',ha='left',fontweight='bold',alpha=1,zorder=9,clip_on=False)
         ax.set_xlim(-.45,max(1,len(dates)-1)+2.8)
 
     else:
