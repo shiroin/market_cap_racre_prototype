@@ -61,7 +61,7 @@ def parse_palette(text):
 
 
 st.title("複数グラフ動画ジェネレーター v1.3")
-st.caption(f"Google Sheets / CSV → 複数Scene → 高速MP4 ｜ 使用フォント: {FONT}")
+st.caption(f"Google Sheets / CSV / Excel → 複数Scene → 高速MP4 ｜ 使用フォント: {FONT}")
 
 if "palette_text" not in st.session_state:
     st.session_state.palette_text = ",".join(DEFAULT_COLORS[:4])
