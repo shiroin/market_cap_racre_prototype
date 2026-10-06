@@ -1,0 +1,1 @@
+Reference-video analysis note: stacked bars should use a horizontal time wipe at full data height, not vertical value growth. See upcoming PR for implementation.
