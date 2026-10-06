@@ -86,12 +86,23 @@ with st.sidebar:
             st.session_state.palette_text = ",".join(colors)
     palette_text = st.text_input("カラーコード（直接編集も可）", key="palette_text")
 
-source = st.radio("データソース", ["直接編集", "CSVアップロード", "Google Sheets"], horizontal=True)
+source = st.radio("データソース", ["直接編集", "ファイルアップロード", "Google Sheets"], horizontal=True)
 df = DEFAULT_DATA.copy()
-if source == "CSVアップロード":
-    uploaded = st.file_uploader("CSV", type="csv")
+if source == "ファイルアップロード":
+    uploaded = st.file_uploader("CSV / Excel", type=["csv", "xlsx", "xls"])
     if uploaded:
-        df = pd.read_csv(uploaded)
+        try:
+            suffix = Path(uploaded.name).suffix.lower()
+            if suffix == ".csv":
+                df = pd.read_csv(uploaded)
+            else:
+                excel = pd.ExcelFile(uploaded)
+                sheet = st.selectbox("読み込むシート", excel.sheet_names, key="excel_sheet")
+                df = pd.read_excel(excel, sheet_name=sheet)
+            st.success(f"読み込み成功: {uploaded.name}（{len(df):,}行）")
+        except Exception as e:
+            st.error(f"ファイル読み込み失敗: {type(e).__name__}: {e}")
+            st.stop()
 elif source == "Google Sheets":
     url = st.text_input("CSV公開URL（Google SheetsのCSV出力URL）")
     if url:
