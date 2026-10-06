@@ -51,11 +51,11 @@ def _spread_label_positions(values,ymin,ymax,min_gap_ratio=.055):
 
 
 def _figure_spec(ratio,quality='preview'):
-    sizes={'9:16':(3.6,6.4),'1:1':(4.,4.),'16:9':(6.4,3.6)}; dpi={'preview':100,'standard':200,'high':150}.get(quality,200); return sizes[ratio],dpi
+    sizes={'元動画 (64:139)':(3.84,8.34),'9:16':(3.6,6.4),'1:1':(4.,4.),'16:9':(6.4,3.6)}; dpi={'preview':100,'standard':200,'high':150}.get(quality,200); return sizes[ratio],dpi
 
 
 def _output_size(ratio,quality):
-    return None if quality!='high' else {'9:16':(1080,1920),'1:1':(1080,1080),'16:9':(1920,1080)}[ratio]
+    return None if quality!='high' else {'元動画 (64:139)':(1024,2224),'9:16':(1080,1920),'1:1':(1080,1080),'16:9':(1920,1080)}[ratio]
 
 
 def _bar_reveal(raw_p,count,mode):
@@ -200,7 +200,7 @@ def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress
 
 
 def _make_canvas(ratio,bg,quality):
-    size,dpi=_figure_spec(ratio,quality); fig=plt.figure(figsize=size,dpi=dpi); fig.patch.set_facecolor(bg); ax=fig.add_axes([.10,.15,.72,.66] if ratio=='9:16' else [.09,.16,.75,.65]); return fig,ax
+    size,dpi=_figure_spec(ratio,quality); fig=plt.figure(figsize=size,dpi=dpi); fig.patch.set_facecolor(bg); ax=fig.add_axes([.10,.15,.72,.66] if ratio in ('9:16','元動画 (64:139)') else [.09,.16,.75,.65]); return fig,ax
 
 
 def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='preview'):
