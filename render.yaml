@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: market-cap-racre-prototype
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /_stcore/health
+    autoDeployTrigger: commit
