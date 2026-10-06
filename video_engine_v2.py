@@ -96,13 +96,14 @@ def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress
     if scene.get('source'): fig.text(.075,.052,f"出典: {scene['source']}",color=text,fontsize=7,ha='left',alpha=.58*max(chart_a,.35))
     x=np.arange(len(dates),dtype=float); chart=scene['chart']; ymax=100. if chart=='100%積み上げ' else float(max(1.,pivot.sum(axis=1).max() if chart=='積み上げ棒' else pivot.to_numpy().max()))*1.22; ax.set_ylim(0,ymax)
     decimals=int(scene.get('value_decimals',0)); label_mode=scene.get('data_labels','自動'); mode=scene.get('bar_animation','左→右'); live_size=scene.get('end_label_size',8); gap=scene.get('label_gap',.055)
+    bar_gap=float(np.clip(scene.get('bar_gap',.32),0,.95)); period_width=1.0-bar_gap
 
     if chart in ('積み上げ棒','100%積み上げ'):
         shown=pivot.copy()
         if chart=='100%積み上げ': shown=shown.div(shown.sum(axis=1).replace(0,np.nan),axis=0).fillna(0)*100
         reveal=_bar_reveal(p,len(dates),mode); bottom=np.zeros(len(dates)); segments=[]
         for company in companies:
-            raw=shown[company].to_numpy(float) if company in shown else np.zeros(len(dates)); vals=raw*reveal; centers=bottom+vals/2; ax.bar(x,vals,bottom=bottom,color=cmap[company],width=.68,label=company,alpha=chart_a); segments.append((company,raw,vals,centers)); bottom+=vals
+            raw=shown[company].to_numpy(float) if company in shown else np.zeros(len(dates)); vals=raw*reveal; centers=bottom+vals/2; ax.bar(x,vals,bottom=bottom,color=cmap[company],width=period_width,label=company,alpha=chart_a); segments.append((company,raw,vals,centers)); bottom+=vals
 
         # Reference-video motion: labels do NOT grow vertically with the bars.
         # They are already sitting at the full-value positions for the current date
@@ -141,7 +142,7 @@ def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress
         ax.set_xlim(-.45,max(1,len(dates)-1)+2.8)
 
     elif chart=='棒グラフ':
-        width=.76/max(1,len(companies)); reveal=_bar_reveal(p,len(dates),mode); series=[]
+        group_width=period_width; width=group_width/max(1,len(companies)); reveal=_bar_reveal(p,len(dates),mode); series=[]
         for i,company in enumerate(companies):
             raw=pivot[company].to_numpy(float) if company in pivot else np.zeros(len(dates)); vals=raw*reveal; xpos=x+(i-(len(companies)-1)/2)*width; ax.bar(xpos,vals,width=width,color=cmap[company],label=company,alpha=chart_a); series.append((company,raw,vals,xpos))
             if label_mode!='なし' and p>=.45:
