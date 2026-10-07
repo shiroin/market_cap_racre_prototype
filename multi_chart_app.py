@@ -171,7 +171,7 @@ default_titles = ["上場買取再販4社の在庫", "各社の在庫キャッ�
 default_subtitles = ["販売用不動産（仕掛販売用不動産を含む）の期末残高", "販売用不動産の期末残高", "販売用不動産の期末残高÷売上高×12"]
 default_charts = ["積み上げ棒", "折れ線", "折れ線"]
 default_metrics = ["inventory", "inventory", "inventory_months"]
-chart_options = ["積み上げ棒", "折れ線", "棒グラフ", "100%積み上げ", "年表"]
+chart_options = ["積み上げ棒", "折れ線", "棒グラフ", "100%積み上げ", "横比較ランキング", "年表"]
 
 for i in range(int(scene_count)):
     with st.expander(f"Scene {i+1}", expanded=i == 0):
@@ -228,6 +228,17 @@ for i in range(int(scene_count)):
             timeline_summary_size = st.slider("強調コメントサイズ", 8, 24, 12, key=f"timeline_summary_size_{i}")
             timeline_note = st.text_area("出典・補足注記", "出典・補足事項をここに入力できます。", key=f"timeline_note_{i}")
 
+        ranking_sort = "大きい順"
+        ranking_reference = 0.0
+        ranking_highlight = 3
+        if chart == "横比較ランキング":
+            st.markdown("**横比較ランキング表示**")
+            r1,r2,r3 = st.columns(3)
+            ranking_sort = r1.selectbox("並び順", ["大きい順","小さい順"], key=f"ranking_sort_{i}")
+            ranking_reference = float(r2.number_input("基準値（0で非表示）", value=0.0, key=f"ranking_reference_{i}"))
+            ranking_highlight = int(r3.number_input("強調する上位件数", 0, 50, 3, 1, key=f"ranking_highlight_{i}"))
+            st.caption("対象名は company 列、比較値は選択した指標列を使用します。同一対象に複数行ある場合は最新行の値を使います。")
+
         bar_animation = "左→右"
         data_labels = "自動"
         data_label_size = 7
@@ -247,7 +258,8 @@ for i in range(int(scene_count)):
             "value_decimals":value_decimals, "bar_animation":bar_animation, "data_labels":data_labels,
             "data_label_size":data_label_size, "bar_gap":bar_gap, "timeline_events":timeline_events,
             "timeline_start":timeline_start, "timeline_end":timeline_end, "timeline_note":timeline_note,
-            "timeline_summary":timeline_summary, "timeline_summary_2":timeline_summary_2, "timeline_summary_size":timeline_summary_size
+            "timeline_summary":timeline_summary, "timeline_summary_2":timeline_summary_2, "timeline_summary_size":timeline_summary_size,
+            "ranking_sort":ranking_sort, "ranking_reference":ranking_reference, "ranking_highlight":ranking_highlight
         })
 
 preview_scene = st.selectbox("プレビューするScene", range(1, len(scenes)+1), format_func=lambda x:f"Scene {x}")
