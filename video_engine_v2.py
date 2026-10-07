@@ -24,7 +24,7 @@ def _log(msg):
 
 
 def ease_in_out(t):
-    t=np.clip(float(t),0,1); return 3*t*t-2*t*t*t
+    t=float(np.clip(float(t),0,1)); return float(np.clip(3*t*t-2*t*t*t,0,1))
 
 
 def fade_window(p,start=0,end=.18):
