@@ -207,6 +207,35 @@ def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress
 
 
 
+def _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
+    ax.clear(); fig.texts.clear(); _style_axis(ax,bg,text,grid)
+    p=float(np.clip(progress,0,1)); metric=scene['metric']
+    w=df[['company',metric]].copy(); w[metric]=pd.to_numeric(w[metric],errors='coerce'); w=w.dropna()
+    w=w.groupby('company',sort=False).tail(1)
+    ascending=scene.get('ranking_sort','大きい順')=='小さい順'
+    w=w.sort_values(metric,ascending=ascending).reset_index(drop=True)
+    names=w['company'].astype(str).tolist(); values=w[metric].to_numpy(float)
+    if not len(values): return
+    fig.text(.075,.93,scene.get('title','横比較ランキング'),color=text,fontsize=scene.get('title_size',22),fontweight='bold',ha='left',alpha=1)
+    if scene.get('subtitle'): fig.text(.075,.885,scene['subtitle'],color=text,fontsize=max(8,scene.get('title_size',22)-7),ha='left',alpha=.84)
+    if scene.get('source'): fig.text(.075,.052,f"出典: {scene['source']}",color=text,fontsize=7,ha='left',alpha=.58)
+    if scene.get('scene_note'):
+        divider=plt.Line2D([.075,.925],[.043,.043],transform=fig.transFigure,color=grid,lw=.7,alpha=.70); fig.add_artist(divider)
+        fig.text(.075,.027,scene['scene_note'],color=text,fontsize=5.4,ha='left',va='bottom',alpha=.52,wrap=True)
+    n=len(names); y=np.arange(n); starts=.08+np.arange(n)*(.68/max(1,n))
+    reveal=np.array([ease_in_out(np.clip((p-s)/.18,0,1)) for s in starts])
+    vmax=max(float(np.nanmax(values)),1e-9); xmax=vmax*1.18; highlight=max(0,int(scene.get('ranking_highlight',3))); base='#AEB8C4'
+    colors=[(cmap.get(name,base) if i<highlight else base) for i,name in enumerate(names)]
+    ax.barh(y,values*reveal,color=colors,height=.58,alpha=.95)
+    ax.set_yticks(y); ax.set_yticklabels(names,color=text,fontsize=max(5.5,min(9.5,11-.16*n)),fontweight='bold'); ax.invert_yaxis(); ax.set_xlim(0,xmax)
+    ax.grid(axis='x',color=grid,linewidth=.8,alpha=.55); ax.grid(axis='y',visible=False); ax.set_xlabel(scene.get('unit',''),color=text,fontsize=8)
+    ref=float(scene.get('ranking_reference',0) or 0)
+    if ref>0: ax.axvline(ref,color=text,lw=1,ls=(0,(2,3)),alpha=.48)
+    decimals=int(scene.get('value_decimals',0))
+    for i,(v,r) in enumerate(zip(values,reveal)):
+        if r>0: ax.text(v*r+xmax*.012,i,f"{_fmt_value(v,decimals)}{scene.get('unit','')}",color=text,fontsize=max(6,min(9,10-.10*n)),fontweight='bold',ha='left',va='center',alpha=r,clip_on=False)
+
+
 def _timeline_events(scene):
     events=scene.get('timeline_events',[])
     clean=[]
@@ -294,6 +323,8 @@ def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='pr
     fig,ax=_make_canvas(ratio,bg,quality)
     if scene.get('chart')=='年表':
         _draw_timeline_on(fig,ax,scene,bg,text,grid,progress)
+    elif scene.get('chart')=='横比較ランキング':
+        _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,progress)
     else:
         dates,companies,pivot=_prepare_scene(df,scene); _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress)
     return fig
@@ -301,9 +332,10 @@ def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='pr
 
 def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
     started=time.monotonic(); frames=max(2,int(scene.get('duration',2.5)*fps)); hold=max(0,int(scene.get('hold',1.0)*fps)); fig,ax=_make_canvas(ratio,bg,quality)
-    is_timeline=scene.get('chart')=='年表'
-    if not is_timeline: dates,companies,pivot=_prepare_scene(df,scene)
+    is_timeline=scene.get('chart')=='年表'; is_ranking=scene.get('chart')=='横比較ランキング'
+    if not is_timeline and not is_ranking: dates,companies,pivot=_prepare_scene(df,scene)
     if is_timeline: _draw_timeline_on(fig,ax,scene,bg,text,grid,1/max(2,frames))
+    elif is_ranking: _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,1/max(2,frames))
     else: _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,1/max(2,frames))
     # Canvas dimensions are required by FFmpeg for every scene type.
     # Keep this outside the graph-only branch so timeline scenes initialize width/height too.
@@ -316,6 +348,7 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
         for i in range(total):
             pp=1. if i>=frames else (i+1)/frames
             if is_timeline: _draw_timeline_on(fig,ax,scene,bg,text,grid,pp)
+            elif is_ranking: _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,pp)
             else: _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,pp)
             fig.canvas.draw(); proc.stdin.write(fig.canvas.buffer_rgba())
             if i and i%max(1,fps*2)==0: _log(f'scene progress {i}/{total}')
