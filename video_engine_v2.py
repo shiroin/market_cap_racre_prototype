@@ -226,7 +226,7 @@ def _draw_timeline_on(fig,ax,scene,bg,text,grid,progress):
     # Match the reference: compact timeline in the upper/middle area, leaving a
     # deliberate lower summary zone. Event dates live immediately left of the spine,
     # year ticks stay much farther left, preventing the collisions seen previously.
-    spine_x=.315; top=.965; bottom=.285
+    spine_x=.315; top=.965; bottom=.335
     def yy(y): return top-(float(y)-start)/(end-start)*(top-bottom)
     axis_a=fade_window(p,.04,.20)
     ax.plot([spine_x,spine_x],[bottom-.018,top+.012],transform=ax.transAxes,color='#AAB5C2',lw=1.15,alpha=.78*axis_a,clip_on=False)
@@ -255,12 +255,12 @@ def _draw_timeline_on(fig,ax,scene,bg,text,grid,progress):
     summary=scene.get('timeline_summary','').strip()
     if summary:
         summary_a=fade_window(p,.80,.98)
-        ax.text(.055,.235,summary,transform=ax.transAxes,color=text,fontsize=scene.get('timeline_summary_size',12),fontweight='bold',ha='left',va='center',alpha=summary_a)
+        ax.text(.055,.255,summary,transform=ax.transAxes,color=text,fontsize=scene.get('timeline_summary_size',12),fontweight='bold',ha='left',va='center',alpha=summary_a)
     note=scene.get('timeline_note','').strip()
     if note:
         note_a=fade_window(p,.86,1.0)
-        ax.plot([.055,.945],[.165,.165],transform=ax.transAxes,color=grid,lw=.7,alpha=.75*note_a)
-        ax.text(.055,.148,note,transform=ax.transAxes,color=text,fontsize=6.2,ha='left',va='top',alpha=.56*note_a,wrap=True)
+        ax.plot([.055,.945],[.145,.145],transform=ax.transAxes,color=grid,lw=.7,alpha=.75*note_a)
+        ax.text(.055,.130,note,transform=ax.transAxes,color=text,fontsize=4.9,ha='left',va='top',alpha=.56*note_a,wrap=True)
 
 
 def _make_canvas(ratio,bg,quality):
