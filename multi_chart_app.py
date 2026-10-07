@@ -228,10 +228,9 @@ for i in range(int(scene_count)):
             t1,t2 = st.columns(2)
             timeline_start = int(t1.number_input("開始年", 1900, 2200, 2018, 1, key=f"timeline_start_{i}"))
             timeline_end = int(t2.number_input("終了年", 1900, 2200, 2025, 1, key=f"timeline_end_{i}"))
-            st.markdown("**下部コメント**")
-            timeline_summary = st.text_input("強調コメント①", "設立から開業まで、7年。", key=f"timeline_summary_{i}", help="年表の後に最初にふわっと出現します。")
-            timeline_summary_2 = st.text_input("強調コメント②", "", key=f"timeline_summary_2_{i}", help="①の後に、2回目としてふわっと出現します。")
-            timeline_summary_size = st.slider("強調コメントサイズ", 8, 24, 12, key=f"timeline_summary_size_{i}")
+            timeline_summary = ""
+            timeline_summary_2 = ""
+            timeline_summary_size = 12
             timeline_note = st.text_area("出典・補足注記", "出典・補足事項をここに入力できます。", key=f"timeline_note_{i}")
 
         ranking_sort = "大きい順"
