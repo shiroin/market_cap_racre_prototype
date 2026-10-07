@@ -94,6 +94,8 @@ def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress
     fig.text(.075,.93,scene['title'],color=text,fontsize=scene.get('title_size',22),fontweight='bold',ha='left',alpha=title_a)
     if scene.get('subtitle'): fig.text(.075,.885,scene['subtitle'],color=text,fontsize=max(8,scene.get('title_size',22)-7),ha='left',alpha=sub_a)
     if scene.get('source'): fig.text(.075,.052,f"出典: {scene['source']}",color=text,fontsize=7,ha='left',alpha=.58*max(chart_a,.35))
+    if scene.get('scene_note'):
+        fig.text(.075,.027,scene['scene_note'],color=text,fontsize=5.4,ha='left',va='bottom',alpha=.52*max(chart_a,.35),wrap=True)
     x=np.arange(len(dates),dtype=float); chart=scene['chart']; ymax=100. if chart=='100%積み上げ' else float(max(1.,pivot.sum(axis=1).max() if chart=='積み上げ棒' else pivot.to_numpy().max()))*1.22; ax.set_ylim(0,ymax)
     decimals=int(scene.get('value_decimals',0)); label_mode=scene.get('data_labels','自動'); mode=scene.get('bar_animation','左→右'); live_size=scene.get('end_label_size',8); gap=scene.get('label_gap',.055)
     bar_gap=float(np.clip(scene.get('bar_gap',.32),0,.95)); period_width=1.0-bar_gap
@@ -265,6 +267,9 @@ def _draw_timeline_on(fig,ax,scene,bg,text,grid,progress):
         summary_a=fade_window(p,.80,.98)
         ax.text(.055,.245,summary,transform=ax.transAxes,color=text,fontsize=scene.get('timeline_summary_size',12),fontweight='bold',ha='left',va='center',alpha=summary_a)
     note=scene.get('timeline_note','').strip()
+    general_note=scene.get('scene_note','').strip()
+    if general_note:
+        note = (note+'\n'+general_note).strip() if note else general_note
     if note:
         note_a=fade_window(p,.86,1.0)
         ax.plot([.055,.945],[.145,.145],transform=ax.transAxes,color=grid,lw=.7,alpha=.75*note_a)
