@@ -181,7 +181,7 @@ for i in range(int(scene_count)):
         preferred = default_metrics[i] if i < 3 and default_metrics[i] in metric_columns else metric_columns[0]
         metric = c2.selectbox("指標列", metric_columns, index=metric_columns.index(preferred), key=f"metric_{i}", disabled=chart == "年表")
         title = st.text_input("タイトル", default_titles[i] if i < 3 else f"Scene {i+1}", key=f"title_{i}")
-        subtitle = st.text_input("サブタイトル", default_subtitles[i] if i < 3 else "", key=f"subtitle_{i}")
+        subtitle = st.text_area("サブタイトル", default_subtitles[i] if i < 3 else "", key=f"subtitle_{i}", height=80, help="長い場合は任意の位置で改行できます。")
         c3, c4 = st.columns(2)
         unit = c3.text_input("単位", "か月" if metric == "inventory_months" else "億円", key=f"unit_{i}")
         source_text = c4.text_input("出典", "", key=f"source_{i}")
