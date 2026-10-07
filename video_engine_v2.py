@@ -44,13 +44,13 @@ def _draw_reference_subtitle(fig,scene,text,accent='#16718C',y=.885,fontsize=8,a
 def _draw_scene_comments(fig,scene,text,progress):
     c1=str(scene.get('scene_comment_1','') or '').strip(); c2=str(scene.get('scene_comment_2','') or '').strip()
     if not c1 and not c2: return
-    size=int(scene.get('scene_comment_size',12)); y=.135
+    size=int(scene.get('scene_comment_size',12)); y=.185
     if c1:
         a1=fade_window(progress,.72,.84)
         fig.text(.075,y,c1,color=text,fontsize=size,fontweight='bold',ha='left',va='bottom',alpha=a1,zorder=30,wrap=True)
     if c2:
         a2=fade_window(progress,.86,.97)
-        fig.text(.075,y-.045,c2,color=text,fontsize=size,fontweight='bold',ha='left',va='bottom',alpha=a2,zorder=30,wrap=True)
+        fig.text(.075,y-.055,c2,color=text,fontsize=size,fontweight='bold',ha='left',va='bottom',alpha=a2,zorder=30,wrap=True)
 
 def _style_axis(ax,bg,text,grid):
     ax.set_facecolor(bg); ax.tick_params(colors=text,labelsize=9,length=0,pad=7)
@@ -350,7 +350,8 @@ def _make_canvas(ratio,bg,quality,chart=None,scene=None):
     else:
         has_comment = scene is not None and bool(str(scene.get('scene_comment_1','')).strip() or str(scene.get('scene_comment_2','')).strip())
         if has_comment:
-            pos=[.10,.25,.72,.56] if ratio in ('9:16','元動画 (64:139)') else [.09,.26,.75,.55]
+            # Hard separation: the plot (including x tick labels) ends well above the comment band.
+            pos=[.10,.34,.72,.47] if ratio in ('9:16','元動画 (64:139)') else [.09,.35,.75,.46]
         else:
             pos=[.10,.15,.72,.66] if ratio in ('9:16','元動画 (64:139)') else [.09,.16,.75,.65]
     ax=fig.add_axes(pos); return fig,ax
