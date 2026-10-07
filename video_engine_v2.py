@@ -218,45 +218,49 @@ def _draw_timeline_on(fig,ax,scene,bg,text,grid,progress):
     ax.clear(); fig.texts.clear(); ax.set_facecolor(bg); ax.axis('off')
     p=np.clip(float(progress),0,1); title_a=fade_window(p,0,.12)
     fig.text(.075,.93,scene.get('title','年表'),color=text,fontsize=scene.get('title_size',22),fontweight='bold',ha='left',alpha=title_a)
-    if scene.get('subtitle'): fig.text(.075,.892,scene['subtitle'],color=text,fontsize=max(8,scene.get('title_size',22)-9),ha='left',alpha=fade_window(p,.03,.16)*.72)
+    if scene.get('subtitle'): fig.text(.075,.892,scene['subtitle'],color=text,fontsize=max(8,scene.get('title_size',22)-9),fontweight='bold',ha='left',alpha=fade_window(p,.03,.16)*.72)
     events=_timeline_events(scene)
     if not events: return
     years=[e['year'] for e in events]; start=int(np.floor(scene.get('timeline_start',min(years)))); end=int(np.ceil(scene.get('timeline_end',max(years))))
     if end<=start:end=start+1
-    # Reference layout: years at far left, slim central spine, event copy on right.
-    spine_x=.285; top=.82; bottom=.17
+    # Match the reference: compact timeline in the upper/middle area, leaving a
+    # deliberate lower summary zone. Event dates live immediately left of the spine,
+    # year ticks stay much farther left, preventing the collisions seen previously.
+    spine_x=.315; top=.79; bottom=.31
     def yy(y): return top-(float(y)-start)/(end-start)*(top-bottom)
     axis_a=fade_window(p,.04,.20)
-    ax.plot([spine_x,spine_x],[bottom-.025,top+.012],transform=ax.transAxes,color='#98A3AF',lw=1.05,alpha=.75*axis_a,clip_on=False)
+    ax.plot([spine_x,spine_x],[bottom-.018,top+.012],transform=ax.transAxes,color='#AAB5C2',lw=1.15,alpha=.78*axis_a,clip_on=False)
     for y in range(start,end+1):
         pos=yy(y)
-        ax.plot([.055,spine_x-.012],[pos,pos],transform=ax.transAxes,color=grid,lw=.65,ls=(0,(1,3)),alpha=.62*axis_a)
-        ax.plot([spine_x-.008,spine_x+.008],[pos,pos],transform=ax.transAxes,color='#98A3AF',lw=.75,alpha=.7*axis_a)
-        ax.text(.055,pos,str(y),transform=ax.transAxes,color=text,fontsize=7.4,ha='left',va='center',alpha=.68*axis_a)
+        ax.plot([.055,spine_x-.025],[pos,pos],transform=ax.transAxes,color=grid,lw=.62,ls=(0,(1,3)),alpha=.52*axis_a)
+        ax.plot([spine_x-.008,spine_x+.008],[pos,pos],transform=ax.transAxes,color='#AAB5C2',lw=.8,alpha=.72*axis_a)
+        ax.text(.055,pos,str(y),transform=ax.transAxes,color=text,fontsize=7.2,ha='left',va='center',alpha=.56*axis_a)
     n=len(events)
     for i,event in enumerate(events):
-        # One-by-one reveal, matching the source video: axis first, then events cascade downward.
         local=np.clip((p-(.14+i*.68/max(1,n)))/(.22),0,1); a=ease_in_out(local)
         if a<=0: continue
-        y=yy(event['year']); dot='#1B7891'
-        ax.scatter([spine_x],[y],transform=ax.transAxes,s=26,color=dot,edgecolor=bg,linewidth=1.1,zorder=6,alpha=a)
-        ax.plot([spine_x+.012,spine_x+.032],[y,y],transform=ax.transAxes,color='#AAB3BC',lw=.8,alpha=.75*a)
-        date_x=spine_x-.028; copy_x=spine_x+.045
-        ax.text(date_x,y,event['date'],transform=ax.transAxes,color=text,fontsize=9.2,fontweight='bold',ha='right',va='center',alpha=a)
+        y=yy(event['year']); dot='#16718C'
+        ax.scatter([spine_x],[y],transform=ax.transAxes,s=28,color=dot,edgecolor=bg,linewidth=1.15,zorder=6,alpha=a)
+        # Date is right-aligned just left of the spine, as in the source.
+        ax.text(spine_x-.030,y,event['date'],transform=ax.transAxes,color=text,fontsize=8.5,fontweight='bold',ha='right',va='center',alpha=a)
+        copy_x=spine_x+.034
         badge=event.get('badge','')
-        title=event['title']
         if badge:
-            ax.text(copy_x,y,badge,transform=ax.transAxes,color=text,fontsize=6.7,ha='left',va='center',alpha=a,bbox=dict(boxstyle='round,pad=.24',facecolor='#FFFFFF',edgecolor='#D7DCE2',linewidth=.6))
-            copy_x+=min(.24,.018*len(badge)+.055)
-        ax.text(copy_x,y,title,transform=ax.transAxes,color=text,fontsize=9.1,fontweight='bold',ha='left',va='center',alpha=a)
+            ax.text(copy_x,y,badge,transform=ax.transAxes,color=text,fontsize=5.7,ha='left',va='center',alpha=a,bbox=dict(boxstyle='round,pad=.22',facecolor='#FFFFFF',edgecolor='#CDD5DE',linewidth=.55))
+            copy_x+=min(.16,.013*len(badge)+.045)
+        ax.text(copy_x,y,event['title'],transform=ax.transAxes,color=text,fontsize=8.5,fontweight='bold',ha='left',va='center',alpha=a)
         if event['description']:
-            ax.text(spine_x+.045,y-.030,event['description'],transform=ax.transAxes,color=text,fontsize=7.3,ha='left',va='top',alpha=.72*a)
+            ax.text(spine_x+.034,y-.026,event['description'],transform=ax.transAxes,color=text,fontsize=6.7,ha='left',va='top',alpha=.66*a)
+    # A separate, spacious takeaway area like “設立から開業まで、7年。”
+    summary=scene.get('timeline_summary','').strip()
+    if summary:
+        summary_a=fade_window(p,.80,.98)
+        ax.text(.055,.205,summary,transform=ax.transAxes,color=text,fontsize=scene.get('timeline_summary_size',12),fontweight='bold',ha='left',va='center',alpha=summary_a)
     note=scene.get('timeline_note','').strip()
     if note:
-        note_a=fade_window(p,.78,.96)
-        ax.plot([.055,.945],[.095,.095],transform=ax.transAxes,color=grid,lw=.7,alpha=.8*note_a)
-        ax.text(.055,.073,note,transform=ax.transAxes,color=text,fontsize=6.5,ha='left',va='top',alpha=.62*note_a,wrap=True)
-
+        note_a=fade_window(p,.86,1.0)
+        ax.plot([.055,.945],[.125,.125],transform=ax.transAxes,color=grid,lw=.7,alpha=.75*note_a)
+        ax.text(.055,.102,note,transform=ax.transAxes,color=text,fontsize=6.2,ha='left',va='top',alpha=.56*note_a,wrap=True)
 
 
 def _make_canvas(ratio,bg,quality):
