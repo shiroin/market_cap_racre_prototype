@@ -33,12 +33,12 @@ def fade_window(p,start=0,end=.18):
 
 
 
-def _draw_reference_subtitle(fig,scene,text,accent='#16718C',y=.885,fontsize=8):
+def _draw_reference_subtitle(fig,scene,text,accent='#16718C',y=.885,fontsize=8,alpha=1.0):
     subtitle=str(scene.get('subtitle','') or '').strip()
     if not subtitle: return
     max_chars=max(16,int(44*12/max(float(fontsize),1)))
     wrapped='\\n'.join('\\n'.join(textwrap.wrap(line,width=max_chars,break_long_words=False,break_on_hyphens=False)) or '' for line in subtitle.split('\\n'))
-    fig.text(.075,y,wrapped,color=text,fontsize=fontsize,fontweight='normal',ha='left',va='center',alpha=.68,zorder=22,linespacing=1.30,wrap=False)
+    fig.text(.075,y,wrapped,color=text,fontsize=fontsize,fontweight='normal',ha='left',va='center',alpha=.68*float(np.clip(alpha,0,1)),zorder=22,linespacing=1.30,wrap=False)
 
 
 def _draw_scene_comments(fig,scene,text,progress):
@@ -113,7 +113,7 @@ def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress
     ax.clear(); fig.texts.clear(); _style_axis(ax,bg,text,grid)
     p=np.clip(float(progress),0,1); title_a=1.0; sub_a=.84; chart_a=1.0; late_a=fade_window(p,.76,.96)
     fig.text(.075,.93,scene['title'],color=text,fontsize=scene.get('title_size',22),fontweight='bold',ha='left',alpha=title_a)
-    _draw_reference_subtitle(fig,scene,text,y=.885,fontsize=scene.get('subtitle_size',12))
+    _draw_reference_subtitle(fig,scene,text,y=.885,fontsize=scene.get('subtitle_size',12),alpha=fade_window(p,.02,.16))
     if scene.get('source'): fig.text(.075,.052,f"出典: {scene['source']}",color=text,fontsize=7,ha='left',alpha=.58)
     _draw_scene_comments(fig,scene,text,p)
     if scene.get('scene_note'):
@@ -280,7 +280,7 @@ def _draw_timeline_on(fig,ax,scene,bg,text,grid,progress):
     ax.clear(); fig.texts.clear(); ax.set_facecolor(bg); ax.axis('off')
     p=np.clip(float(progress),0,1); title_a=1.0
     fig.text(.075,.93,scene.get('title','年表'),color=text,fontsize=scene.get('title_size',22),fontweight='bold',ha='left',alpha=title_a)
-    _draw_reference_subtitle(fig,scene,text,y=.892,fontsize=scene.get('subtitle_size',12))
+    _draw_reference_subtitle(fig,scene,text,y=.892,fontsize=scene.get('subtitle_size',12),alpha=fade_window(p,.02,.16))
     events=_timeline_events(scene)
     if not events: return
     years=[e['year'] for e in events]; start=int(np.floor(scene.get('timeline_start',min(years)))); end=int(np.ceil(scene.get('timeline_end',max(years))))
