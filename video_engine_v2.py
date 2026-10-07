@@ -60,7 +60,7 @@ def _spread_label_positions(values,ymin,ymax,min_gap_ratio=.055):
 
 
 def _figure_spec(ratio,quality='preview'):
-    sizes={'元動画 (64:139)':(3.84,8.34),'9:16':(3.6,6.4),'4:5':(4.,5.),'1:1':(4.,4.),'5:4':(5.,4.),'16:9':(6.4,3.6)}; dpi={'preview':100,'standard':200,'high':150}.get(quality,200); return sizes[ratio],dpi
+    sizes={'元動画 (64:139)':(3.84,8.34),'9:16':(3.6,6.4),'4:5':(4.8,6.0),'1:1':(5.,5.),'5:4':(6.25,5.),'16:9':(8.,4.5)}; dpi={'preview':100,'standard':200,'high':150}.get(quality,200); return sizes[ratio],dpi
 
 
 def _output_size(ratio,quality):
@@ -326,7 +326,7 @@ def _draw_timeline_on(fig,ax,scene,bg,text,grid,progress):
 
 def _make_canvas(ratio,bg,quality,chart=None):
     size,dpi=_figure_spec(ratio,quality); fig=plt.figure(figsize=size,dpi=dpi); fig.patch.set_facecolor(bg)
-    if chart=='横比較ランキング': pos=[.24,.16,.66,.65] if ratio in ('4:5','1:1','5:4','16:9') else [.27,.15,.61,.66]
+    if chart=='横比較ランキング': pos=[.22,.16,.70,.65] if ratio in ('4:5','1:1','5:4','16:9') else [.25,.15,.65,.66]
     else: pos=[.10,.15,.72,.66] if ratio in ('9:16','元動画 (64:139)') else [.09,.16,.75,.65]
     ax=fig.add_axes(pos); return fig,ax
 
