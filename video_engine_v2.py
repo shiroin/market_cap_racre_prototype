@@ -236,7 +236,13 @@ def _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
     vmax=max(float(np.nanmax(values)),1e-9); xmax=vmax*1.18; highlight=max(0,int(scene.get('ranking_highlight',3))); base='#AEB8C4'
     colors=[(cmap.get(name,base) if i<highlight else base) for i,name in enumerate(names)]
     ax.barh(y,values*reveal,color=colors,height=.58,alpha=.95)
-    ax.set_yticks(y); ax.set_yticklabels(names,color=text,fontsize=max(5.5,min(9.5,11-.16*n)),fontweight='bold'); ax.invert_yaxis(); ax.set_xlim(0,xmax)
+    label_fs=max(5.5,min(9.5,11-.16*n))
+    ax.set_yticks(y); ax.set_yticklabels([]); ax.tick_params(axis='y',length=0,pad=0)
+    # Draw labels in a fixed gutter inside the figure instead of Matplotlib y-tick labels.
+    # This prevents long Japanese names from being clipped by the canvas boundary.
+    for yi,name in zip(y,names):
+        ax.text(-.035,yi,name,transform=ax.get_yaxis_transform(),color=text,fontsize=label_fs,fontweight='bold',ha='right',va='center',clip_on=False)
+    ax.invert_yaxis(); ax.set_xlim(0,xmax)
     ax.grid(axis='x',color=grid,linewidth=.8,alpha=.55); ax.grid(axis='y',visible=False); ax.set_xlabel(scene.get('unit',''),color=text,fontsize=8)
     ref=float(scene.get('ranking_reference',0) or 0)
     if ref>0: ax.axvline(ref,color=text,lw=1,ls=(0,(2,3)),alpha=.48)
@@ -326,7 +332,7 @@ def _draw_timeline_on(fig,ax,scene,bg,text,grid,progress):
 
 def _make_canvas(ratio,bg,quality,chart=None):
     size,dpi=_figure_spec(ratio,quality); fig=plt.figure(figsize=size,dpi=dpi); fig.patch.set_facecolor(bg)
-    if chart=='横比較ランキング': pos=[.22,.16,.70,.65] if ratio in ('4:5','1:1','5:4','16:9') else [.25,.15,.65,.66]
+    if chart=='横比較ランキング': pos=[.30,.16,.62,.65] if ratio in ('4:5','1:1','5:4','16:9') else [.32,.15,.58,.66]
     else: pos=[.10,.15,.72,.66] if ratio in ('9:16','元動画 (64:139)') else [.09,.16,.75,.65]
     ax=fig.add_axes(pos); return fig,ax
 
