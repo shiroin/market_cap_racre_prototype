@@ -170,7 +170,7 @@ default_titles = ["上場買取再販4社の在庫", "各社の在庫キャッ�
 default_subtitles = ["販売用不動産（仕掛販売用不動産を含む）の期末残高", "販売用不動産の期末残高", "販売用不動産の期末残高÷売上高×12"]
 default_charts = ["積み上げ棒", "折れ線", "折れ線"]
 default_metrics = ["inventory", "inventory", "inventory_months"]
-chart_options = ["積み上げ棒", "折れ線", "棒グラフ", "100%積み上げ"]
+chart_options = ["積み上げ棒", "折れ線", "棒グラフ", "100%積み上げ", "年表"]
 
 for i in range(int(scene_count)):
     with st.expander(f"Scene {i+1}", expanded=i == 0):
@@ -178,7 +178,7 @@ for i in range(int(scene_count)):
         default_chart = default_charts[i] if i < 3 else "折れ線"
         chart = c1.selectbox("グラフ種類", chart_options, index=chart_options.index(default_chart), key=f"chart_{i}")
         preferred = default_metrics[i] if i < 3 and default_metrics[i] in metric_columns else metric_columns[0]
-        metric = c2.selectbox("指標列", metric_columns, index=metric_columns.index(preferred), key=f"metric_{i}")
+        metric = c2.selectbox("指標列", metric_columns, index=metric_columns.index(preferred), key=f"metric_{i}", disabled=chart == "年表")
         title = st.text_input("タイトル", default_titles[i] if i < 3 else f"Scene {i+1}", key=f"title_{i}")
         subtitle = st.text_input("サブタイトル", default_subtitles[i] if i < 3 else "", key=f"subtitle_{i}")
         c3, c4 = st.columns(2)
@@ -197,6 +197,28 @@ for i in range(int(scene_count)):
         label_gap = c12.slider("ラベル間隔", .025, .12, .055, .005, key=f"label_gap_{i}")
         value_decimals = c13.selectbox("小数桁", [0,1,2], index=0, key=f"decimals_{i}")
 
+        timeline_events = []
+        timeline_start = 2018
+        timeline_end = 2025
+        timeline_note = ""
+        if chart == "年表":
+            st.markdown("**年表データ**")
+            st.caption("元動画風：左に年、中央に縦軸、右に「日付 → 見出し → 補足」。イベントは上から順に1件ずつ表示されます。")
+            default_timeline = pd.DataFrame([
+                {"year":2018.45,"date":"2018年6月","title":"運営会社を設立","description":"プロジェクトの運営会社などが設立","badge":""},
+                {"year":2020.05,"date":"2020年1月","title":"140億円","description":"出資を受け、プロジェクトが本格始動","badge":"出資"},
+                {"year":2022.72,"date":"2022年9月","title":"80億円","description":"出資を決定","badge":"資金調達"},
+                {"year":2023.86,"date":"2023年11月","title":"366億円の協調融資","description":"複数の金融機関による協調融資","badge":"融資"},
+                {"year":2025.04,"date":"2025年1月","title":"開業日を発表","description":"同日に経済効果の試算も公表","badge":""},
+                {"year":2025.56,"date":"2025年7月25日","title":"開業","description":"開業を迎える","badge":""},
+            ])
+            timeline_df = st.data_editor(default_timeline, num_rows="dynamic", use_container_width=True, key=f"timeline_data_{i}")
+            timeline_events = timeline_df.to_dict("records")
+            t1,t2 = st.columns(2)
+            timeline_start = int(t1.number_input("開始年", 1900, 2200, 2018, 1, key=f"timeline_start_{i}"))
+            timeline_end = int(t2.number_input("終了年", 1900, 2200, 2025, 1, key=f"timeline_end_{i}"))
+            timeline_note = st.text_area("下部注記", "出典・補足事項をここに入力できます。", key=f"timeline_note_{i}")
+
         bar_animation = "左→右"
         data_labels = "自動"
         data_label_size = 7
@@ -214,7 +236,8 @@ for i in range(int(scene_count)):
             "duration":duration, "hold":hold, "title_size":title_size, "legend":legend, "end_labels":end_labels,
             "latest_values":latest_values, "end_label_size":end_label_size, "label_gap":label_gap,
             "value_decimals":value_decimals, "bar_animation":bar_animation, "data_labels":data_labels,
-            "data_label_size":data_label_size, "bar_gap":bar_gap
+            "data_label_size":data_label_size, "bar_gap":bar_gap, "timeline_events":timeline_events,
+            "timeline_start":timeline_start, "timeline_end":timeline_end, "timeline_note":timeline_note
         })
 
 preview_scene = st.selectbox("プレビューするScene", range(1, len(scenes)+1), format_func=lambda x:f"Scene {x}")
