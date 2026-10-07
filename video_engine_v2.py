@@ -45,13 +45,13 @@ def _draw_scene_comments(fig,scene,text,progress,elapsed=None):
     c1=str(scene.get('scene_comment_1','') or '').strip(); c2=str(scene.get('scene_comment_2','') or '').strip()
     if not c1 and not c2: return
     size=int(scene.get('scene_comment_size',12)); y=.155
-    duration=max(.01,float(scene.get('duration',2.8))); delay=max(0.,float(scene.get('scene_comment_delay',.7)))
+    duration=max(.01,float(scene.get('duration',2.8))); delay=max(0.,float(scene.get('scene_comment_delay',.7))); gap=max(0.,float(scene.get('scene_comment_gap',.8)))
     # The chart animation owns the first part of the scene. Comments start only after
     # chart completion + the user-selected real-time delay.
     t=float(elapsed) if elapsed is not None else float(progress)*duration
     fade=.45
     start1=duration+delay
-    start2=start1+fade+.35
+    start2=start1+fade+gap
     if c1:
         a1=ease_in_out(np.clip((t-start1)/fade,0,1))
         fig.text(.075,y,c1,color=text,fontsize=size,fontweight='bold',ha='left',va='bottom',alpha=a1,zorder=30,wrap=True)
