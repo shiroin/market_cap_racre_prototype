@@ -369,7 +369,7 @@ def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='pr
 
 
 def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
-    started=time.monotonic(); frames=max(2,int(scene.get('duration',2.5)*fps)); hold=max(0,int(scene.get('hold',1.0)*fps)); fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'))
+    started=time.monotonic(); frames=max(2,int(scene.get('duration',2.5)*fps)); hold=max(0,int(scene.get('hold',1.0)*fps)); fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'),scene)
     is_timeline=scene.get('chart')=='年表'; is_ranking=scene.get('chart')=='横比較ランキング'
     if not is_timeline and not is_ranking: dates,companies,pivot=_prepare_scene(df,scene)
     if is_timeline: _draw_timeline_on(fig,ax,scene,bg,text,grid,1/max(2,frames))
