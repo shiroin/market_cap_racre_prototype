@@ -246,16 +246,24 @@ def _draw_timeline_on(fig,ax,scene,bg,text,grid,progress):
         copy_x=spine_x+.034
         badge=event.get('badge','')
         if badge:
-            ax.text(copy_x,y,badge,transform=ax.transAxes,color=text,fontsize=5.7,ha='left',va='center',alpha=a,bbox=dict(boxstyle='round,pad=.22',facecolor='#FFFFFF',edgecolor='#CDD5DE',linewidth=.55))
-            copy_x+=min(.16,.013*len(badge)+.045)
+            # Reserve a real badge column instead of estimating too narrowly from
+            # character count. This prevents the title from drawing over the badge.
+            badge_width=min(.22,max(.070,.030+.020*len(badge)))
+            ax.text(copy_x,y,badge,transform=ax.transAxes,color=text,fontsize=5.5,ha='left',va='center',alpha=a,bbox=dict(boxstyle='round,pad=.22',facecolor='#FFFFFF',edgecolor='#CDD5DE',linewidth=.55))
+            copy_x+=badge_width
         ax.text(copy_x,y,event['title'],transform=ax.transAxes,color=text,fontsize=8.5,fontweight='bold',ha='left',va='center',alpha=a)
         if event['description']:
-            ax.text(spine_x+.034,y-.026,event['description'],transform=ax.transAxes,color=text,fontsize=6.7,ha='left',va='top',alpha=.66*a)
+            # Keep descriptions attached to their event but lift the last event's
+            # copy slightly so it cannot collide with the takeaway below.
+            desc_y=y-.024
+            if i==n-1:
+                desc_y=y-.018
+            ax.text(spine_x+.034,desc_y,event['description'],transform=ax.transAxes,color=text,fontsize=6.3,ha='left',va='top',alpha=.66*a)
     # A separate, spacious takeaway area like “設立から開業まで、7年。”
     summary=scene.get('timeline_summary','').strip()
     if summary:
         summary_a=fade_window(p,.80,.98)
-        ax.text(.055,.275,summary,transform=ax.transAxes,color=text,fontsize=scene.get('timeline_summary_size',12),fontweight='bold',ha='left',va='center',alpha=summary_a)
+        ax.text(.055,.245,summary,transform=ax.transAxes,color=text,fontsize=scene.get('timeline_summary_size',12),fontweight='bold',ha='left',va='center',alpha=summary_a)
     note=scene.get('timeline_note','').strip()
     if note:
         note_a=fade_window(p,.86,1.0)
