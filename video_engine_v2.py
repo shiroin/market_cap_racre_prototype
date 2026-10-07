@@ -7,6 +7,7 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import textwrap
 from matplotlib.colors import to_rgb
 
 
@@ -35,8 +36,11 @@ def fade_window(p,start=0,end=.18):
 def _draw_reference_subtitle(fig,scene,text,accent='#16718C',y=.885,fontsize=8):
     subtitle=str(scene.get('subtitle','') or '').strip()
     if not subtitle: return
-    # Minimal house style: typography only. No band, border, rule, or decoration.
-    fig.text(.075,y,subtitle,color=text,fontsize=fontsize,fontweight='normal',ha='left',va='center',alpha=.68,zorder=22,linespacing=1.30,wrap=True)
+    # Minimal house style with deterministic wrapping so text never runs off-canvas.
+    # Manual line breaks are preserved; long lines are wrapped conservatively by font size.
+    max_chars=max(16,int(44*12/max(float(fontsize),1)))
+    wrapped='\n'.join('\n'.join(textwrap.wrap(line,width=max_chars,break_long_words=False,break_on_hyphens=False)) or '' for line in subtitle.split('\n'))
+    fig.text(.075,y,wrapped,color=text,fontsize=fontsize,fontweight='normal',ha='left',va='center',alpha=.68,zorder=22,linespacing=1.30,wrap=False)
 
 def _style_axis(ax,bg,text,grid):
     ax.set_facecolor(bg); ax.tick_params(colors=text,labelsize=9,length=0,pad=7)
@@ -322,12 +326,18 @@ def _draw_timeline_on(fig,ax,scene,bg,text,grid,progress):
         ax.text(.055,.094,note,transform=ax.transAxes,color=text,fontsize=3.8,ha='left',va='top',alpha=.56*note_a,wrap=True)
 
 
-def _make_canvas(ratio,bg,quality):
-    size,dpi=_figure_spec(ratio,quality); fig=plt.figure(figsize=size,dpi=dpi); fig.patch.set_facecolor(bg); ax=fig.add_axes([.10,.15,.72,.66] if ratio in ('9:16','元動画 (64:139)') else [.09,.16,.75,.65]); return fig,ax
+def _make_canvas(ratio,bg,quality,chart=None):
+    size,dpi=_figure_spec(ratio,quality); fig=plt.figure(figsize=size,dpi=dpi); fig.patch.set_facecolor(bg)
+    if chart=='横比較ランキング':
+        # Ranking labels live outside the y-axis; reserve a generous left gutter.
+        pos=[.24,.16,.66,.65] if ratio in ('4:5','1:1','5:4','16:9') else [.27,.15,.61,.66]
+    else:
+        pos=[.10,.15,.72,.66] if ratio in ('9:16','元動画 (64:139)') else [.09,.16,.75,.65]
+    ax=fig.add_axes(pos); return fig,ax
 
 
 def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='preview'):
-    fig,ax=_make_canvas(ratio,bg,quality)
+    fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'))
     if scene.get('chart')=='年表':
         _draw_timeline_on(fig,ax,scene,bg,text,grid,progress)
     elif scene.get('chart')=='横比較ランキング':
@@ -338,7 +348,7 @@ def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='pr
 
 
 def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
-    started=time.monotonic(); frames=max(2,int(scene.get('duration',2.5)*fps)); hold=max(0,int(scene.get('hold',1.0)*fps)); fig,ax=_make_canvas(ratio,bg,quality)
+    started=time.monotonic(); frames=max(2,int(scene.get('duration',2.5)*fps)); hold=max(0,int(scene.get('hold',1.0)*fps)); fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'))
     is_timeline=scene.get('chart')=='年表'; is_ranking=scene.get('chart')=='横比較ランキング'
     if not is_timeline and not is_ranking: dates,companies,pivot=_prepare_scene(df,scene)
     if is_timeline: _draw_timeline_on(fig,ax,scene,bg,text,grid,1/max(2,frames))
