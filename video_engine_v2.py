@@ -201,24 +201,93 @@ def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress
         for t in leg.get_texts(): t.set_color(text); t.set_alpha(chart_a)
 
 
+
+def _timeline_events(scene):
+    events=scene.get('timeline_events',[])
+    clean=[]
+    for row in events:
+        try:
+            year=float(row.get('year'))
+        except (TypeError,ValueError):
+            continue
+        clean.append({'year':year,'date':str(row.get('date','')).strip(),'title':str(row.get('title','')).strip(),'description':str(row.get('description','')).strip(),'badge':str(row.get('badge','')).strip()})
+    return sorted(clean,key=lambda r:r['year'])
+
+
+def _draw_timeline_on(fig,ax,scene,bg,text,grid,progress):
+    ax.clear(); fig.texts.clear(); ax.set_facecolor(bg); ax.axis('off')
+    p=np.clip(float(progress),0,1); title_a=fade_window(p,0,.12)
+    fig.text(.075,.93,scene.get('title','年表'),color=text,fontsize=scene.get('title_size',22),fontweight='bold',ha='left',alpha=title_a)
+    if scene.get('subtitle'): fig.text(.075,.892,scene['subtitle'],color=text,fontsize=max(8,scene.get('title_size',22)-9),ha='left',alpha=fade_window(p,.03,.16)*.72)
+    events=_timeline_events(scene)
+    if not events: return
+    years=[e['year'] for e in events]; start=int(np.floor(scene.get('timeline_start',min(years)))); end=int(np.ceil(scene.get('timeline_end',max(years))))
+    if end<=start:end=start+1
+    # Reference layout: years at far left, slim central spine, event copy on right.
+    spine_x=.285; top=.82; bottom=.17
+    def yy(y): return top-(float(y)-start)/(end-start)*(top-bottom)
+    axis_a=fade_window(p,.04,.20)
+    ax.plot([spine_x,spine_x],[bottom-.025,top+.012],transform=ax.transAxes,color='#98A3AF',lw=1.05,alpha=.75*axis_a,clip_on=False)
+    for y in range(start,end+1):
+        pos=yy(y)
+        ax.plot([.055,spine_x-.012],[pos,pos],transform=ax.transAxes,color=grid,lw=.65,ls=(0,(1,3)),alpha=.62*axis_a)
+        ax.plot([spine_x-.008,spine_x+.008],[pos,pos],transform=ax.transAxes,color='#98A3AF',lw=.75,alpha=.7*axis_a)
+        ax.text(.055,pos,str(y),transform=ax.transAxes,color=text,fontsize=7.4,ha='left',va='center',alpha=.68*axis_a)
+    n=len(events)
+    for i,event in enumerate(events):
+        # One-by-one reveal, matching the source video: axis first, then events cascade downward.
+        local=np.clip((p-(.14+i*.68/max(1,n)))/(.22),0,1); a=ease_in_out(local)
+        if a<=0: continue
+        y=yy(event['year']); dot='#1B7891'
+        ax.scatter([spine_x],[y],transform=ax.transAxes,s=26,color=dot,edgecolor=bg,linewidth=1.1,zorder=6,alpha=a)
+        ax.plot([spine_x+.012,spine_x+.032],[y,y],transform=ax.transAxes,color='#AAB3BC',lw=.8,alpha=.75*a)
+        date_x=spine_x-.028; copy_x=spine_x+.045
+        ax.text(date_x,y,event['date'],transform=ax.transAxes,color=text,fontsize=9.2,fontweight='bold',ha='right',va='center',alpha=a)
+        badge=event.get('badge','')
+        title=event['title']
+        if badge:
+            ax.text(copy_x,y,badge,transform=ax.transAxes,color=text,fontsize=6.7,ha='left',va='center',alpha=a,bbox=dict(boxstyle='round,pad=.24',facecolor='#FFFFFF',edgecolor='#D7DCE2',linewidth=.6))
+            copy_x+=min(.24,.018*len(badge)+.055)
+        ax.text(copy_x,y,title,transform=ax.transAxes,color=text,fontsize=9.1,fontweight='bold',ha='left',va='center',alpha=a)
+        if event['description']:
+            ax.text(spine_x+.045,y-.030,event['description'],transform=ax.transAxes,color=text,fontsize=7.3,ha='left',va='top',alpha=.72*a)
+    note=scene.get('timeline_note','').strip()
+    if note:
+        note_a=fade_window(p,.78,.96)
+        ax.plot([.055,.945],[.095,.095],transform=ax.transAxes,color=grid,lw=.7,alpha=.8*note_a)
+        ax.text(.055,.073,note,transform=ax.transAxes,color=text,fontsize=6.5,ha='left',va='top',alpha=.62*note_a,wrap=True)
+
+
+
 def _make_canvas(ratio,bg,quality):
     size,dpi=_figure_spec(ratio,quality); fig=plt.figure(figsize=size,dpi=dpi); fig.patch.set_facecolor(bg); ax=fig.add_axes([.10,.15,.72,.66] if ratio in ('9:16','元動画 (64:139)') else [.09,.16,.75,.65]); return fig,ax
 
 
 def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='preview'):
-    dates,companies,pivot=_prepare_scene(df,scene); fig,ax=_make_canvas(ratio,bg,quality); _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress); return fig
+    fig,ax=_make_canvas(ratio,bg,quality)
+    if scene.get('chart')=='年表':
+        _draw_timeline_on(fig,ax,scene,bg,text,grid,progress)
+    else:
+        dates,companies,pivot=_prepare_scene(df,scene); _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress)
+    return fig
 
 
 def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
-    started=time.monotonic(); frames=max(2,int(scene.get('duration',2.5)*fps)); hold=max(0,int(scene.get('hold',1.0)*fps)); dates,companies,pivot=_prepare_scene(df,scene); fig,ax=_make_canvas(ratio,bg,quality)
-    _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,1/max(2,frames)); fig.canvas.draw(); width,height=fig.canvas.get_width_height(); _log(f"scene start title={scene.get('title','')} quality={quality} canvas={width}x{height} frames={frames+hold}")
+    started=time.monotonic(); frames=max(2,int(scene.get('duration',2.5)*fps)); hold=max(0,int(scene.get('hold',1.0)*fps)); fig,ax=_make_canvas(ratio,bg,quality)
+    is_timeline=scene.get('chart')=='年表'
+    if not is_timeline: dates,companies,pivot=_prepare_scene(df,scene)
+    if is_timeline: _draw_timeline_on(fig,ax,scene,bg,text,grid,1/max(2,frames))
+    else: _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,1/max(2,frames)); fig.canvas.draw(); width,height=fig.canvas.get_width_height(); _log(f"scene start title={scene.get('title','')} quality={quality} canvas={width}x{height} frames={frames+hold}")
     cmd=['ffmpeg','-y','-loglevel','error','-threads','1','-filter_threads','1','-f','rawvideo','-vcodec','rawvideo','-pix_fmt','rgba','-s',f'{width}x{height}','-r',str(fps),'-i','-','-an']; target=_output_size(ratio,quality)
     if target: tw,th=target; cmd += ['-vf',f'scale={tw}:{th}:flags=lanczos']
     cmd += ['-c:v','libx264','-threads','1','-preset','veryfast','-crf','18' if quality=='high' else '20','-pix_fmt','yuv420p','-movflags','+faststart',str(path)]; proc=subprocess.Popen(cmd,stdin=subprocess.PIPE,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,bufsize=0)
     try:
         total=frames+hold
         for i in range(total):
-            pp=1. if i>=frames else (i+1)/frames; _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,pp); fig.canvas.draw(); proc.stdin.write(fig.canvas.buffer_rgba())
+            pp=1. if i>=frames else (i+1)/frames
+            if is_timeline: _draw_timeline_on(fig,ax,scene,bg,text,grid,pp)
+            else: _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,pp)
+            fig.canvas.draw(); proc.stdin.write(fig.canvas.buffer_rgba())
             if i and i%max(1,fps*2)==0: _log(f'scene progress {i}/{total}')
         proc.stdin.close(); stderr=proc.stderr.read(); code=proc.wait()
         if code!=0: raise RuntimeError(stderr.decode('utf-8',errors='replace')[-3000:])
