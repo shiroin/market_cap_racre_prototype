@@ -46,10 +46,10 @@ def _draw_scene_comments(fig,scene,text,progress):
     if not c1 and not c2: return
     size=int(scene.get('scene_comment_size',12)); y=.185
     if c1:
-        a1=fade_window(progress,.72,.84)
+        a1=fade_window(progress,.62,.74)
         fig.text(.075,y,c1,color=text,fontsize=size,fontweight='bold',ha='left',va='bottom',alpha=a1,zorder=30,wrap=True)
     if c2:
-        a2=fade_window(progress,.86,.97)
+        a2=fade_window(progress,.82,.94)
         fig.text(.075,y-.055,c2,color=text,fontsize=size,fontweight='bold',ha='left',va='bottom',alpha=a2,zorder=30,wrap=True)
 
 def _style_axis(ax,bg,text,grid):
