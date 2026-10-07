@@ -44,7 +44,7 @@ def _draw_reference_subtitle(fig,scene,text,accent='#16718C',y=.885,fontsize=8,a
 def _draw_scene_comments(fig,scene,text,progress):
     c1=str(scene.get('scene_comment_1','') or '').strip(); c2=str(scene.get('scene_comment_2','') or '').strip()
     if not c1 and not c2: return
-    size=int(scene.get('scene_comment_size',12)); y=.125
+    size=int(scene.get('scene_comment_size',12)); y=.135
     if c1:
         a1=fade_window(progress,.72,.84)
         fig.text(.075,y,c1,color=text,fontsize=size,fontweight='bold',ha='left',va='bottom',alpha=a1,zorder=30,wrap=True)
@@ -344,15 +344,20 @@ def _draw_timeline_on(fig,ax,scene,bg,text,grid,progress):
         ax.text(.055,.094,note,transform=ax.transAxes,color=text,fontsize=3.8,ha='left',va='top',alpha=.56*note_a,wrap=True)
 
 
-def _make_canvas(ratio,bg,quality,chart=None):
+def _make_canvas(ratio,bg,quality,chart=None,scene=None):
     size,dpi=_figure_spec(ratio,quality); fig=plt.figure(figsize=size,dpi=dpi); fig.patch.set_facecolor(bg)
     if chart=='横比較ランキング': pos=[.30,.16,.62,.65] if ratio in ('4:5','1:1','5:4','16:9') else [.32,.15,.58,.66]
-    else: pos=[.10,.15,.72,.66] if ratio in ('9:16','元動画 (64:139)') else [.09,.16,.75,.65]
+    else:
+        has_comment = scene is not None and bool(str(scene.get('scene_comment_1','')).strip() or str(scene.get('scene_comment_2','')).strip())
+        if has_comment:
+            pos=[.10,.25,.72,.56] if ratio in ('9:16','元動画 (64:139)') else [.09,.26,.75,.55]
+        else:
+            pos=[.10,.15,.72,.66] if ratio in ('9:16','元動画 (64:139)') else [.09,.16,.75,.65]
     ax=fig.add_axes(pos); return fig,ax
 
 
 def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='preview'):
-    fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'))
+    fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'),scene)
     if scene.get('chart')=='年表':
         _draw_timeline_on(fig,ax,scene,bg,text,grid,progress)
     elif scene.get('chart')=='横比較ランキング':
