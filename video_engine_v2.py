@@ -44,13 +44,13 @@ def _draw_reference_subtitle(fig,scene,text,accent='#16718C',y=.885,fontsize=8,a
 def _draw_scene_comments(fig,scene,text,progress):
     c1=str(scene.get('scene_comment_1','') or '').strip(); c2=str(scene.get('scene_comment_2','') or '').strip()
     if not c1 and not c2: return
-    size=int(scene.get('scene_comment_size',12)); y=.185
+    size=int(scene.get('scene_comment_size',12)); y=.155
     if c1:
         a1=fade_window(progress,.62,.74)
         fig.text(.075,y,c1,color=text,fontsize=size,fontweight='bold',ha='left',va='bottom',alpha=a1,zorder=30,wrap=True)
     if c2:
         a2=fade_window(progress,.82,.94)
-        fig.text(.075,y-.055,c2,color=text,fontsize=size,fontweight='bold',ha='left',va='bottom',alpha=a2,zorder=30,wrap=True)
+        fig.text(.075,y-.048,c2,color=text,fontsize=size,fontweight='bold',ha='left',va='bottom',alpha=a2,zorder=30,wrap=True)
 
 def _style_axis(ax,bg,text,grid):
     ax.set_facecolor(bg); ax.tick_params(colors=text,labelsize=9,length=0,pad=7)
@@ -117,10 +117,10 @@ def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress
     if scene.get('source'): fig.text(.075,.052,f"出典: {scene['source']}",color=text,fontsize=7,ha='left',alpha=.58)
     _draw_scene_comments(fig,scene,text,p)
     if scene.get('scene_note'):
-        # Visually separate the chart body from the low-emphasis footnote area.
-        divider=plt.Line2D([.075,.925],[.043,.043],transform=fig.transFigure,color=grid,lw=.7,alpha=.70)
+        # Divider belongs between the comment zone and the footnote zone.
+        divider=plt.Line2D([.075,.925],[.060,.060],transform=fig.transFigure,color=grid,lw=.7,alpha=.70)
         fig.add_artist(divider)
-        fig.text(.075,.027,scene['scene_note'],color=text,fontsize=5.4,ha='left',va='bottom',alpha=.52,wrap=True)
+        fig.text(.075,.036,scene['scene_note'],color=text,fontsize=5.4,ha='left',va='bottom',alpha=.52,wrap=True)
     x=np.arange(len(dates),dtype=float); chart=scene['chart']; ymax=100. if chart=='100%積み上げ' else float(max(1.,pivot.sum(axis=1).max() if chart=='積み上げ棒' else pivot.to_numpy().max()))*1.22; ax.set_ylim(0,ymax)
     decimals=int(scene.get('value_decimals',0)); label_mode=scene.get('data_labels','自動'); mode=scene.get('bar_animation','左→右'); live_size=scene.get('end_label_size',8); gap=scene.get('label_gap',.055)
     bar_gap=float(np.clip(scene.get('bar_gap',.32),0,.95)); period_width=1.0-bar_gap
@@ -350,8 +350,8 @@ def _make_canvas(ratio,bg,quality,chart=None,scene=None):
     else:
         has_comment = scene is not None and bool(str(scene.get('scene_comment_1','')).strip() or str(scene.get('scene_comment_2','')).strip())
         if has_comment:
-            # Hard separation: the plot (including x tick labels) ends well above the comment band.
-            pos=[.10,.34,.72,.47] if ratio in ('9:16','元動画 (64:139)') else [.09,.35,.75,.46]
+            # Strict vertical zones: title/subtitle | plot incl. x labels | comments | divider | notes.
+            pos=[.10,.31,.72,.48] if ratio in ('9:16','元動画 (64:139)') else [.09,.32,.75,.47]
         else:
             pos=[.10,.15,.72,.66] if ratio in ('9:16','元動画 (64:139)') else [.09,.16,.75,.65]
     ax=fig.add_axes(pos); return fig,ax
