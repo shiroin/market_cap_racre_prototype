@@ -203,6 +203,7 @@ for i in range(int(scene_count)):
         timeline_end = 2025
         timeline_note = ""
         timeline_summary = ""
+        timeline_summary_2 = ""
         timeline_summary_size = 12
         if chart == "年表":
             st.markdown("**年表データ**")
@@ -221,7 +222,8 @@ for i in range(int(scene_count)):
             timeline_start = int(t1.number_input("開始年", 1900, 2200, 2018, 1, key=f"timeline_start_{i}"))
             timeline_end = int(t2.number_input("終了年", 1900, 2200, 2025, 1, key=f"timeline_end_{i}"))
             st.markdown("**下部コメント**")
-            timeline_summary = st.text_input("強調コメント", "設立から開業まで、7年。", key=f"timeline_summary_{i}", help="年表の下に大きく表示し、動画の終盤でふわっと出現します。")
+            timeline_summary = st.text_input("強調コメント①", "設立から開業まで、7年。", key=f"timeline_summary_{i}", help="年表の後に最初にふわっと出現します。")
+            timeline_summary_2 = st.text_input("強調コメント②", "", key=f"timeline_summary_2_{i}", help="①の後に、2回目としてふわっと出現します。")
             timeline_summary_size = st.slider("強調コメントサイズ", 8, 24, 12, key=f"timeline_summary_size_{i}")
             timeline_note = st.text_area("出典・補足注記", "出典・補足事項をここに入力できます。", key=f"timeline_note_{i}")
 
@@ -244,7 +246,7 @@ for i in range(int(scene_count)):
             "value_decimals":value_decimals, "bar_animation":bar_animation, "data_labels":data_labels,
             "data_label_size":data_label_size, "bar_gap":bar_gap, "timeline_events":timeline_events,
             "timeline_start":timeline_start, "timeline_end":timeline_end, "timeline_note":timeline_note,
-            "timeline_summary":timeline_summary, "timeline_summary_size":timeline_summary_size
+            "timeline_summary":timeline_summary, "timeline_summary_2":timeline_summary_2, "timeline_summary_size":timeline_summary_size
         })
 
 preview_scene = st.selectbox("プレビューするScene", range(1, len(scenes)+1), format_func=lambda x:f"Scene {x}")
