@@ -277,7 +277,10 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
     is_timeline=scene.get('chart')=='年表'
     if not is_timeline: dates,companies,pivot=_prepare_scene(df,scene)
     if is_timeline: _draw_timeline_on(fig,ax,scene,bg,text,grid,1/max(2,frames))
-    else: _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,1/max(2,frames)); fig.canvas.draw(); width,height=fig.canvas.get_width_height(); _log(f"scene start title={scene.get('title','')} quality={quality} canvas={width}x{height} frames={frames+hold}")
+    else: _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,1/max(2,frames))
+    # Canvas dimensions are required by FFmpeg for every scene type.
+    # Keep this outside the graph-only branch so timeline scenes initialize width/height too.
+    fig.canvas.draw(); width,height=fig.canvas.get_width_height(); _log(f"scene start title={scene.get('title','')} quality={quality} canvas={width}x{height} frames={frames+hold}")
     cmd=['ffmpeg','-y','-loglevel','error','-threads','1','-filter_threads','1','-f','rawvideo','-vcodec','rawvideo','-pix_fmt','rgba','-s',f'{width}x{height}','-r',str(fps),'-i','-','-an']; target=_output_size(ratio,quality)
     if target: tw,th=target; cmd += ['-vf',f'scale={tw}:{th}:flags=lanczos']
     cmd += ['-c:v','libx264','-threads','1','-preset','veryfast','-crf','18' if quality=='high' else '20','-pix_fmt','yuv420p','-movflags','+faststart',str(path)]; proc=subprocess.Popen(cmd,stdin=subprocess.PIPE,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,bufsize=0)
