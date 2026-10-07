@@ -31,6 +31,17 @@ def fade_window(p,start=0,end=.18):
     return 1.0 if end<=start else ease_in_out(np.clip((p-start)/(end-start),0,1))
 
 
+
+def _draw_reference_subtitle(fig,scene,text,accent='#16718C',y=.885,fontsize=8):
+    subtitle=str(scene.get('subtitle','') or '').strip()
+    if not subtitle: return
+    from matplotlib.patches import Rectangle
+    band=Rectangle((.075,y-.020),.85,.040,transform=fig.transFigure,facecolor='#FFFFFF',edgecolor='none',alpha=.94,zorder=20)
+    fig.add_artist(band)
+    rule=Rectangle((.075,y-.020),.006,.040,transform=fig.transFigure,facecolor=accent,edgecolor='none',zorder=21)
+    fig.add_artist(rule)
+    fig.text(.092,y,subtitle,color=text,fontsize=fontsize,fontweight='bold',ha='left',va='center',alpha=1,zorder=22,wrap=True)
+
 def _style_axis(ax,bg,text,grid):
     ax.set_facecolor(bg); ax.tick_params(colors=text,labelsize=9,length=0,pad=7)
     for s in ax.spines.values(): s.set_visible(False)
@@ -92,7 +103,7 @@ def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress
     ax.clear(); fig.texts.clear(); _style_axis(ax,bg,text,grid)
     p=np.clip(float(progress),0,1); title_a=1.0; sub_a=.84; chart_a=1.0; late_a=fade_window(p,.76,.96)
     fig.text(.075,.93,scene['title'],color=text,fontsize=scene.get('title_size',22),fontweight='bold',ha='left',alpha=title_a)
-    if scene.get('subtitle'): fig.text(.075,.885,scene['subtitle'],color=text,fontsize=max(8,scene.get('title_size',22)-7),ha='left',alpha=sub_a)
+    _draw_reference_subtitle(fig,scene,text,y=.885,fontsize=max(7,scene.get('title_size',22)-10))
     if scene.get('source'): fig.text(.075,.052,f"出典: {scene['source']}",color=text,fontsize=7,ha='left',alpha=.58)
     if scene.get('scene_note'):
         # Visually separate the chart body from the low-emphasis footnote area.
@@ -217,7 +228,7 @@ def _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
     names=w['company'].astype(str).tolist(); values=w[metric].to_numpy(float)
     if not len(values): return
     fig.text(.075,.93,scene.get('title','横比較ランキング'),color=text,fontsize=scene.get('title_size',22),fontweight='bold',ha='left',alpha=1)
-    if scene.get('subtitle'): fig.text(.075,.885,scene['subtitle'],color=text,fontsize=max(8,scene.get('title_size',22)-7),ha='left',alpha=.84)
+    _draw_reference_subtitle(fig,scene,text,y=.885,fontsize=max(7,scene.get('title_size',22)-10))
     if scene.get('source'): fig.text(.075,.052,f"出典: {scene['source']}",color=text,fontsize=7,ha='left',alpha=.58)
     if scene.get('scene_note'):
         divider=plt.Line2D([.075,.925],[.043,.043],transform=fig.transFigure,color=grid,lw=.7,alpha=.70); fig.add_artist(divider)
@@ -252,7 +263,7 @@ def _draw_timeline_on(fig,ax,scene,bg,text,grid,progress):
     ax.clear(); fig.texts.clear(); ax.set_facecolor(bg); ax.axis('off')
     p=np.clip(float(progress),0,1); title_a=1.0
     fig.text(.075,.93,scene.get('title','年表'),color=text,fontsize=scene.get('title_size',22),fontweight='bold',ha='left',alpha=title_a)
-    if scene.get('subtitle'): fig.text(.075,.892,scene['subtitle'],color=text,fontsize=max(8,scene.get('title_size',22)-9),fontweight='bold',ha='left',alpha=.72)
+    _draw_reference_subtitle(fig,scene,text,y=.892,fontsize=max(7,scene.get('title_size',22)-11))
     events=_timeline_events(scene)
     if not events: return
     years=[e['year'] for e in events]; start=int(np.floor(scene.get('timeline_start',min(years)))); end=int(np.ceil(scene.get('timeline_end',max(years))))
