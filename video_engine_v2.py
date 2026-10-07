@@ -90,12 +90,12 @@ def _prepare_scene(df,scene):
 
 def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress):
     ax.clear(); fig.texts.clear(); _style_axis(ax,bg,text,grid)
-    p=np.clip(float(progress),0,1); title_a=fade_window(p,0,.16); sub_a=fade_window(p,.06,.24)*.84; chart_a=fade_window(p,.10,.28); late_a=fade_window(p,.76,.96)
+    p=np.clip(float(progress),0,1); title_a=1.0; sub_a=.84; chart_a=1.0; late_a=fade_window(p,.76,.96)
     fig.text(.075,.93,scene['title'],color=text,fontsize=scene.get('title_size',22),fontweight='bold',ha='left',alpha=title_a)
     if scene.get('subtitle'): fig.text(.075,.885,scene['subtitle'],color=text,fontsize=max(8,scene.get('title_size',22)-7),ha='left',alpha=sub_a)
-    if scene.get('source'): fig.text(.075,.052,f"出典: {scene['source']}",color=text,fontsize=7,ha='left',alpha=.58*max(chart_a,.35))
+    if scene.get('source'): fig.text(.075,.052,f"出典: {scene['source']}",color=text,fontsize=7,ha='left',alpha=.58)
     if scene.get('scene_note'):
-        fig.text(.075,.027,scene['scene_note'],color=text,fontsize=5.4,ha='left',va='bottom',alpha=.52*max(chart_a,.35),wrap=True)
+        fig.text(.075,.027,scene['scene_note'],color=text,fontsize=5.4,ha='left',va='bottom',alpha=.52,wrap=True)
     x=np.arange(len(dates),dtype=float); chart=scene['chart']; ymax=100. if chart=='100%積み上げ' else float(max(1.,pivot.sum(axis=1).max() if chart=='積み上げ棒' else pivot.to_numpy().max()))*1.22; ax.set_ylim(0,ymax)
     decimals=int(scene.get('value_decimals',0)); label_mode=scene.get('data_labels','自動'); mode=scene.get('bar_animation','左→右'); live_size=scene.get('end_label_size',8); gap=scene.get('label_gap',.055)
     bar_gap=float(np.clip(scene.get('bar_gap',.32),0,.95)); period_width=1.0-bar_gap
@@ -218,9 +218,9 @@ def _timeline_events(scene):
 
 def _draw_timeline_on(fig,ax,scene,bg,text,grid,progress):
     ax.clear(); fig.texts.clear(); ax.set_facecolor(bg); ax.axis('off')
-    p=np.clip(float(progress),0,1); title_a=fade_window(p,0,.12)
+    p=np.clip(float(progress),0,1); title_a=1.0
     fig.text(.075,.93,scene.get('title','年表'),color=text,fontsize=scene.get('title_size',22),fontweight='bold',ha='left',alpha=title_a)
-    if scene.get('subtitle'): fig.text(.075,.892,scene['subtitle'],color=text,fontsize=max(8,scene.get('title_size',22)-9),fontweight='bold',ha='left',alpha=fade_window(p,.03,.16)*.72)
+    if scene.get('subtitle'): fig.text(.075,.892,scene['subtitle'],color=text,fontsize=max(8,scene.get('title_size',22)-9),fontweight='bold',ha='left',alpha=.72)
     events=_timeline_events(scene)
     if not events: return
     years=[e['year'] for e in events]; start=int(np.floor(scene.get('timeline_start',min(years)))); end=int(np.ceil(scene.get('timeline_end',max(years))))
@@ -230,7 +230,7 @@ def _draw_timeline_on(fig,ax,scene,bg,text,grid,progress):
     # year ticks stay much farther left, preventing the collisions seen previously.
     spine_x=.315; top=.965; bottom=.365
     def yy(y): return top-(float(y)-start)/(end-start)*(top-bottom)
-    axis_a=fade_window(p,.04,.20)
+    axis_a=1.0
     ax.plot([spine_x,spine_x],[bottom-.018,top+.012],transform=ax.transAxes,color='#AAB5C2',lw=1.15,alpha=.78*axis_a,clip_on=False)
     for y in range(start,end+1):
         pos=yy(y)
