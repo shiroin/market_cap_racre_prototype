@@ -1,3 +1,4 @@
+import io
 import re
 import shutil
 import tempfile
@@ -257,6 +258,24 @@ try:
     plt.close(preview)
 except Exception as e:
     st.warning(f"プレビューできません: {e}")
+
+st.markdown("**サムネイル画像**")
+thumbnail_progress = st.slider("サムネイルのアニメーション位置", 0.0, 1.0, 0.30, 0.05, help="タイトル・軸・補足は常時表示し、データ本体をどこまで描画した状態でPNGにするか指定します。")
+try:
+    thumbnail = render_story_frame(cleaned, scenes[preview_scene-1], ratio, bg, text, grid, cmap, thumbnail_progress, "high")
+    thumbnail_buffer = io.BytesIO()
+    thumbnail.savefig(thumbnail_buffer, format="png", facecolor=thumbnail.get_facecolor(), bbox_inches=None, pad_inches=0)
+    thumbnail_buffer.seek(0)
+    plt.close(thumbnail)
+    st.download_button(
+        "サムネイルPNGを保存",
+        thumbnail_buffer.getvalue(),
+        f"scene_{preview_scene:02d}_thumbnail.png",
+        "image/png",
+        use_container_width=True,
+    )
+except Exception as e:
+    st.warning(f"サムネイルPNGを生成できません: {e}")
 
 if st.button(f"MP4を生成（{render_mode}）", type="primary", use_container_width=True):
     if shutil.which("ffmpeg") is None:
