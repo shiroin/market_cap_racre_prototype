@@ -186,7 +186,7 @@ for i in range(int(scene_count)):
         source_text = c4.text_input("出典", "", key=f"source_{i}")
         c5, c6, c7 = st.columns(3)
         duration = c5.slider("描画時間（秒）", .5, 30.0, 2.8, .1, key=f"duration_{i}")
-        hold = c6.slider("静止時間（秒）", 0., 5., 1.2, .1, key=f"hold_{i}")
+        hold = c6.slider("静止時間（秒）", 0., 10., 1.2, .1, key=f"hold_{i}")
         title_size = c7.slider("タイトルサイズ", 12, 34, 22, key=f"title_size_{i}")
         c8, c9, c10 = st.columns(3)
         legend = c8.checkbox("凡例", chart != "折れ線", key=f"legend_{i}")
