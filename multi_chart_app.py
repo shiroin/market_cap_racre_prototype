@@ -90,7 +90,7 @@ if "palette_text" not in st.session_state:
 
 with st.sidebar:
     st.header("動画全体")
-    ratio = st.selectbox("縦横比", ["元動画 (64:139)", "9:16", "4:5", "1:1", "5:4", "16:9"], index=0, help="元動画は512×1112px＝64:139です。")
+    ratio = st.selectbox("縦横比", ["元動画 (64:139)", "9:16", "4:5", "1:1", "5:4", "16:9"], index=2, help="デフォルトは4:5です。元動画は512×1112px＝64:139です。")
     render_mode = st.selectbox("生成品質", ["高速プレビュー", "標準", "高画質"], index=0, help="まず高速プレビューで確認し、最後だけ標準/高画質がおすすめです。")
     mode_settings = {"高速プレビュー":(12,"preview"), "標準":(24,"standard"), "高画質":(30,"high")}
     fps, quality = mode_settings[render_mode]
