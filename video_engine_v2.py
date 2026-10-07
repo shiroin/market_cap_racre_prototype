@@ -41,15 +41,22 @@ def _draw_reference_subtitle(fig,scene,text,accent='#16718C',y=.885,fontsize=8,a
     fig.text(.075,y,wrapped,color=text,fontsize=fontsize,fontweight='normal',ha='left',va='center',alpha=.68*float(np.clip(alpha,0,1)),zorder=22,linespacing=1.30,wrap=False)
 
 
-def _draw_scene_comments(fig,scene,text,progress):
+def _draw_scene_comments(fig,scene,text,progress,elapsed=None):
     c1=str(scene.get('scene_comment_1','') or '').strip(); c2=str(scene.get('scene_comment_2','') or '').strip()
     if not c1 and not c2: return
     size=int(scene.get('scene_comment_size',12)); y=.155
+    duration=max(.01,float(scene.get('duration',2.8))); delay=max(0.,float(scene.get('scene_comment_delay',.7)))
+    # The chart animation owns the first part of the scene. Comments start only after
+    # chart completion + the user-selected real-time delay.
+    t=float(elapsed) if elapsed is not None else float(progress)*duration
+    fade=.45
+    start1=duration+delay
+    start2=start1+fade+.35
     if c1:
-        a1=fade_window(progress,.62,.74)
+        a1=ease_in_out(np.clip((t-start1)/fade,0,1))
         fig.text(.075,y,c1,color=text,fontsize=size,fontweight='bold',ha='left',va='bottom',alpha=a1,zorder=30,wrap=True)
     if c2:
-        a2=fade_window(progress,.82,.94)
+        a2=ease_in_out(np.clip((t-start2)/fade,0,1))
         fig.text(.075,y-.048,c2,color=text,fontsize=size,fontweight='bold',ha='left',va='bottom',alpha=a2,zorder=30,wrap=True)
 
 def _style_axis(ax,bg,text,grid):
@@ -109,13 +116,13 @@ def _prepare_scene(df,scene):
     metric=scene['metric']; w=df[['date','company',metric]].copy(); w[metric]=pd.to_numeric(w[metric],errors='coerce'); w=w.dropna(); dates=list(dict.fromkeys(w.date.astype(str))); companies=list(dict.fromkeys(w.company.astype(str))); pivot=w.pivot_table(index='date',columns='company',values=metric,aggfunc='sum').reindex(dates).fillna(0); return dates,companies,pivot
 
 
-def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress):
+def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress,elapsed=None):
     ax.clear(); fig.texts.clear(); _style_axis(ax,bg,text,grid)
     p=np.clip(float(progress),0,1); title_a=1.0; sub_a=.84; chart_a=1.0; late_a=fade_window(p,.76,.96)
     fig.text(.075,.93,scene['title'],color=text,fontsize=scene.get('title_size',22),fontweight='bold',ha='left',alpha=title_a)
     _draw_reference_subtitle(fig,scene,text,y=.885,fontsize=scene.get('subtitle_size',12),alpha=fade_window(p,.02,.16))
     if scene.get('source'): fig.text(.075,.052,f"出典: {scene['source']}",color=text,fontsize=7,ha='left',alpha=.58)
-    _draw_scene_comments(fig,scene,text,p)
+    _draw_scene_comments(fig,scene,text,p,elapsed)
     if scene.get('scene_note'):
         # Divider belongs between the comment zone and the footnote zone.
         divider=plt.Line2D([.075,.925],[.060,.060],transform=fig.transFigure,color=grid,lw=.7,alpha=.70)
@@ -229,7 +236,7 @@ def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress
 
 
 
-def _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
+def _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,progress,elapsed=None):
     ax.clear(); fig.texts.clear(); _style_axis(ax,bg,text,grid)
     p=float(np.clip(progress,0,1)); metric=scene['metric']
     w=df[['company',metric]].copy(); w[metric]=pd.to_numeric(w[metric],errors='coerce'); w=w.dropna()
@@ -386,8 +393,8 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
         for i in range(total):
             pp=1. if i>=frames else (i+1)/frames
             if is_timeline: _draw_timeline_on(fig,ax,scene,bg,text,grid,pp)
-            elif is_ranking: _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,pp)
-            else: _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,pp)
+            elif is_ranking: _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,pp,i/fps)
+            else: _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,pp,i/fps)
             fig.canvas.draw(); proc.stdin.write(fig.canvas.buffer_rgba())
             if i and i%max(1,fps*2)==0: _log(f'scene progress {i}/{total}')
         proc.stdin.close(); stderr=proc.stderr.read(); code=proc.wait()
