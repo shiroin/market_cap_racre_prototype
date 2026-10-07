@@ -105,7 +105,7 @@ def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress
     ax.clear(); fig.texts.clear(); _style_axis(ax,bg,text,grid)
     p=np.clip(float(progress),0,1); title_a=1.0; sub_a=.84; chart_a=1.0; late_a=fade_window(p,.76,.96)
     fig.text(.075,.93,scene['title'],color=text,fontsize=scene.get('title_size',22),fontweight='bold',ha='left',alpha=title_a)
-    _draw_reference_subtitle(fig,scene,text,y=.885,fontsize=max(7,scene.get('title_size',22)-10))
+    _draw_reference_subtitle(fig,scene,text,y=.885,fontsize=scene.get('subtitle_size',12))
     if scene.get('source'): fig.text(.075,.052,f"出典: {scene['source']}",color=text,fontsize=7,ha='left',alpha=.58)
     if scene.get('scene_note'):
         # Visually separate the chart body from the low-emphasis footnote area.
@@ -265,7 +265,7 @@ def _draw_timeline_on(fig,ax,scene,bg,text,grid,progress):
     ax.clear(); fig.texts.clear(); ax.set_facecolor(bg); ax.axis('off')
     p=np.clip(float(progress),0,1); title_a=1.0
     fig.text(.075,.93,scene.get('title','年表'),color=text,fontsize=scene.get('title_size',22),fontweight='bold',ha='left',alpha=title_a)
-    _draw_reference_subtitle(fig,scene,text,y=.892,fontsize=max(7,scene.get('title_size',22)-11))
+    _draw_reference_subtitle(fig,scene,text,y=.892,fontsize=scene.get('subtitle_size',12))
     events=_timeline_events(scene)
     if not events: return
     years=[e['year'] for e in events]; start=int(np.floor(scene.get('timeline_start',min(years)))); end=int(np.ceil(scene.get('timeline_end',max(years))))

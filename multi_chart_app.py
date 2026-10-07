@@ -186,10 +186,11 @@ for i in range(int(scene_count)):
         unit = c3.text_input("単位", "か月" if metric == "inventory_months" else "億円", key=f"unit_{i}")
         source_text = c4.text_input("出典", "", key=f"source_{i}")
         scene_note = st.text_area("補足", "", key=f"scene_note_{i}", help="Scene下部に小さく表示します。複数行入力できます。")
-        c5, c6, c7 = st.columns(3)
+        c5, c6, c7, c7b = st.columns(4)
         duration = c5.slider("描画時間（秒）", .5, 30.0, 2.8, .1, key=f"duration_{i}")
         hold = c6.slider("静止時間（秒）", 0., 10., 1.2, .1, key=f"hold_{i}")
         title_size = c7.slider("タイトルサイズ", 12, 34, 22, key=f"title_size_{i}")
+        subtitle_size = c7b.slider("サブタイトルサイズ", 6, 24, 12, key=f"subtitle_size_{i}")
         c8, c9, c10 = st.columns(3)
         legend = c8.checkbox("凡例", chart != "折れ線", key=f"legend_{i}")
         end_labels = c9.checkbox("右端ラベル", chart == "折れ線", key=f"end_labels_{i}")
@@ -253,7 +254,7 @@ for i in range(int(scene_count)):
 
         scenes.append({
             "chart":chart, "metric":metric, "title":title, "subtitle":subtitle, "unit":unit, "source":source_text, "scene_note":scene_note,
-            "duration":duration, "hold":hold, "title_size":title_size, "legend":legend, "end_labels":end_labels,
+            "duration":duration, "hold":hold, "title_size":title_size, "subtitle_size":subtitle_size, "legend":legend, "end_labels":end_labels,
             "latest_values":latest_values, "end_label_size":end_label_size, "label_gap":label_gap,
             "value_decimals":value_decimals, "bar_animation":bar_animation, "data_labels":data_labels,
             "data_label_size":data_label_size, "bar_gap":bar_gap, "timeline_events":timeline_events,
