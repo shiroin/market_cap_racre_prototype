@@ -40,6 +40,18 @@ def _draw_reference_subtitle(fig,scene,text,accent='#16718C',y=.885,fontsize=8):
     wrapped='\\n'.join('\\n'.join(textwrap.wrap(line,width=max_chars,break_long_words=False,break_on_hyphens=False)) or '' for line in subtitle.split('\\n'))
     fig.text(.075,y,wrapped,color=text,fontsize=fontsize,fontweight='normal',ha='left',va='center',alpha=.68,zorder=22,linespacing=1.30,wrap=False)
 
+
+def _draw_scene_comments(fig,scene,text,progress):
+    c1=str(scene.get('scene_comment_1','') or '').strip(); c2=str(scene.get('scene_comment_2','') or '').strip()
+    if not c1 and not c2: return
+    size=int(scene.get('scene_comment_size',12)); y=.125
+    if c1:
+        a1=fade_window(progress,.72,.84)
+        fig.text(.075,y,c1,color=text,fontsize=size,fontweight='bold',ha='left',va='bottom',alpha=a1,zorder=30,wrap=True)
+    if c2:
+        a2=fade_window(progress,.86,.97)
+        fig.text(.075,y-.045,c2,color=text,fontsize=size,fontweight='bold',ha='left',va='bottom',alpha=a2,zorder=30,wrap=True)
+
 def _style_axis(ax,bg,text,grid):
     ax.set_facecolor(bg); ax.tick_params(colors=text,labelsize=9,length=0,pad=7)
     for s in ax.spines.values(): s.set_visible(False)
@@ -103,6 +115,7 @@ def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress
     fig.text(.075,.93,scene['title'],color=text,fontsize=scene.get('title_size',22),fontweight='bold',ha='left',alpha=title_a)
     _draw_reference_subtitle(fig,scene,text,y=.885,fontsize=scene.get('subtitle_size',12))
     if scene.get('source'): fig.text(.075,.052,f"出典: {scene['source']}",color=text,fontsize=7,ha='left',alpha=.58)
+    _draw_scene_comments(fig,scene,text,p)
     if scene.get('scene_note'):
         # Visually separate the chart body from the low-emphasis footnote area.
         divider=plt.Line2D([.075,.925],[.043,.043],transform=fig.transFigure,color=grid,lw=.7,alpha=.70)
@@ -309,6 +322,7 @@ def _draw_timeline_on(fig,ax,scene,bg,text,grid,progress):
                 desc_y=y-.018
             ax.text(spine_x+.034,desc_y,event['description'],transform=ax.transAxes,color=text,fontsize=6.3,ha='left',va='top',alpha=.66*a)
     # A separate, spacious takeaway area like “設立から開業まで、7年。”
+    _draw_scene_comments(fig,scene,text,p)
     summary=scene.get('timeline_summary','').strip()
     summary_2=scene.get('timeline_summary_2','').strip()
     if summary:
