@@ -35,13 +35,8 @@ def fade_window(p,start=0,end=.18):
 def _draw_reference_subtitle(fig,scene,text,accent='#16718C',y=.885,fontsize=8):
     subtitle=str(scene.get('subtitle','') or '').strip()
     if not subtitle: return
-    # Original house style: no boxed band. A short underline separates the
-    # subtitle from the title while keeping the page airy and editorial.
-    from matplotlib.lines import Line2D
-    lines=subtitle.count('\n')+1
-    fig.text(.075,y,subtitle,color=text,fontsize=fontsize,fontweight='normal',ha='left',va='center',alpha=.72,zorder=22,linespacing=1.32,wrap=True)
-    underline_y=y-(.025+max(0,lines-1)*.014)
-    fig.add_artist(Line2D([.075,.155],[underline_y,underline_y],transform=fig.transFigure,color=accent,lw=2.2,alpha=.88,zorder=21))
+    # Minimal house style: typography only. No band, border, rule, or decoration.
+    fig.text(.075,y,subtitle,color=text,fontsize=fontsize,fontweight='normal',ha='left',va='center',alpha=.68,zorder=22,linespacing=1.30,wrap=True)
 
 def _style_axis(ax,bg,text,grid):
     ax.set_facecolor(bg); ax.tick_params(colors=text,labelsize=9,length=0,pad=7)
