@@ -185,7 +185,7 @@ for i in range(int(scene_count)):
         unit = c3.text_input("単位", "か月" if metric == "inventory_months" else "億円", key=f"unit_{i}")
         source_text = c4.text_input("出典", "", key=f"source_{i}")
         c5, c6, c7 = st.columns(3)
-        duration = c5.slider("描画時間（秒）", .5, 8.0, 2.8, .1, key=f"duration_{i}")
+        duration = c5.slider("描画時間（秒）", .5, 30.0, 2.8, .1, key=f"duration_{i}")
         hold = c6.slider("静止時間（秒）", 0., 5., 1.2, .1, key=f"hold_{i}")
         title_size = c7.slider("タイトルサイズ", 12, 34, 22, key=f"title_size_{i}")
         c8, c9, c10 = st.columns(3)
