@@ -317,7 +317,7 @@ def _timeline_events(scene):
             else:
                 position=year_value
             label=str(row.get('date','')).strip()
-            clean.append({'year':position,'date':label,'title':str(row.get('title','')).strip(),
+            clean.append({'year':position,'actual_date':actual.isoformat() if (has_month or has_day) else None,'date':label,'title':str(row.get('title','')).strip(),
                 'description':str(row.get('description','')).strip(),'badge':str(row.get('badge','')).strip()})
         except (TypeError,ValueError,OverflowError):
             continue
@@ -493,27 +493,51 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
         # Resolve the active bar by either actual reporting dates or the
         # ordinal event index. The latter is essential when the example event
         # dates and the financial CSV cover different time ranges.
-        valid_periods=sorted(((yr,k) for k,yr in enumerate(years) if yr is not None))
+        from datetime import date as calendar_date, timedelta
+        import calendar
         mode=scene.get('timeline_period_mapping','日付')
+        def period_bounds(label):
+            match=re.search(r'((?:19|20|21)\d{2})',str(label))
+            if not match: return None
+            fy=int(match.group(1))
+            qmatch=re.search(r'Q\s*([1-4])',str(label),re.I)
+            if qmatch:
+                q=int(qmatch.group(1))
+                month_offset=(fiscal_end-1)-12+q*3
+                end_year=fy+month_offset//12
+                end_month=month_offset%12+1
+                end_date=calendar_date(end_year,end_month,calendar.monthrange(end_year,end_month)[1])
+                first_month_index=end_year*12+end_month-3
+                start_date=calendar_date(first_month_index//12,(first_month_index%12)+1,1)
+                return start_date,end_date
+            m=re.search(r'(?:19|20|21)\d{2}[-/](\d{1,2})',str(label))
+            if m:
+                month=int(m.group(1))
+                if not 1<=month<=12: return None
+                return calendar_date(fy,month,1),calendar_date(fy,month,calendar.monthrange(fy,month)[1])
+            start_month=(fiscal_end%12)+1
+            start_year=fy if fiscal_end==12 else fy-1
+            return (calendar_date(start_year,start_month,1),
+                    calendar_date(fy,fiscal_end,calendar.monthrange(fy,fiscal_end)[1]))
+        valid_periods=[(k,*bounds) for k,label in enumerate(labels)
+                       if (bounds:=period_bounds(label)) is not None]
+        def event_calendar_date(event):
+            exact=event.get('actual_date')
+            if exact:
+                return calendar_date.fromisoformat(exact)
+            # Backwards compatibility with legacy decimal-year event positions.
+            fractional=float(event['year'])
+            year=int(fractional)
+            days=(calendar_date(year+1,1,1)-calendar_date(year,1,1)).days
+            return calendar_date(year,1,1)+timedelta(days=round((fractional-year)*days))
         def period_index(event_position):
             if not valid_periods: return None
             if mode=='イベント順':
-                slot=round(event_position*(len(valid_periods)-1)/
-                           max(1,len(stop_events)-1))
-                return valid_periods[slot][1]
-            event_time=stop_events[event_position]['year']
-            # Each period owns (previous quarter end, current quarter end].
-            # For the first period, infer its start from the next period's
-            # interval; do NOT clamp events from years before the data.
-            if len(valid_periods)>1:
-                interval=min(.25,max(1./12.,valid_periods[1][0]-valid_periods[0][0]))
-            else:
-                interval=.25 if any(re.search(r'Q[1-4]',str(x),re.I) for x in labels) else 1.
-            first_start=valid_periods[0][0]-interval
-            if event_time<=first_start+1e-8 or event_time>valid_periods[-1][0]+1e-8:
-                return None
-            for period_end,index in valid_periods:
-                if event_time<=period_end+1e-8:
+                slot=round(event_position*(len(valid_periods)-1)/max(1,len(stop_events)-1))
+                return valid_periods[slot][0]
+            when=event_calendar_date(stop_events[event_position])
+            for index,first,last in valid_periods:
+                if first<=when<=last:
                     return index
             return None
         active_index=period_index(position)
