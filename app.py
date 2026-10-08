@@ -62,6 +62,12 @@ def sheets_csv_url(url, sheet_name=None):
         return f"https://docs.google.com/spreadsheets/d/{sid}/export?format=csv&gid={gid}"
     return f"https://docs.google.com/spreadsheets/d/{sid}/export?format=csv"
 
+chart_mode = st.selectbox("グラフ形式", ["企業積み上げ比較", "2指標・横棒比較"], key="chart_mode")
+if chart_mode == "2指標・横棒比較":
+    from dual_metric import render_mode
+    render_mode(sheets_csv_url, setup_jp_font)
+    st.stop()
+
 st.title("企業比較動画ジェネレーター v0.3")
 st.caption(f"Google Sheets / CSV → 縦型比較動画 → MP4　｜　使用フォント: {FONT}")
 
