@@ -171,7 +171,7 @@ default_titles = ["上場買取再販4社の在庫", "各社の在庫キャッ�
 default_subtitles = ["販売用不動産（仕掛販売用不動産を含む）の期末残高", "販売用不動産の期末残高", "販売用不動産の期末残高÷売上高×12"]
 default_charts = ["積み上げ棒", "折れ線", "折れ線"]
 default_metrics = ["inventory", "inventory", "inventory_months"]
-chart_options = ["積み上げ棒", "折れ線", "棒グラフ", "100%積み上げ", "横比較ランキング", "年表", "横進行年表", "業績連動年表", "縦時系列年表"]
+chart_options = ["積み上げ棒", "折れ線", "棒グラフ", "100%積み上げ", "横比較ランキング", "2指標・企業横比較", "年表", "横進行年表", "業績連動年表", "縦時系列年表"]
 
 for i in range(int(scene_count)):
     with st.expander(f"Scene {i+1}", expanded=i == 0):
@@ -269,6 +269,29 @@ for i in range(int(scene_count)):
             financial_comment_delay = st.slider("最後のdescription表示後→下部コメント①まで（秒）", 1.0, 3.0, 2.0, 0.1, key=f"financial_comment_delay_{i}", help="最後のイベント説明のフェードイン完了から指定秒数後に下部コメントを表示します。")
             st.caption("球は年表イベントのyear/month/day座標で停止します。停止中にコメントを表示し、グラフ背景は到達時点の期を強調します。")
 
+        dual_metric_a = metric
+        dual_metric_b = metric_columns[1] if len(metric_columns)>1 else metric
+        dual_mode = "実数値"
+        dual_axis = "同一軸"
+        dual_sort = "入力順"
+        dual_color_a, dual_color_b = "#8799B1", "#D95E37"
+        if chart == "2指標・企業横比較":
+            st.markdown("**2指標・企業横比較**")
+            if len(metric_columns)<2:
+                st.warning("このSceneには数値指標列が2つ必要です。データに列を追加してください。")
+            da,db = st.columns(2)
+            dual_metric_a = da.selectbox("指標A", metric_columns, key=f"dual_metric_a_{i}")
+            dual_metric_b = db.selectbox("指標B", metric_columns,
+                index=min(1,len(metric_columns)-1), key=f"dual_metric_b_{i}")
+            dc,dd, de = st.columns(3)
+            dual_mode = dc.selectbox("表示形式", ["実数値","基準年倍率","基準年比成長率"], key=f"dual_mode_{i}")
+            dual_axis = dd.radio("横軸", ["同一軸","別軸"], horizontal=True, key=f"dual_axis_{i}")
+            dual_sort = de.selectbox("企業の並び", ["入力順","指標Aの最新値順","指標Bの最新値順"], key=f"dual_sort_{i}")
+            ca,cb = st.columns(2)
+            dual_color_a = ca.color_picker("指標Aの色", dual_color_a, key=f"dual_color_a_{i}")
+            dual_color_b = cb.color_picker("指標Bの色", dual_color_b, key=f"dual_color_b_{i}")
+            st.caption("date / company / 指標A / 指標B を使用します。Sceneの描画時間中に期間を順番にアニメーションします。")
+
         ranking_sort = "大きい順"
         ranking_reference = 0.0
         ranking_highlight = 3
@@ -301,7 +324,7 @@ for i in range(int(scene_count)):
             "timeline_start":timeline_start, "timeline_end":timeline_end, "timeline_note":timeline_note,
             "timeline_summary":timeline_summary, "timeline_summary_2":timeline_summary_2, "timeline_summary_size":timeline_summary_size,
             "timeline_bar_metric":timeline_bar_metric, "timeline_line_metric":timeline_line_metric, "timeline_bar_color":timeline_bar_color, "timeline_line_color":timeline_line_color, "timeline_highlight_color":timeline_highlight_color, "timeline_highlight_alpha":timeline_highlight_alpha, "timeline_fiscal_year_end_month":timeline_fiscal_year_end_month, "timeline_travel_ratio":timeline_travel_ratio, "timeline_period_mapping":timeline_period_mapping, "financial_comment_delay":financial_comment_delay,
-            "ranking_sort":ranking_sort, "ranking_reference":ranking_reference, "ranking_highlight":ranking_highlight
+            "dual_metric_a":dual_metric_a, "dual_metric_b":dual_metric_b, "dual_mode":dual_mode, "dual_axis":dual_axis, "dual_sort":dual_sort, "dual_color_a":dual_color_a, "dual_color_b":dual_color_b, "ranking_sort":ranking_sort, "ranking_reference":ranking_reference, "ranking_highlight":ranking_highlight
         })
 
 preview_scene = st.selectbox("プレビューするScene", range(1, len(scenes)+1), format_func=lambda x:f"Scene {x}")
