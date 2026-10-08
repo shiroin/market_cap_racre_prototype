@@ -244,8 +244,10 @@ for i in range(int(scene_count)):
         timeline_line_color = "#B83F68"
         timeline_highlight_color = "#EAC6D3"
         timeline_highlight_alpha = 0.42
+        timeline_fiscal_year_end_month = 12
         if chart == "業績連動年表":
             st.markdown("**連動する業績グラフ**")
+            timeline_fiscal_year_end_month = st.selectbox("決算月（四半期の期末判定）", list(range(1,13)), index=11, key=f"timeline_fiscal_year_end_month_{i}", help="2020Q1等を会計年度の四半期として解釈します。12月決算ならQ1=3月末、3月決算ならQ1=前年6月末です。")
             timeline_bar_metric = st.selectbox("棒グラフの指標", metric_columns,
                 index=metric_columns.index(metric), key=f"timeline_bar_metric_{i}")
             timeline_line_metric = st.selectbox("折れ線の指標（任意）", ["(なし)"]+metric_columns,
@@ -288,7 +290,7 @@ for i in range(int(scene_count)):
             "data_label_size":data_label_size, "bar_gap":bar_gap, "timeline_events":timeline_events,
             "timeline_start":timeline_start, "timeline_end":timeline_end, "timeline_note":timeline_note,
             "timeline_summary":timeline_summary, "timeline_summary_2":timeline_summary_2, "timeline_summary_size":timeline_summary_size,
-            "timeline_bar_metric":timeline_bar_metric, "timeline_line_metric":timeline_line_metric, "timeline_bar_color":timeline_bar_color, "timeline_line_color":timeline_line_color, "timeline_highlight_color":timeline_highlight_color, "timeline_highlight_alpha":timeline_highlight_alpha,
+            "timeline_bar_metric":timeline_bar_metric, "timeline_line_metric":timeline_line_metric, "timeline_bar_color":timeline_bar_color, "timeline_line_color":timeline_line_color, "timeline_highlight_color":timeline_highlight_color, "timeline_highlight_alpha":timeline_highlight_alpha, "timeline_fiscal_year_end_month":timeline_fiscal_year_end_month,
             "ranking_sort":ranking_sort, "ranking_reference":ranking_reference, "ranking_highlight":ranking_highlight
         })
 

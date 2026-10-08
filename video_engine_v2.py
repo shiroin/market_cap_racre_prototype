@@ -331,18 +331,36 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
     data=data.dropna(subset=[bar_metric]).groupby('date',sort=False).sum(numeric_only=True)
     if data.empty: return
     labels=list(data.index)
+    fiscal_end=int(scene.get('timeline_fiscal_year_end_month',12))
+    fiscal_end=max(1,min(12,fiscal_end))
     def date_year(label):
-        match=re.search(r'(?:19|20|21)\\d{2}',str(label))
+        """Return period END as a decimal calendar year, not a guessed mid-year."""
+        label=str(label).strip()
+        match=re.search(r'((?:19|20|21)\\d{2})',label)
         if not match: return None
-        year=float(match.group(0))
-        q=re.search(r'Q([1-4])',str(label),re.I)
-        if q: return year+(int(q.group(1))-.5)/4
-        m=re.search(r'(?:19|20|21)\\d{2}[-/](\\d{1,2})',str(label))
-        if m: return year+(int(m.group(1))-.5)/12
-        return year+.5
+        year=int(match.group(1))
+        quarter=re.search(r'Q\\s*([1-4])',label,re.I)
+        if quarter:
+            # Fiscal 2020 Q1 ends Jun 2019 for a March year-end,
+            # while calendar 2020 Q1 ends Mar 2020.
+            q=int(quarter.group(1))
+            month_index=(fiscal_end-1)-12+(q*3)
+            end_year=year+month_index//12
+            end_month=month_index%12+1
+            return end_year+end_month/12.
+        month=re.search(r'(?:19|20|21)\\d{2}[-/](\\d{1,2})',label)
+        if month:
+            m=int(month.group(1))
+            return year+m/12. if 1<=m<=12 else None
+        # Annual fiscal period ends in its fiscal year-end month.
+        return year+fiscal_end/12.
     years=[date_year(label) for label in labels]
-    start=float(scene.get('timeline_start',min((y for y in years if y is not None),default=2018)))
-    end=float(scene.get('timeline_end',max((y for y in years if y is not None),default=2025)))
+    valid_years=[y for y in years if y is not None]
+    event_years=[ev['year'] for ev in events]
+    # Respect configured timeline bounds while ensuring actual financial periods
+    # are never silently omitted due to default timeline start/end values.
+    start=min(valid_years+event_years+[float(scene.get('timeline_start',2018))])
+    end=max(valid_years+event_years+[float(scene.get('timeline_end',2025))])
     if end<=start: end=start+1
     # Move between actual financial periods, then dwell at each period.
     # Same 30% travel / 70% hold rhythm as the horizontal event timeline.
