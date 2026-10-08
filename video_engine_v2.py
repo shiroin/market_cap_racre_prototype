@@ -1040,25 +1040,23 @@ def _draw_dual_metric_scene(fig, ax, df, scene, bg, text, grid, progress, prepar
                'labels_a':labels_a,'labels_b':labels_b,'period_text':period_text,
                'lim_a':lim_a,'lim_b':lim_b,'fmt':fmt,'count':count}
         fig._dual_metric_state=state
+    # This scene is a latest-period snapshot, not a historical race.
+    # Reveal metric A company-by-company, then metric B, from the zero axis.
     p=float(np.clip(progress,0,1))
-    phase_position=p*len(dates)
-    period_index=min(int(phase_position),len(dates)-1)
-    phase=float(np.clip(phase_position-period_index,0,1))
-    if p>=1.: phase=1.
-    previous=np.zeros_like(vals[0]) if period_index==0 else vals[period_index-1]
-    target=vals[period_index]
+    target=vals[-1]
     count=state['count']
     indices=np.arange(count)
     slot=.46/max(1,count)
-    reveal_a=np.clip((phase-.02-indices*slot)/(slot*1.25),0,1)
+    reveal_a=np.clip((p-.02-indices*slot)/(slot*1.25),0,1)
     reveal_a=reveal_a*reveal_a*(3.-2.*reveal_a)
-    reveal_b=np.clip((phase-.52-indices*slot)/(slot*1.25),0,1)
+    reveal_b=np.clip((p-.52-indices*slot)/(slot*1.25),0,1)
     reveal_b=reveal_b*reveal_b*(3.-2.*reveal_b)
-    current=previous.copy()
-    current[:,0]+=(target[:,0]-previous[:,0])*reveal_a
-    current[:,1]+=(target[:,1]-previous[:,1])*reveal_b
-    alpha_a=reveal_a if period_index==0 else np.ones(count)
-    alpha_b=reveal_b if period_index==0 else np.ones(count)
+    current=np.zeros_like(target)
+    current[:,0]=target[:,0]*reveal_a
+    current[:,1]=target[:,1]*reveal_b
+    alpha_a=reveal_a
+    alpha_b=reveal_b
+    period_index=len(dates)-1
     state['period_text'].set_text(str(dates[period_index]))
     for k,(bars,labels,alphas,lim) in enumerate((
         (state['bars_a'],state['labels_a'],alpha_a,state['lim_a']),
