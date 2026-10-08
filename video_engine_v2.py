@@ -439,7 +439,7 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
     values=data[bar_metric].to_numpy(dtype=float)
     ymax=max(1.,float(np.nanmax(values))*1.20)
     # The financial chart occupies its own middle band; labels stay above timeline.
-    ax.set_position([.12,.365,.77,.325])
+    ax.set_position([.12,.345,.77,.255])
     ax.set_xlim(-.65,len(labels)-.35)
     ax.set_ylim(min(0.,float(np.nanmin(values)))*1.1,ymax)
     ax.grid(axis='y',color=grid,alpha=.45,lw=.7)
@@ -472,8 +472,8 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
         # a new twinx axis on each animation frame.
         mapped=ymax*(.17+.68*(line_values-lo)/span)
         ax.plot(x,mapped,color=scene.get('timeline_line_color','#B83F68'),lw=2.0,marker='o',markersize=2.6,zorder=5)
-        fig.text(.88,.705,str(line_metric),color=scene.get('timeline_line_color','#B83F68'),fontsize=7,ha='right')
-    fig.text(.12,.715,str(bar_metric),color=text,fontsize=8,fontweight='bold',ha='left')
+        fig.text(.88,.616,str(line_metric),color=scene.get('timeline_line_color','#B83F68'),fontsize=7,ha='right')
+    fig.text(.12,.616,str(bar_metric),color=text,fontsize=8,fontweight='bold',ha='left')
     # Show only the current stop's comment. Never switch comments mid-travel.
     if stop_events:
         current=stop_events[position]
@@ -481,14 +481,14 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
         fade_out=(1.-float(fade_window(local,.90,.99))) if position<len(stop_events)-1 else 1.
         opacity=float(np.clip(fade_in*fade_out,0,1))
         if current.get('date'):
-            fig.text(.09,.835,current['date'],color=text,fontsize=9,
+            fig.text(.09,.842,current['date'],color=text,fontsize=9,
                 fontweight='bold',ha='left',alpha=opacity)
         if current.get('title'):
-            fig.text(.09,.800,current['title'],color=text,fontsize=14,
+            fig.text(.09,.805,current['title'],color=text,fontsize=14,
                 fontweight='bold',ha='left',alpha=opacity,wrap=True)
         if current.get('description'):
-            fig.text(.09,.762,current['description'],color=text,fontsize=8,
-                ha='left',alpha=opacity,wrap=True)
+            fig.text(.09,.735,current['description'],color=text,fontsize=8,
+                ha='left',va='top',alpha=opacity,wrap=True)
     # One continuous pale line, pale stops, and exactly one moving ball.
     left,right=.10,.90
     yline=.235
