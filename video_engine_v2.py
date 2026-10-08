@@ -303,6 +303,81 @@ def _timeline_events(scene):
     return sorted(clean,key=lambda r:r['year'])
 
 
+def _draw_horizontal_timeline_on(fig,ax,scene,bg,text,grid,progress):
+    """One event at a time, synchronized with a persistent horizontal timeline."""
+    from matplotlib.patches import FancyBboxPatch
+    ax.clear(); fig.texts.clear()
+    for patch in list(fig.patches): patch.remove()
+    ax.axis('off')
+    p=float(np.clip(progress,0,1))
+    fig.text(.075,.93,scene.get('title','年表'),color=text,
+        fontsize=scene.get('title_size',22),fontweight='bold',ha='left')
+    _draw_reference_subtitle(fig,scene,text,y=.885,
+        fontsize=scene.get('subtitle_size',12),alpha=fade_window(p,.01,.09))
+    events=_timeline_events(scene)
+    if not events: return
+    n=len(events)
+    start=float(scene.get('timeline_start',int(np.floor(events[0]['year']))))
+    end=float(scene.get('timeline_end',int(np.ceil(events[-1]['year']))))
+    if end<=start: end=start+1.
+    # Figure-relative coordinates keep the timeline stable across aspect ratios.
+    left,right=.09,.91
+    yline=.255
+    def xpos(year):
+        return left+(right-left)*float(np.clip((year-start)/(end-start),0,1))
+    fig.add_artist(plt.Line2D([left,right],[yline,yline],transform=fig.transFigure,
+        color=grid,lw=1.8,alpha=.9,zorder=4))
+    span=end-start
+    tick_step=max(1,int(np.ceil(span/6)))
+    for year in range(int(np.ceil(start)),int(np.floor(end))+1,tick_step):
+        x=xpos(year)
+        fig.add_artist(plt.Line2D([x,x],[yline-.005,yline+.005],
+            transform=fig.transFigure,color=text,lw=.7,alpha=.45,zorder=5))
+        fig.text(x,yline-.018,str(year),ha='center',va='top',fontsize=6.5,color=text,alpha=.7)
+    # Time moves through the event positions, pausing long enough for each to be read.
+    position=min(n-1,int(p*n))
+    local=float(np.clip(p*n-position,0,1))
+    event=events[position]
+    # A marker is visible for every event; past events are filled more strongly.
+    for i,ev in enumerate(events):
+        x=xpos(ev['year'])
+        fig.add_artist(plt.Line2D([x],[yline],transform=fig.transFigure,
+            marker='o',markersize=5 if i!=position else 8,color='#173453' if i<=position else '#A8B9CA',
+            linestyle='None',zorder=8))
+    cursor=xpos(event['year'])
+    fig.add_artist(plt.Line2D([left,cursor],[yline,yline],transform=fig.transFigure,
+        color='#173453',lw=2.0,zorder=6))
+    # Fade the current card in, then gently fade it out before the next event.
+    fade_in=float(fade_window(local,.04,.23))
+    fade_out=1.-float(fade_window(local,.88,.99)) if position<n-1 else 1.
+    opacity=float(np.clip(fade_in*fade_out,0,1))
+    date=event.get('date','')
+    if date:
+        fig.text(.09,.745,date,color='white',fontsize=9,fontweight='bold',
+            ha='left',va='center',alpha=opacity,
+            bbox=dict(boxstyle='round,pad=.42',facecolor='#172B47',edgecolor='none',alpha=opacity))
+    title=event.get('title','')
+    if title:
+        fig.text(.09,.678,title,color=text,fontsize=min(18,scene.get('title_size',22)),
+            fontweight='bold',ha='left',va='top',alpha=opacity,wrap=True)
+    description=event.get('description','')
+    if description:
+        fig.text(.09,.595,description,color=text,fontsize=10,ha='left',
+            va='top',alpha=opacity,wrap=True,linespacing=1.35)
+    quote=event.get('badge','')
+    if quote:
+        fig.text(.11,.455,quote,color=text,fontsize=9,fontweight='bold',
+            ha='left',va='center',alpha=opacity,wrap=True,
+            bbox=dict(boxstyle='round,pad=.65',facecolor='#E1E0D8',edgecolor='none',alpha=.9*opacity))
+    note=str(scene.get('timeline_note','') or '').strip()
+    general=str(scene.get('scene_note','') or '').strip()
+    if general: note=(note+'\\n'+general).strip()
+    if note:
+        fig.add_artist(plt.Line2D([.075,.925],[.063,.063],
+            transform=fig.transFigure,color=grid,lw=.7,alpha=.7))
+        fig.text(.075,.042,note,color=text,fontsize=5,ha='left',va='bottom',alpha=.55)
+
+
 def _draw_timeline_on(fig,ax,scene,bg,text,grid,progress):
     ax.clear(); fig.texts.clear(); [patch.remove() for patch in list(fig.patches)]; ax.set_facecolor(bg); ax.axis('off')
     p=np.clip(float(progress),0,1); title_a=1.0
@@ -386,7 +461,9 @@ def _make_canvas(ratio,bg,quality,chart=None,scene=None):
 
 def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='preview'):
     fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'),scene)
-    if scene.get('chart')=='年表':
+    if scene.get('chart')=='横進行年表':
+        _draw_horizontal_timeline_on(fig,ax,scene,bg,text,grid,progress)
+    elif scene.get('chart')=='年表':
         _draw_timeline_on(fig,ax,scene,bg,text,grid,progress)
     elif scene.get('chart')=='横比較ランキング':
         _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,progress)
@@ -397,9 +474,10 @@ def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='pr
 
 def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
     started=time.monotonic(); frames=max(2,int(scene.get('duration',2.5)*fps)); hold=max(0,int(scene.get('hold',1.0)*fps)); fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'),scene)
-    is_timeline=scene.get('chart')=='年表'; is_ranking=scene.get('chart')=='横比較ランキング'
+    is_timeline=scene.get('chart') in ('年表','横進行年表'); is_ranking=scene.get('chart')=='横比較ランキング'
     if not is_timeline and not is_ranking: dates,companies,pivot=_prepare_scene(df,scene)
-    if is_timeline: _draw_timeline_on(fig,ax,scene,bg,text,grid,1/max(2,frames))
+    if is_timeline:
+        (_draw_horizontal_timeline_on if scene.get('chart')=='横進行年表' else _draw_timeline_on)(fig,ax,scene,bg,text,grid,1/max(2,frames))
     elif is_ranking: _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,1/max(2,frames))
     else: _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,1/max(2,frames))
     # Canvas dimensions are required by FFmpeg for every scene type.
@@ -412,7 +490,7 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
         total=frames+hold
         for i in range(total):
             pp=1. if i>=frames else (i+1)/frames
-            if is_timeline: _draw_timeline_on(fig,ax,scene,bg,text,grid,pp)
+            if is_timeline: (_draw_horizontal_timeline_on if scene.get('chart')=='横進行年表' else _draw_timeline_on)(fig,ax,scene,bg,text,grid,pp)
             elif is_ranking: _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,pp,i/fps)
             else: _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,pp,i/fps)
             fig.canvas.draw(); proc.stdin.write(fig.canvas.buffer_rgba())
