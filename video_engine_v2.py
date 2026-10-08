@@ -398,20 +398,42 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
         travel=float(ease_in_out(np.clip(local/travel_ratio,0,1)))
         now=previous_year+(target_year-previous_year)*travel
         if p>=1.: now=target_year
-        # Highlight the most recent financial period at/before the stop.
-        valid_periods=[(k,yr) for k,yr in enumerate(years) if yr is not None]
-        eligible=[(k,yr) for k,yr in valid_periods if yr<=target_year+1e-8]
-        # The latest reported period at the event date; if the event precedes
-        # the dataset, highlight the earliest available period instead.
-        chosen=max(eligible,key=lambda item:item[1]) if eligible else (
-            min(valid_periods,key=lambda item:item[1]) if valid_periods else None)
-        active_index=chosen[0] if chosen is not None else None
-        arrival=float(fade_window(local,travel_ratio,min(.95,travel_ratio+.12)))
+        # Resolve the active bar by either actual reporting dates or the
+        # ordinal event index. The latter is essential when the example event
+        # dates and the financial CSV cover different time ranges.
+        valid_periods=sorted(((yr,k) for k,yr in enumerate(years) if yr is not None))
+        mode=scene.get('timeline_period_mapping','自動')
+        event_min=min(ev['year'] for ev in stop_events)
+        event_max=max(ev['year'] for ev in stop_events)
+        period_min=valid_periods[0][0] if valid_periods else 0.
+        period_max=valid_periods[-1][0] if valid_periods else 0.
+        # Automatic matching uses chronological sequence when most events
+        # precede or follow the financial data (e.g. default demo events).
+        out_of_range=sum(not(period_min<=ev['year']<=period_max)
+                         for ev in stop_events)
+        use_order=(mode=='イベント順') or (mode=='自動' and
+                   out_of_range>len(stop_events)/2)
+        def period_index(event_position):
+            if not valid_periods: return None
+            if use_order:
+                slot=round(event_position*(len(valid_periods)-1)/
+                           max(1,len(stop_events)-1))
+                return valid_periods[slot][1]
+            event_time=stop_events[event_position]['year']
+            earlier=[item for item in valid_periods if item[0]<=event_time+1e-8]
+            return (earlier[-1] if earlier else valid_periods[0])[1]
+        active_index=period_index(position)
+        previous_index=period_index(position-1) if position>0 else None
+        # Keep the previous highlight visible throughout travel. Crossfade
+        # to the new bar only AFTER the ball has arrived at the next stop.
+        arrival=float(fade_window(local,travel_ratio,
+                                  min(.95,travel_ratio+.12)))
     else:
         position=0
         local=0.
         now=start
         active_index=None
+        previous_index=None
         arrival=0.
     x=np.arange(len(labels))
     values=data[bar_metric].to_numpy(dtype=float)
@@ -429,10 +451,16 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
     ax.set_xticklabels([labels[i] for i in range(0,len(labels),stride)],rotation=0)
     # Highlight only the active period. The background fades in as the
     # timeline ball reaches that period; earlier periods do not leave a trail.
-    if active_index is not None and arrival>0:
+    highlight_color=scene.get('timeline_highlight_color','#EAC6D3')
+    highlight_alpha=float(np.clip(scene.get('timeline_highlight_alpha',.42),0,1))
+    if previous_index is not None and previous_index!=active_index and arrival<1:
+        ax.axvspan(previous_index-.48,previous_index+.48,
+            color=highlight_color,alpha=highlight_alpha*(1-arrival),
+            zorder=0,lw=0)
+    if active_index is not None:
+        strength=arrival if previous_index!=active_index else 1.
         ax.axvspan(active_index-.48,active_index+.48,
-            color=scene.get('timeline_highlight_color','#EAC6D3'),
-            alpha=float(np.clip(scene.get('timeline_highlight_alpha',.42),0,1))*arrival,
+            color=highlight_color,alpha=highlight_alpha*strength,
             zorder=0,lw=0)
     bar_color=scene.get('timeline_bar_color','#B83F68')
     ax.bar(x,values,width=.66,color=bar_color,alpha=.78,zorder=3)
