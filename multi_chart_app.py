@@ -171,7 +171,7 @@ default_titles = ["上場買取再販4社の在庫", "各社の在庫キャッ�
 default_subtitles = ["販売用不動産（仕掛販売用不動産を含む）の期末残高", "販売用不動産の期末残高", "販売用不動産の期末残高÷売上高×12"]
 default_charts = ["積み上げ棒", "折れ線", "折れ線"]
 default_metrics = ["inventory", "inventory", "inventory_months"]
-chart_options = ["積み上げ棒", "折れ線", "棒グラフ", "100%積み上げ", "横比較ランキング", "2指標・企業横比較", "年表", "横進行年表", "業績連動年表", "縦時系列年表"]
+chart_options = ["積み上げ棒", "折れ線", "棒グラフ", "100%積み上げ", "横比較ランキング", "2指標・企業横比較", "年表", "横進行年表", "業績連動年表", "縦時系列年表", "テキストカード一覧"]
 
 for i in range(int(scene_count)):
     with st.expander(f"Scene {i+1}", expanded=i == 0):
@@ -208,6 +208,17 @@ for i in range(int(scene_count)):
         label_gap = c12.slider("ラベル間隔", .025, .12, .055, .005, key=f"label_gap_{i}")
         value_decimals = c13.selectbox("小数桁", [0,1,2], index=0, key=f"decimals_{i}")
 
+        text_cards = []
+        if chart == "テキストカード一覧":
+            st.markdown("**テキストカード（順番に表示）**")
+            card_count = st.number_input("カード数", 1, 8, 5, key=f"text_card_count_{i}")
+            for card_i in range(int(card_count)):
+                st.markdown(f"カード {card_i+1}")
+                card_title = st.text_input("見出し", key=f"text_card_title_{i}_{card_i}")
+                card_description = st.text_input("説明・出典", key=f"text_card_description_{i}_{card_i}")
+                card_color = st.color_picker("アクセント", "#C04A31" if card_i%2==0 else "#28577A", key=f"text_card_color_{i}_{card_i}")
+                if card_title.strip():
+                    text_cards.append({"title":card_title.strip(),"description":card_description.strip(),"color":card_color})
         timeline_events = []
         timeline_start = 2018
         timeline_end = 2025
@@ -316,7 +327,7 @@ for i in range(int(scene_count)):
             bar_gap = st.slider("棒と棒の隙間", 0.0, 0.80, 0.32, 0.02, key=f"bar_gap_{i}", help="0にすると隣り合う期間の棒がぴったり接します。値を大きくすると棒の間隔が広がります。")
 
         scenes.append({
-            "chart":chart, "metric":metric, "title":title, "subtitle":subtitle, "unit":unit, "source":source_text, "scene_note":scene_note, "scene_comment_1":scene_comment_1, "scene_comment_2":scene_comment_2, "scene_comment_size":scene_comment_size, "scene_comment_style":scene_comment_style, "scene_comment_delay":scene_comment_delay, "scene_comment_gap":scene_comment_gap,
+            "chart":chart, "text_cards":text_cards, "metric":metric, "title":title, "subtitle":subtitle, "unit":unit, "source":source_text, "scene_note":scene_note, "scene_comment_1":scene_comment_1, "scene_comment_2":scene_comment_2, "scene_comment_size":scene_comment_size, "scene_comment_style":scene_comment_style, "scene_comment_delay":scene_comment_delay, "scene_comment_gap":scene_comment_gap,
             "duration":duration, "hold":hold, "title_size":title_size, "subtitle_size":subtitle_size, "legend":legend, "end_labels":end_labels,
             "latest_values":latest_values, "end_label_size":end_label_size, "label_gap":label_gap,
             "value_decimals":value_decimals, "bar_animation":bar_animation, "data_labels":data_labels,
