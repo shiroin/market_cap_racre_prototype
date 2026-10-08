@@ -359,13 +359,21 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
     stride=max(1,int(np.ceil(len(labels)/7)))
     ax.set_xticks(x[::stride])
     ax.set_xticklabels([labels[i] for i in range(0,len(labels),stride)],rotation=0)
-    # A translucent filled column behind each reached period is the reference effect.
+    # Highlight only the active period. The background fades in as the
+    # timeline ball reaches that period; earlier periods do not leave a trail.
+    active_index=None
     for k,yr in enumerate(years):
-        if yr is None: continue
-        reveal=float(np.clip((now-yr+.20)/.35,0,1))
-        if reveal>0:
-            ax.axvspan(k-.48,k+.48,color='#B3A4A0',alpha=.22*reveal,zorder=0,lw=0)
-    bar_color=next(iter(cmap.values()),'#9D6C70')
+        if yr is not None and now>=yr:
+            active_index=k
+    if active_index is not None:
+        active_year=years[active_index]
+        fade=float(np.clip((now-active_year)/max((end-start)*.018,.02),0,1))
+        fade=float(ease_in_out(fade))
+        ax.axvspan(active_index-.48,active_index+.48,
+            color=scene.get('timeline_highlight_color','#EAC6D3'),
+            alpha=float(np.clip(scene.get('timeline_highlight_alpha',.42),0,1))*fade,
+            zorder=0,lw=0)
+    bar_color=scene.get('timeline_bar_color','#B83F68')
     ax.bar(x,values,width=.66,color=bar_color,alpha=.78,zorder=3)
     if line_metric in data.columns:
         line_values=data[line_metric].to_numpy(dtype=float)
@@ -374,8 +382,8 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
         # Normalize the secondary metric to the same plotting area without creating
         # a new twinx axis on each animation frame.
         mapped=ymax*(.17+.68*(line_values-lo)/span)
-        ax.plot(x,mapped,color='#243C5B',lw=2.0,marker='o',markersize=2.6,zorder=5)
-        fig.text(.88,.705,str(line_metric),color='#243C5B',fontsize=7,ha='right')
+        ax.plot(x,mapped,color=scene.get('timeline_line_color','#B83F68'),lw=2.0,marker='o',markersize=2.6,zorder=5)
+        fig.text(.88,.705,str(line_metric),color=scene.get('timeline_line_color','#B83F68'),fontsize=7,ha='right')
     fig.text(.12,.715,str(bar_metric),color=text,fontsize=8,fontweight='bold',ha='left')
     # Event comment above the graph; the most recent reached event is displayed.
     current=None
