@@ -195,7 +195,7 @@ for i in range(int(scene_count)):
         scene_comment_delay = st.slider("グラフ完了後→下部コメント①まで（秒）", 0.0, 3.0, 0.7, 0.1, key=f"scene_comment_delay_{i}", help="グラフの描画が完了してから下部コメント①のフェード開始までの待ち時間です。")
         scene_comment_gap = st.slider("下部コメント①→②まで（秒）", 0.0, 3.0, 0.8, 0.1, key=f"scene_comment_gap_{i}", help="下部コメント①のフェード完了後から、下部コメント②のフェード開始までの待ち時間です。")
         c5, c6, c7, c7b = st.columns(4)
-        duration = c5.slider("描画時間（秒）", .5, 30.0, 2.8, .1, key=f"duration_{i}")
+        duration = c5.slider("描画時間（秒）", .5, 90.0, 2.8, .1, key=f"duration_{i}")
         hold = c6.slider("静止時間（秒）", 0., 10., 1.2, .1, key=f"hold_{i}")
         title_size = c7.slider("タイトルサイズ", 12, 34, 22, key=f"title_size_{i}")
         subtitle_size = c7b.slider("サブタイトルサイズ", 6, 24, 12, key=f"subtitle_size_{i}")
