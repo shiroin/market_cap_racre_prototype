@@ -916,17 +916,8 @@ def _draw_timeline_on(fig,ax,scene,bg,text,grid,progress):
         ax.text(.055,.094,note,transform=ax.transAxes,color=text,fontsize=3.8,ha='left',va='top',alpha=.56*note_a,wrap=True)
 
 
-def _draw_dual_metric_scene(fig, ax, df, scene, bg, text, grid, progress):
-    """Animate two metrics for each company inside the multi-scene renderer."""
-    from matplotlib.patches import Patch
-    for other in list(fig.axes):
-        if other is not ax:
-            other.remove()
-    ax.clear()
-    for artist in list(fig.artists): artist.remove()
-    for artist in list(fig.lines): artist.remove()
-    for artist in list(fig.patches): artist.remove()
-    for artist in list(fig.texts): artist.remove()
+def _prepare_dual_metric_scene(df, scene):
+    """Validate and pivot once per scene, never once per video frame."""
     a, b = scene.get('dual_metric_a'), scene.get('dual_metric_b')
     if a not in df.columns or b not in df.columns:
         raise ValueError("2指標・企業横比較の指標列がありません")
@@ -957,6 +948,21 @@ def _draw_dual_metric_scene(fig, ax, df, scene, bg, text, grid, progress):
         indices = np.argsort(-vals[-1,:,k],kind='stable')
         vals = vals[:,indices,:]
         companies = [companies[j] for j in indices]
+    return vals, dates, companies, a, b, mode
+
+
+def _draw_dual_metric_scene(fig, ax, df, scene, bg, text, grid, progress, prepared=None):
+    """Animate two metrics for each company inside the multi-scene renderer."""
+    from matplotlib.patches import Patch
+    for other in list(fig.axes):
+        if other is not ax:
+            other.remove()
+    ax.clear()
+    for artist in list(fig.artists): artist.remove()
+    for artist in list(fig.lines): artist.remove()
+    for artist in list(fig.patches): artist.remove()
+    for artist in list(fig.texts): artist.remove()
+    vals, dates, companies, a, b, mode = prepared if prepared is not None else _prepare_dual_metric_scene(df, scene)
     p = float(np.clip(progress,0,1))
     # Reveal each reporting period in two passes: metric A company-by-company,
     # followed by metric B company-by-company. On the first period, every bar
@@ -1088,8 +1094,9 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
         hold=max(hold,int(np.ceil(max(0.,required-float(scene.get('duration',2.5)))*fps)))
     fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'),scene)
     is_timeline=scene.get('chart') in ('年表','横進行年表','業績連動年表','縦時系列年表'); is_ranking=scene.get('chart')=='横比較ランキング'
+    dual_prepared = _prepare_dual_metric_scene(df,scene) if scene.get('chart')=='2指標・企業横比較' else None
     if not is_timeline and not is_ranking and scene.get('chart')!='2指標・企業横比較': dates,companies,pivot=_prepare_scene(df,scene)
-    if scene.get('chart')=='2指標・企業横比較': _draw_dual_metric_scene(fig,ax,df,scene,bg,text,grid,1/max(2,frames))
+    if scene.get('chart')=='2指標・企業横比較': _draw_dual_metric_scene(fig,ax,df,scene,bg,text,grid,1/max(2,frames),dual_prepared)
     elif scene.get('chart')=='縦時系列年表': _draw_vertical_chronology_on(fig,ax,scene,bg,text,grid,1/max(2,frames))
     elif scene.get('chart')=='業績連動年表': _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,1/max(2,frames))
     elif is_timeline:
@@ -1104,15 +1111,23 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
     cmd += ['-c:v','libx264','-threads','1','-preset','veryfast','-crf','18' if quality=='high' else '20','-pix_fmt','yuv420p','-movflags','+faststart',str(path)]; proc=subprocess.Popen(cmd,stdin=subprocess.PIPE,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,bufsize=0)
     try:
         total=frames+hold
+        cached_dual_frame = None
         for i in range(total):
             pp=1. if i>=frames else (i+1)/frames
-            if scene.get('chart')=='2指標・企業横比較': _draw_dual_metric_scene(fig,ax,df,scene,bg,text,grid,pp)
+            if scene.get('chart')=='2指標・企業横比較' and i<frames: _draw_dual_metric_scene(fig,ax,df,scene,bg,text,grid,pp,dual_prepared)
             elif scene.get('chart')=='縦時系列年表': _draw_vertical_chronology_on(fig,ax,scene,bg,text,grid,pp)
             elif scene.get('chart')=='業績連動年表': _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,pp,i/fps)
             elif is_timeline: (_draw_horizontal_timeline_on if scene.get('chart')=='横進行年表' else _draw_timeline_on)(fig,ax,scene,bg,text,grid,pp)
             elif is_ranking: _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,pp,i/fps)
             else: _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,pp,i/fps)
-            fig.canvas.draw(); proc.stdin.write(fig.canvas.buffer_rgba())
+            if scene.get('chart')=='2指標・企業横比較' and i>=frames and cached_dual_frame is not None:
+                proc.stdin.write(cached_dual_frame)
+            else:
+                fig.canvas.draw()
+                frame_bytes = bytes(fig.canvas.buffer_rgba())
+                proc.stdin.write(frame_bytes)
+                if scene.get('chart')=='2指標・企業横比較' and i==frames-1:
+                    cached_dual_frame = frame_bytes
             if i and i%max(1,fps*2)==0: _log(f'scene progress {i}/{total}')
         proc.stdin.close(); stderr=proc.stderr.read(); code=proc.wait()
         if code!=0: raise RuntimeError(stderr.decode('utf-8',errors='replace')[-3000:])
