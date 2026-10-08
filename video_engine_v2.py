@@ -402,8 +402,6 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
         # ordinal event index. The latter is essential when the example event
         # dates and the financial CSV cover different time ranges.
         valid_periods=sorted(((yr,k) for k,yr in enumerate(years) if yr is not None))
-        # Never silently substitute event-order mapping: multiple events in
-        # the same fiscal quarter must ALWAYS highlight the same bar.
         mode=scene.get('timeline_period_mapping','日付')
         def period_index(event_position):
             if not valid_periods: return None
@@ -412,13 +410,20 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
                            max(1,len(stop_events)-1))
                 return valid_periods[slot][1]
             event_time=stop_events[event_position]['year']
-            # Reporting dates represent period ENDS. An event occurring
-            # between consecutive ends belongs to the NEXT ending period,
-            # not the previously reported period.
+            # Each period owns (previous quarter end, current quarter end].
+            # For the first period, infer its start from the next period's
+            # interval; do NOT clamp events from years before the data.
+            if len(valid_periods)>1:
+                interval=min(.25,max(1./12.,valid_periods[1][0]-valid_periods[0][0]))
+            else:
+                interval=.25 if any(re.search(r'Q[1-4]',str(x),re.I) for x in labels) else 1.
+            first_start=valid_periods[0][0]-interval
+            if event_time<=first_start+1e-8 or event_time>valid_periods[-1][0]+1e-8:
+                return None
             for period_end,index in valid_periods:
                 if event_time<=period_end+1e-8:
                     return index
-            return valid_periods[-1][1]
+            return None
         active_index=period_index(position)
         previous_index=period_index(position-1) if position>0 else None
         # Keep the previous highlight visible throughout travel. Crossfade
@@ -450,6 +455,8 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
     # timeline ball reaches that period; earlier periods do not leave a trail.
     highlight_color=scene.get('timeline_highlight_color','#EAC6D3')
     highlight_alpha=float(np.clip(scene.get('timeline_highlight_alpha',.42),0,1))
+    # Preserve the previous period during travel; only switch after arrival.
+    # If the next event is outside the dataset, fade to NO highlight.
     if previous_index is not None and previous_index!=active_index and arrival<1:
         ax.axvspan(previous_index-.48,previous_index+.48,
             color=highlight_color,alpha=highlight_alpha*(1-arrival),
