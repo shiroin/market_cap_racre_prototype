@@ -42,22 +42,42 @@ def _draw_reference_subtitle(fig,scene,text,accent='#16718C',y=.885,fontsize=8,a
 
 
 def _draw_scene_comments(fig,scene,text,progress,elapsed=None):
-    c1=str(scene.get('scene_comment_1','') or '').strip(); c2=str(scene.get('scene_comment_2','') or '').strip()
+    c1=str(scene.get('scene_comment_1','') or '').strip()
+    c2=str(scene.get('scene_comment_2','') or '').strip()
     if not c1 and not c2: return
-    size=int(scene.get('scene_comment_size',12)); y=.155
-    duration=max(.01,float(scene.get('duration',2.8))); delay=max(0.,float(scene.get('scene_comment_delay',.7))); gap=max(0.,float(scene.get('scene_comment_gap',.8)))
-    # The chart animation owns the first part of the scene. Comments start only after
-    # chart completion + the user-selected real-time delay.
+    size=int(scene.get('scene_comment_size',12))
+    duration=max(.01,float(scene.get('duration',2.8)))
+    delay=max(0.,float(scene.get('scene_comment_delay',.7)))
+    gap=max(0.,float(scene.get('scene_comment_gap',.8)))
     t=float(elapsed) if elapsed is not None else float(progress)*duration
     fade=.45
     start1=duration+delay
-    start2=start1+fade+gap
-    if c1:
-        a1=ease_in_out(np.clip((t-start1)/fade,0,1))
-        fig.text(.075,y,c1,color=text,fontsize=size,fontweight='bold',ha='left',va='bottom',alpha=a1,zorder=30,wrap=True)
-    if c2:
-        a2=ease_in_out(np.clip((t-start2)/fade,0,1))
-        fig.text(.075,y-.048,c2,color=text,fontsize=size,fontweight='bold',ha='left',va='bottom',alpha=a2,zorder=30,wrap=True)
+    start2=start1+fade+gap if c1 else start1
+    a1=float(ease_in_out(np.clip((t-start1)/fade,0,1))) if c1 else 0.
+    a2=float(ease_in_out(np.clip((t-start2)/fade,0,1))) if c2 else 0.
+    if scene.get('scene_comment_style','従来（文字のみ）')=='白抜き（濃紺背景）':
+        from matplotlib.patches import FancyBboxPatch
+        # A single reserved panel keeps the two staggered comments together.
+        # Its opacity follows the first comment, so the panel never flashes early.
+        panel_alpha=a1 if c1 else a2
+        if panel_alpha>0:
+            panel=FancyBboxPatch((.075,.086),.85,.150,boxstyle='round,pad=0.008,rounding_size=0.012',
+                transform=fig.transFigure,facecolor='#233653',edgecolor='none',alpha=panel_alpha,zorder=28)
+            fig.add_artist(panel)
+        if c1 and a1>0:
+            fig.text(.50,.187,c1,color='white',fontsize=size,fontweight='bold',
+                ha='center',va='center',alpha=a1,zorder=30,wrap=True,linespacing=1.18)
+        if c2 and a2>0:
+            fig.text(.50,.125,c2,color='white',fontsize=size,fontweight='bold',
+                ha='center',va='center',alpha=a2,zorder=30,wrap=True,linespacing=1.18)
+    else:
+        if c1 and a1>0:
+            fig.text(.075,.155,c1,color=text,fontsize=size,fontweight='bold',
+                ha='left',va='bottom',alpha=a1,zorder=30,wrap=True)
+        if c2 and a2>0:
+            fig.text(.075,.107,c2,color=text,fontsize=size,fontweight='bold',
+                ha='left',va='bottom',alpha=a2,zorder=30,wrap=True)
+
 
 def _style_axis(ax,bg,text,grid):
     ax.set_facecolor(bg); ax.tick_params(colors=text,labelsize=9,length=0,pad=7)
@@ -117,7 +137,7 @@ def _prepare_scene(df,scene):
 
 
 def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress,elapsed=None):
-    ax.clear(); fig.texts.clear(); _style_axis(ax,bg,text,grid)
+    ax.clear(); fig.texts.clear(); [patch.remove() for patch in list(fig.patches)]; _style_axis(ax,bg,text,grid)
     p=np.clip(float(progress),0,1); title_a=1.0; sub_a=.84; chart_a=1.0; late_a=fade_window(p,.76,.96)
     fig.text(.075,.93,scene['title'],color=text,fontsize=scene.get('title_size',22),fontweight='bold',ha='left',alpha=title_a)
     _draw_reference_subtitle(fig,scene,text,y=.885,fontsize=scene.get('subtitle_size',12),alpha=fade_window(p,.02,.16))
@@ -237,7 +257,7 @@ def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress
 
 
 def _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,progress,elapsed=None):
-    ax.clear(); fig.texts.clear(); _style_axis(ax,bg,text,grid)
+    ax.clear(); fig.texts.clear(); [patch.remove() for patch in list(fig.patches)]; _style_axis(ax,bg,text,grid)
     p=float(np.clip(progress,0,1)); metric=scene['metric']
     w=df[['company',metric]].copy(); w[metric]=pd.to_numeric(w[metric],errors='coerce'); w=w.dropna()
     w=w.groupby('company',sort=False).tail(1)
@@ -284,7 +304,7 @@ def _timeline_events(scene):
 
 
 def _draw_timeline_on(fig,ax,scene,bg,text,grid,progress):
-    ax.clear(); fig.texts.clear(); ax.set_facecolor(bg); ax.axis('off')
+    ax.clear(); fig.texts.clear(); [patch.remove() for patch in list(fig.patches)]; ax.set_facecolor(bg); ax.axis('off')
     p=np.clip(float(progress),0,1); title_a=1.0
     fig.text(.075,.93,scene.get('title','年表'),color=text,fontsize=scene.get('title_size',22),fontweight='bold',ha='left',alpha=title_a)
     _draw_reference_subtitle(fig,scene,text,y=.892,fontsize=scene.get('subtitle_size',12),alpha=fade_window(p,.02,.16))
