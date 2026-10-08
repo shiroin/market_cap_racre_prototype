@@ -247,7 +247,7 @@ for i in range(int(scene_count)):
         timeline_highlight_alpha = 0.42
         timeline_fiscal_year_end_month = 12
         timeline_travel_ratio = 0.16
-        timeline_period_mapping = "自動"
+        timeline_period_mapping = "日付"
         if chart == "業績連動年表":
             st.markdown("**連動する業績グラフ**")
             timeline_fiscal_year_end_month = st.selectbox("決算月（四半期の期末判定）", list(range(1,13)), index=11, key=f"timeline_fiscal_year_end_month_{i}", help="2020Q1等を会計年度の四半期として解釈します。12月決算ならQ1=3月末、3月決算ならQ1=前年6月末です。")
@@ -260,7 +260,7 @@ for i in range(int(scene_count)):
             timeline_line_color = color2.color_picker("折れ線の色", "#B83F68", key=f"timeline_line_color_{i}")
             timeline_highlight_color = color3.color_picker("年度の背景色", "#EAC6D3", key=f"timeline_highlight_color_{i}")
             timeline_highlight_alpha = st.slider("年度背景の濃さ", 0.0, 1.0, 0.42, 0.05, key=f"timeline_highlight_alpha_{i}")
-            timeline_period_mapping = st.selectbox("イベントと業績期の対応", ["自動","日付","イベント順"], key=f"timeline_period_mapping_{i}", help="日付: イベント時点の直近決算期。イベント順: イベントの順番で棒グラフを順次強調。自動: イベント日付と業績データの期間が大きくずれる場合はイベント順に切り替えます。")
+            timeline_period_mapping = st.selectbox("イベントと業績期の対応", ["日付","イベント順"], key=f"timeline_period_mapping_{i}", help="日付（推奨）: イベント年月日が属する四半期・年度の棒を強調。同じ期のイベントは同じ棒に固定。イベント順: 日付が対応しないデモなどでのみ使用。")
             timeline_travel_ratio = st.slider("イベント間の移動時間（1イベントの割合）", 0.05, 0.60, 0.16, 0.01, key=f"timeline_travel_ratio_{i}", help="初期値16%：最初の16%で次のイベントへ移動し、残り84%は完全停止してコメントを表示します。")
             st.caption("球は年表イベントのyear/month/day座標で停止します。停止中にコメントを表示し、グラフ背景は到達時点の期を強調します。")
 
