@@ -240,13 +240,22 @@ for i in range(int(scene_count)):
 
         timeline_bar_metric = metric
         timeline_line_metric = "(なし)"
+        timeline_bar_color = "#B83F68"
+        timeline_line_color = "#B83F68"
+        timeline_highlight_color = "#EAC6D3"
+        timeline_highlight_alpha = 0.42
         if chart == "業績連動年表":
             st.markdown("**連動する業績グラフ**")
             timeline_bar_metric = st.selectbox("棒グラフの指標", metric_columns,
                 index=metric_columns.index(metric), key=f"timeline_bar_metric_{i}")
             timeline_line_metric = st.selectbox("折れ線の指標（任意）", ["(なし)"]+metric_columns,
                 key=f"timeline_line_metric_{i}")
-            st.caption("date列は 2022 / 2022Q1 / 2022-03 などの年度・期を使用します。year列のイベント時点に合わせてグラフ背景を強調します。")
+            color1,color2,color3 = st.columns(3)
+            timeline_bar_color = color1.color_picker("棒グラフの色", "#B83F68", key=f"timeline_bar_color_{i}")
+            timeline_line_color = color2.color_picker("折れ線の色", "#B83F68", key=f"timeline_line_color_{i}")
+            timeline_highlight_color = color3.color_picker("年度の背景色", "#EAC6D3", key=f"timeline_highlight_color_{i}")
+            timeline_highlight_alpha = st.slider("年度背景の濃さ", 0.0, 1.0, 0.42, 0.05, key=f"timeline_highlight_alpha_{i}")
+            st.caption("球が該当期に到達すると、その期の背景がフェードインします。次の期に進むと強調対象が切り替わります。")
 
         ranking_sort = "大きい順"
         ranking_reference = 0.0
@@ -279,7 +288,7 @@ for i in range(int(scene_count)):
             "data_label_size":data_label_size, "bar_gap":bar_gap, "timeline_events":timeline_events,
             "timeline_start":timeline_start, "timeline_end":timeline_end, "timeline_note":timeline_note,
             "timeline_summary":timeline_summary, "timeline_summary_2":timeline_summary_2, "timeline_summary_size":timeline_summary_size,
-            "timeline_bar_metric":timeline_bar_metric, "timeline_line_metric":timeline_line_metric,
+            "timeline_bar_metric":timeline_bar_metric, "timeline_line_metric":timeline_line_metric, "timeline_bar_color":timeline_bar_color, "timeline_line_color":timeline_line_color, "timeline_highlight_color":timeline_highlight_color, "timeline_highlight_alpha":timeline_highlight_alpha,
             "ranking_sort":ranking_sort, "ranking_reference":ranking_reference, "ranking_highlight":ranking_highlight
         })
 
