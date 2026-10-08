@@ -303,6 +303,120 @@ def _timeline_events(scene):
     return sorted(clean,key=lambda r:r['year'])
 
 
+def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
+    """Synchronized events, financial chart and horizontal year timeline."""
+    import re
+    from matplotlib.patches import Rectangle
+    ax.clear()
+    for artist in list(fig.artists): artist.remove()
+    for artist in list(fig.lines): artist.remove()
+    for artist in list(fig.patches): artist.remove()
+    for artist in list(fig.texts): artist.remove()
+    ax.set_facecolor(bg)
+    p=float(np.clip(progress,0,1))
+    fig.text(.075,.945,scene.get('title','業績と年表'),color=text,
+        fontsize=scene.get('title_size',22),fontweight='bold',ha='left',va='top')
+    _draw_reference_subtitle(fig,scene,text,y=.897,
+        fontsize=scene.get('subtitle_size',12),alpha=fade_window(p,.01,.08))
+    events=_timeline_events(scene)
+    bar_metric=scene.get('timeline_bar_metric',scene.get('metric'))
+    line_metric=scene.get('timeline_line_metric','(なし)')
+    if bar_metric not in df.columns: return
+    cols=['date',bar_metric]
+    if line_metric in df.columns and line_metric!=bar_metric: cols.append(line_metric)
+    data=df[cols].copy()
+    data['date']=data['date'].astype(str)
+    data[bar_metric]=pd.to_numeric(data[bar_metric],errors='coerce')
+    if line_metric in data.columns: data[line_metric]=pd.to_numeric(data[line_metric],errors='coerce')
+    data=data.dropna(subset=[bar_metric]).groupby('date',sort=False).sum(numeric_only=True)
+    if data.empty: return
+    labels=list(data.index)
+    def date_year(label):
+        match=re.search(r'(?:19|20|21)\\d{2}',str(label))
+        if not match: return None
+        year=float(match.group(0))
+        q=re.search(r'Q([1-4])',str(label),re.I)
+        if q: return year+(int(q.group(1))-.5)/4
+        m=re.search(r'(?:19|20|21)\\d{2}[-/](\\d{1,2})',str(label))
+        if m: return year+(int(m.group(1))-.5)/12
+        return year+.5
+    years=[date_year(label) for label in labels]
+    start=float(scene.get('timeline_start',min((y for y in years if y is not None),default=2018)))
+    end=float(scene.get('timeline_end',max((y for y in years if y is not None),default=2025)))
+    if end<=start: end=start+1
+    now=start+(end-start)*p
+    x=np.arange(len(labels))
+    values=data[bar_metric].to_numpy(dtype=float)
+    ymax=max(1.,float(np.nanmax(values))*1.20)
+    # The financial chart occupies its own middle band; labels stay above timeline.
+    ax.set_position([.12,.365,.77,.325])
+    ax.set_xlim(-.65,len(labels)-.35)
+    ax.set_ylim(min(0.,float(np.nanmin(values)))*1.1,ymax)
+    ax.grid(axis='y',color=grid,alpha=.45,lw=.7)
+    ax.set_axisbelow(True)
+    for spine in ax.spines.values(): spine.set_visible(False)
+    ax.tick_params(axis='both',colors=text,labelsize=6.5,length=0,pad=5)
+    stride=max(1,int(np.ceil(len(labels)/7)))
+    ax.set_xticks(x[::stride])
+    ax.set_xticklabels([labels[i] for i in range(0,len(labels),stride)],rotation=0)
+    # A translucent filled column behind each reached period is the reference effect.
+    for k,yr in enumerate(years):
+        if yr is None: continue
+        reveal=float(np.clip((now-yr+.20)/.35,0,1))
+        if reveal>0:
+            ax.axvspan(k-.48,k+.48,color='#B3A4A0',alpha=.22*reveal,zorder=0,lw=0)
+    bar_color=next(iter(cmap.values()),'#9D6C70')
+    ax.bar(x,values,width=.66,color=bar_color,alpha=.78,zorder=3)
+    if line_metric in data.columns:
+        line_values=data[line_metric].to_numpy(dtype=float)
+        lo=float(np.nanmin(line_values)); hi=float(np.nanmax(line_values))
+        span=max(hi-lo,1e-8)
+        # Normalize the secondary metric to the same plotting area without creating
+        # a new twinx axis on each animation frame.
+        mapped=ymax*(.17+.68*(line_values-lo)/span)
+        ax.plot(x,mapped,color='#243C5B',lw=2.0,marker='o',markersize=2.6,zorder=5)
+        fig.text(.88,.705,str(line_metric),color='#243C5B',fontsize=7,ha='right')
+    fig.text(.12,.715,str(bar_metric),color=text,fontsize=8,fontweight='bold',ha='left')
+    # Event comment above the graph; the most recent reached event is displayed.
+    current=None
+    for ev in events:
+        if ev['year']<=now: current=ev
+    if current is not None:
+        age=(now-current['year'])/max(end-start,1.)
+        opacity=float(fade_window(age,0,.018))
+        fig.text(.09,.835,current.get('date',''),color=text,fontsize=9,
+            fontweight='bold',ha='left',alpha=opacity)
+        fig.text(.09,.800,current.get('title',''),color=text,fontsize=14,
+            fontweight='bold',ha='left',alpha=opacity,wrap=True)
+        fig.text(.09,.762,current.get('description',''),color=text,fontsize=8,
+            ha='left',alpha=opacity,wrap=True)
+    # One continuous pale line, pale stops, and exactly one moving ball.
+    left,right=.10,.90
+    yline=.235
+    def xpos(year):
+        return left+(right-left)*float(np.clip((year-start)/(end-start),0,1))
+    fig.add_artist(plt.Line2D([left,right],[yline,yline],
+        transform=fig.transFigure,color='#B6B1A9',lw=1.7,zorder=4))
+    for ev in events:
+        fig.add_artist(plt.Line2D([xpos(ev['year'])],[yline],
+            transform=fig.transFigure,marker='o',markersize=8,
+            markerfacecolor='#A9A59D',markeredgecolor='none',
+            alpha=.32,linestyle='None',zorder=5))
+    fig.add_artist(plt.Line2D([xpos(now)],[yline],
+        transform=fig.transFigure,marker='o',markersize=9,
+        markerfacecolor='#172B47',markeredgecolor='none',
+        linestyle='None',zorder=10))
+    for year in range(int(np.ceil(start)),int(np.floor(end))+1,
+        max(1,int(np.ceil((end-start)/6)))):
+        fig.text(xpos(year),yline-.026,str(year),color=text,fontsize=7,
+            ha='center',va='top',alpha=.75)
+    note=str(scene.get('scene_note','') or '').strip()
+    if note:
+        fig.add_artist(plt.Line2D([.075,.925],[.065,.065],
+            transform=fig.transFigure,color=grid,lw=.7))
+        fig.text(.075,.045,note,color=text,fontsize=5.5,ha='left',va='bottom',alpha=.6)
+
+
 def _draw_horizontal_timeline_on(fig,ax,scene,bg,text,grid,progress):
     """One event at a time, synchronized with a persistent horizontal timeline."""
     from matplotlib.patches import FancyBboxPatch
@@ -479,7 +593,9 @@ def _make_canvas(ratio,bg,quality,chart=None,scene=None):
 
 def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='preview'):
     fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'),scene)
-    if scene.get('chart')=='横進行年表':
+    if scene.get('chart')=='業績連動年表':
+        _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,progress)
+    elif scene.get('chart')=='横進行年表':
         _draw_horizontal_timeline_on(fig,ax,scene,bg,text,grid,progress)
     elif scene.get('chart')=='年表':
         _draw_timeline_on(fig,ax,scene,bg,text,grid,progress)
@@ -492,9 +608,10 @@ def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='pr
 
 def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
     started=time.monotonic(); frames=max(2,int(scene.get('duration',2.5)*fps)); hold=max(0,int(scene.get('hold',1.0)*fps)); fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'),scene)
-    is_timeline=scene.get('chart') in ('年表','横進行年表'); is_ranking=scene.get('chart')=='横比較ランキング'
+    is_timeline=scene.get('chart') in ('年表','横進行年表','業績連動年表'); is_ranking=scene.get('chart')=='横比較ランキング'
     if not is_timeline and not is_ranking: dates,companies,pivot=_prepare_scene(df,scene)
-    if is_timeline:
+    if scene.get('chart')=='業績連動年表': _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,1/max(2,frames))
+    elif is_timeline:
         (_draw_horizontal_timeline_on if scene.get('chart')=='横進行年表' else _draw_timeline_on)(fig,ax,scene,bg,text,grid,1/max(2,frames))
     elif is_ranking: _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,1/max(2,frames))
     else: _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,1/max(2,frames))
@@ -508,7 +625,8 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
         total=frames+hold
         for i in range(total):
             pp=1. if i>=frames else (i+1)/frames
-            if is_timeline: (_draw_horizontal_timeline_on if scene.get('chart')=='横進行年表' else _draw_timeline_on)(fig,ax,scene,bg,text,grid,pp)
+            if scene.get('chart')=='業績連動年表': _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,pp)
+            elif is_timeline: (_draw_horizontal_timeline_on if scene.get('chart')=='横進行年表' else _draw_timeline_on)(fig,ax,scene,bg,text,grid,pp)
             elif is_ranking: _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,pp,i/fps)
             else: _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,pp,i/fps)
             fig.canvas.draw(); proc.stdin.write(fig.canvas.buffer_rgba())
