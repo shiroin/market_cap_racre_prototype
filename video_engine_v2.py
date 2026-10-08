@@ -355,25 +355,23 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
     fiscal_end=int(scene.get('timeline_fiscal_year_end_month',12))
     fiscal_end=max(1,min(12,fiscal_end))
     def date_year(label):
-        """Return period END as a decimal calendar year, not a guessed mid-year."""
+        """Convert year, fiscal quarter or calendar month to period-end position."""
         label=str(label).strip()
-        match=re.search(r'((?:19|20|21)\\d{2})',label)
+        match=re.search(r'((?:19|20|21)\d{2})',label)
         if not match: return None
         year=int(match.group(1))
-        quarter=re.search(r'Q\\s*([1-4])',label,re.I)
+        quarter=re.search(r'Q\s*([1-4])',label,re.I)
         if quarter:
-            # Fiscal 2020 Q1 ends Jun 2019 for a March year-end,
-            # while calendar 2020 Q1 ends Mar 2020.
             q=int(quarter.group(1))
-            month_index=(fiscal_end-1)-12+(q*3)
+            # FY2020 Q1 for March year-end is June 2019.
+            month_index=(fiscal_end-1)-12+q*3
             end_year=year+month_index//12
             end_month=month_index%12+1
             return end_year+end_month/12.
-        month=re.search(r'(?:19|20|21)\\d{2}[-/](\\d{1,2})',label)
+        month=re.search(r'(?:19|20|21)\d{2}[-/](\d{1,2})',label)
         if month:
             m=int(month.group(1))
             return year+m/12. if 1<=m<=12 else None
-        # Annual fiscal period ends in its fiscal year-end month.
         return year+fiscal_end/12.
     years=[date_year(label) for label in labels]
     valid_years=[y for y in years if y is not None]
@@ -401,9 +399,13 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
         now=previous_year+(target_year-previous_year)*travel
         if p>=1.: now=target_year
         # Highlight the most recent financial period at/before the stop.
-        eligible=[(k,yr) for k,yr in enumerate(years)
-                  if yr is not None and yr<=target_year+1e-8]
-        active_index=max(eligible,key=lambda item:item[1])[0] if eligible else None
+        valid_periods=[(k,yr) for k,yr in enumerate(years) if yr is not None]
+        eligible=[(k,yr) for k,yr in valid_periods if yr<=target_year+1e-8]
+        # The latest reported period at the event date; if the event precedes
+        # the dataset, highlight the earliest available period instead.
+        chosen=max(eligible,key=lambda item:item[1]) if eligible else (
+            min(valid_periods,key=lambda item:item[1]) if valid_periods else None)
+        active_index=chosen[0] if chosen is not None else None
         arrival=float(fade_window(local,travel_ratio,min(.95,travel_ratio+.12)))
     else:
         position=0
