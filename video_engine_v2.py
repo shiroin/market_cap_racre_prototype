@@ -645,9 +645,15 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
     comment_top=min(.842,header_bottom-.035)
     if stop_events:
         current=stop_events[position]
+        # First reveal date/title on arrival, then pause briefly before
+        # revealing the description. The two fades share the same exit.
         fade_in=float(fade_window(local,travel_ratio,min(.98,travel_ratio+.12)))
         fade_out=(1.-float(fade_window(local,.90,.99))) if position<len(stop_events)-1 else 1.
         opacity=float(np.clip(fade_in*fade_out,0,1))
+        description_delay=float(np.clip(scene.get('timeline_description_delay',.16),0.,.45))
+        description_start=min(.90,travel_ratio+.12+description_delay)
+        description_fade=float(fade_window(local,description_start,min(.98,description_start+.12)))
+        description_opacity=float(np.clip(description_fade*fade_out,0,1))
         if current.get('date'):
             fig.text(.09,comment_top,current['date'],color=text,fontsize=9,
                 fontweight='bold',ha='left',alpha=opacity)
@@ -656,7 +662,7 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
                 fontweight='bold',ha='left',alpha=opacity,wrap=True)
         if current.get('description'):
             fig.text(.09,comment_top-.110,current['description'],color=text,fontsize=8,
-                ha='left',va='top',alpha=opacity,wrap=True)
+                ha='left',va='top',alpha=description_opacity,wrap=True)
     # One continuous pale line, pale stops, and exactly one moving ball.
     left,right=.10,.90
     yline=.235
