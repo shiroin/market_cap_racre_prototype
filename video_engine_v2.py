@@ -324,6 +324,80 @@ def _timeline_events(scene):
     return sorted(clean,key=lambda r:r['year'])
 
 
+def _draw_vertical_chronology_on(fig,ax,scene,bg,text,grid,progress):
+    """Reference-style chronological timeline: oldest at top, newest at bottom."""
+    import textwrap
+    ax.clear()
+    for artist in list(fig.artists): artist.remove()
+    for artist in list(fig.lines): artist.remove()
+    for artist in list(fig.patches): artist.remove()
+    for artist in list(fig.texts): artist.remove()
+    ax.axis('off')
+    p=float(np.clip(progress,0,1))
+    events=_timeline_events(scene)
+    fig.text(.065,.936,scene.get('title','縦時系列年表'),color=text,
+        fontsize=scene.get('title_size',22),fontweight='bold',ha='left',va='top')
+    _draw_reference_subtitle(fig,scene,text,y=.887,
+        fontsize=scene.get('subtitle_size',12),alpha=fade_window(p,.01,.10))
+    if not events: return
+    # Reserve a separate band for the final comments and footnotes.
+    n=len(events)
+    top=.815
+    bottom=.335 if scene.get('scene_comment_1') or scene.get('timeline_summary') else .245
+    # Even spacing is intentional: calendar distance must not collapse nearby
+    # events into overlapping rows.
+    gap=(top-bottom)/max(1,n-1)
+    spine_x=.205
+    fig.add_artist(plt.Line2D([spine_x,spine_x],
+        [min(bottom-.022,top),top+.018],transform=fig.transFigure,
+        color='#A0A9B5',lw=1.1,alpha=.9,zorder=2))
+    for i,event in enumerate(events):
+        y=top-i*gap
+        accent=('#BD7633' if str(event.get('badge','')).strip() else '#203C65')
+        # The date label stays on the left, dot and body on the right.
+        fig.add_artist(plt.Line2D([spine_x],[y],transform=fig.transFigure,
+            marker='o',markersize=5.3,markerfacecolor=accent,
+            markeredgecolor=bg,markeredgewidth=.7,linestyle='None',
+            alpha=.28,zorder=3))
+        local=float(np.clip((p-(.08+i*.76/n))/(max(.06,.17/n)),0,1))
+        alpha=float(ease_in_out(local))
+        if alpha<=0: continue
+        fig.add_artist(plt.Line2D([spine_x],[y],transform=fig.transFigure,
+            marker='o',markersize=5.3,markerfacecolor=accent,
+            markeredgecolor=bg,markeredgewidth=.7,linestyle='None',
+            alpha=alpha,zorder=4))
+        fig.text(spine_x-.012,y,event.get('date',''),color=accent,
+            fontsize=7.5,fontweight='bold',ha='right',va='center',alpha=alpha)
+        title=event.get('title','')
+        if title:
+            fig.text(spine_x+.018,y+.006,title,color=text,
+                fontsize=8.3,fontweight='bold',ha='left',va='center',alpha=alpha)
+        desc=event.get('description','')
+        if desc:
+            fig.text(spine_x+.018,y-.012,desc,color=text,
+                fontsize=6.4,ha='left',va='top',alpha=.78*alpha)
+        badge=event.get('badge','')
+        if badge:
+            fig.text(spine_x+.018,y-.036,badge,color=accent,
+                fontsize=5.8,ha='left',va='top',alpha=.9*alpha)
+    summary=scene.get('timeline_summary','').strip()
+    summary2=scene.get('timeline_summary_2','').strip()
+    if summary:
+        fig.text(.065,.235,summary,color=text,fontsize=11,fontweight='bold',
+            ha='left',va='top',alpha=fade_window(p,.84,.94))
+    if summary2:
+        fig.text(.065,.190,summary2,color=text,fontsize=10,fontweight='bold',
+            ha='left',va='top',alpha=fade_window(p,.91,1.))
+    _draw_scene_comments(fig,scene,text,p)
+    note='\\n'.join(x for x in [scene.get('timeline_note','').strip(),
+                                 scene.get('scene_note','').strip()] if x)
+    if note:
+        fig.add_artist(plt.Line2D([.065,.935],[.074,.074],
+            transform=fig.transFigure,color=grid,lw=.7))
+        fig.text(.065,.059,note,color=text,fontsize=4.5,ha='left',
+            va='top',alpha=.6)
+
+
 def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
     """Synchronized events, financial chart and horizontal year timeline."""
     import re
@@ -696,7 +770,9 @@ def _make_canvas(ratio,bg,quality,chart=None,scene=None):
 
 def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='preview'):
     fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'),scene)
-    if scene.get('chart')=='業績連動年表':
+    if scene.get('chart')=='縦時系列年表':
+        _draw_vertical_chronology_on(fig,ax,scene,bg,text,grid,progress)
+    elif scene.get('chart')=='業績連動年表':
         _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress)
     elif scene.get('chart')=='横進行年表':
         _draw_horizontal_timeline_on(fig,ax,scene,bg,text,grid,progress)
@@ -711,9 +787,10 @@ def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='pr
 
 def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
     started=time.monotonic(); frames=max(2,int(scene.get('duration',2.5)*fps)); hold=max(0,int(scene.get('hold',1.0)*fps)); fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'),scene)
-    is_timeline=scene.get('chart') in ('年表','横進行年表','業績連動年表'); is_ranking=scene.get('chart')=='横比較ランキング'
+    is_timeline=scene.get('chart') in ('年表','横進行年表','業績連動年表','縦時系列年表'); is_ranking=scene.get('chart')=='横比較ランキング'
     if not is_timeline and not is_ranking: dates,companies,pivot=_prepare_scene(df,scene)
-    if scene.get('chart')=='業績連動年表': _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,1/max(2,frames))
+    if scene.get('chart')=='縦時系列年表': _draw_vertical_chronology_on(fig,ax,scene,bg,text,grid,1/max(2,frames))
+    elif scene.get('chart')=='業績連動年表': _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,1/max(2,frames))
     elif is_timeline:
         (_draw_horizontal_timeline_on if scene.get('chart')=='横進行年表' else _draw_timeline_on)(fig,ax,scene,bg,text,grid,1/max(2,frames))
     elif is_ranking: _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,1/max(2,frames))
@@ -728,7 +805,8 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
         total=frames+hold
         for i in range(total):
             pp=1. if i>=frames else (i+1)/frames
-            if scene.get('chart')=='業績連動年表': _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,pp)
+            if scene.get('chart')=='縦時系列年表': _draw_vertical_chronology_on(fig,ax,scene,bg,text,grid,pp)
+            elif scene.get('chart')=='業績連動年表': _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,pp)
             elif is_timeline: (_draw_horizontal_timeline_on if scene.get('chart')=='横進行年表' else _draw_timeline_on)(fig,ax,scene,bg,text,grid,pp)
             elif is_ranking: _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,pp,i/fps)
             else: _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,pp,i/fps)
