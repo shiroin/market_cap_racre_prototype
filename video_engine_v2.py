@@ -679,11 +679,70 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
         max(1,int(np.ceil((end-start)/6)))):
         fig.text(xpos(year),yline-.026,str(year),color=text,fontsize=7,
             ha='center',va='top',alpha=.75)
-    note=str(scene.get('scene_note','') or '').strip()
+    # Financial timeline has its own chart, event card and moving timeline.
+    # Keep explanatory notes and both bottom comments in *reserved* figure
+    # zones instead of allowing text to fall beneath the canvas or overlap.
+    _draw_financial_timeline_footer(fig, scene, text, grid, p)
+
+
+def _draw_financial_timeline_footer(fig, scene, text, grid, progress):
+    """Notes and comments for the synchronized financial timeline."""
+    from matplotlib.patches import FancyBboxPatch
+
+    def normalize_lines(value, width, max_lines):
+        result = []
+        for raw in str(value or '').splitlines():
+            if not raw.strip():
+                continue
+            result.extend(textwrap.wrap(raw.strip(), width=width,
+                break_long_words=True, break_on_hyphens=False) or [''])
+        return result[:max_lines]
+
+    c1 = str(scene.get('scene_comment_1', '') or '').strip()
+    c2 = str(scene.get('scene_comment_2', '') or '').strip()
+    note = '\\n'.join(v for v in (
+        str(scene.get('timeline_note', '') or '').strip(),
+        str(scene.get('scene_note', '') or '').strip(),
+    ) if v)
+    has_comments = bool(c1 or c2)
+    # y=.235 is the horizontal year timeline; its tick labels extend to .209.
+    # The comment panel is strictly below those labels. Source notes occupy
+    # a separate bottom strip and never share the same rectangle.
+    if has_comments:
+        panel_bottom, panel_top = .075, .190
+        panel = FancyBboxPatch((.075, panel_bottom), .85,
+            panel_top-panel_bottom, boxstyle='round,pad=0.004,rounding_size=0.009',
+            transform=fig.transFigure,
+            facecolor='#233653' if scene.get('scene_comment_style') == '白抜き（濃紺背景）' else '#E8EDF3',
+            edgecolor='none', zorder=25)
+        duration = max(.01, float(scene.get('duration', 2.8)))
+        # Thumbnail previews draw at progress=1; the renderer independently
+        # controls the delay / hold after the chart animation.
+        a = float(np.clip(progress, 0, 1))
+        first_alpha = fade_window(a, .83, .91)
+        second_alpha = fade_window(a, .91, .98)
+        panel.set_alpha(max(first_alpha if c1 else 0.,second_alpha if c2 else 0.))
+        fig.add_artist(panel)
+        col = 'white' if scene.get('scene_comment_style') == '白抜き（濃紺背景）' else text
+        size = min(12, max(7, int(scene.get('scene_comment_size', 12))))
+        entries = [(c1, .161, first_alpha), (c2, .108, second_alpha)]
+        if not c1: entries = [(c2, .138, second_alpha)]
+        if not c2: entries = [(c1, .138, first_alpha)]
+        for value, yy, alpha in entries:
+            if not value: continue
+            content = '\\n'.join(normalize_lines(value, 42, 2))
+            fig.text(.50, yy, content, ha='center', va='center',
+                fontsize=size, fontweight='bold', color=col, alpha=alpha,
+                linespacing=1.05, zorder=26)
     if note:
-        fig.add_artist(plt.Line2D([.075,.925],[.065,.065],
-            transform=fig.transFigure,color=grid,lw=.7))
-        fig.text(.075,.045,note,color=text,fontsize=5.5,ha='left',va='bottom',alpha=.6)
+        divider_y = .060 if has_comments else .085
+        note_y = .044 if has_comments else .066
+        fig.add_artist(plt.Line2D([.075,.925],[divider_y,divider_y],
+            transform=fig.transFigure,color=grid,lw=.7,alpha=.8,zorder=24))
+        note_lines = normalize_lines(note, 105, 3)
+        fig.text(.075,note_y,'\\n'.join(note_lines),color=text,
+            fontsize=5.1 if len(note_lines)>1 else 5.5,ha='left',va='top',
+            alpha=.65,zorder=26,linespacing=1.05)
 
 
 def _draw_horizontal_timeline_on(fig,ax,scene,bg,text,grid,progress):
