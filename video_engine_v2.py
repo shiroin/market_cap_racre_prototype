@@ -402,26 +402,23 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
         # ordinal event index. The latter is essential when the example event
         # dates and the financial CSV cover different time ranges.
         valid_periods=sorted(((yr,k) for k,yr in enumerate(years) if yr is not None))
-        mode=scene.get('timeline_period_mapping','自動')
-        event_min=min(ev['year'] for ev in stop_events)
-        event_max=max(ev['year'] for ev in stop_events)
-        period_min=valid_periods[0][0] if valid_periods else 0.
-        period_max=valid_periods[-1][0] if valid_periods else 0.
-        # Automatic matching uses chronological sequence when most events
-        # precede or follow the financial data (e.g. default demo events).
-        out_of_range=sum(not(period_min<=ev['year']<=period_max)
-                         for ev in stop_events)
-        use_order=(mode=='イベント順') or (mode=='自動' and
-                   out_of_range>len(stop_events)/2)
+        # Never silently substitute event-order mapping: multiple events in
+        # the same fiscal quarter must ALWAYS highlight the same bar.
+        mode=scene.get('timeline_period_mapping','日付')
         def period_index(event_position):
             if not valid_periods: return None
-            if use_order:
+            if mode=='イベント順':
                 slot=round(event_position*(len(valid_periods)-1)/
                            max(1,len(stop_events)-1))
                 return valid_periods[slot][1]
             event_time=stop_events[event_position]['year']
-            earlier=[item for item in valid_periods if item[0]<=event_time+1e-8]
-            return (earlier[-1] if earlier else valid_periods[0])[1]
+            # Reporting dates represent period ENDS. An event occurring
+            # between consecutive ends belongs to the NEXT ending period,
+            # not the previously reported period.
+            for period_end,index in valid_periods:
+                if event_time<=period_end+1e-8:
+                    return index
+            return valid_periods[-1][1]
         active_index=period_index(position)
         previous_index=period_index(position-1) if position>0 else None
         # Keep the previous highlight visible throughout travel. Crossfade
