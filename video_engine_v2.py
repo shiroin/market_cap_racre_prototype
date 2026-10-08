@@ -1088,9 +1088,57 @@ def _make_canvas(ratio,bg,quality,chart=None,scene=None):
     ax=fig.add_axes(pos); return fig,ax
 
 
+def _draw_text_cards_on(fig, ax, scene, bg, text, grid, progress):
+    """Render a sequence of headline and description cards."""
+    from matplotlib.patches import FancyBboxPatch
+    ax.set_axis_off()
+    for artist in list(fig.patches): artist.remove()
+    for artist in list(fig.texts): artist.remove()
+    cards=scene.get('text_cards',[])
+    p=float(np.clip(progress,0,1))
+    fig.text(.075,.92,str(scene.get('title','')),fontsize=scene.get('title_size',22),
+        fontweight='bold',color=text,ha='left',va='top')
+    subtitle=str(scene.get('subtitle','') or '').strip()
+    if subtitle:
+        fig.text(.075,.86,subtitle,fontsize=scene.get('subtitle_size',12),
+            color=text,alpha=.75,ha='left',va='top')
+    count=len(cards)
+    if count:
+        top,bottom,gap=.77,.17,.013
+        h=min(.103,(top-bottom-gap*(count-1))/count)
+        for j,card in enumerate(cards):
+            phase=float(np.clip((p*count-j)/.8,0.,1.))
+            opacity=phase*phase*(3-2*phase)
+            if opacity<=0: continue
+            y=top-(j+1)*h-j*gap
+            fig.add_artist(FancyBboxPatch((.075,y),.85,h,
+                boxstyle='round,pad=0.003,rounding_size=0.012',
+                transform=fig.transFigure,facecolor='#FFFFFF',
+                edgecolor=grid,linewidth=.65,alpha=opacity,zorder=2))
+            fig.add_artist(FancyBboxPatch((.075,y),.007,h,
+                boxstyle='square,pad=0',transform=fig.transFigure,
+                facecolor=card.get('color','#C04A31'),edgecolor='none',
+                alpha=opacity,zorder=3))
+            title_size=min(13.,max(7.,h*115))
+            fig.text(.103,y+h*.68,str(card.get('title','')),color='#172235',
+                fontsize=title_size,fontweight='bold',ha='left',va='center',
+                alpha=opacity,zorder=4)
+            detail=str(card.get('description','') or '').strip()
+            if detail:
+                fig.text(.103,y+h*.26,detail,color='#647080',
+                    fontsize=max(6.,title_size*.66),ha='left',va='center',
+                    alpha=opacity,zorder=4)
+    note='\\n'.join(v for v in (str(scene.get('scene_note','') or '').strip(),
+        str(scene.get('source','') or '').strip()) if v)
+    if note:
+        fig.text(.075,.06,note,color=text,fontsize=7,alpha=.65,ha='left',va='bottom')
+
+
 def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='preview'):
     fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'),scene)
-    if scene.get('chart')=='2指標・企業横比較':
+    if scene.get('chart')=='テキストカード一覧':
+        _draw_text_cards_on(fig,ax,scene,bg,text,grid,progress)
+    elif scene.get('chart')=='2指標・企業横比較':
         _draw_dual_metric_scene(fig,ax,df,scene,bg,text,grid,progress)
     elif scene.get('chart')=='縦時系列年表':
         _draw_vertical_chronology_on(fig,ax,scene,bg,text,grid,progress)
@@ -1121,8 +1169,9 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
     fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'),scene)
     is_timeline=scene.get('chart') in ('年表','横進行年表','業績連動年表','縦時系列年表'); is_ranking=scene.get('chart')=='横比較ランキング'
     dual_prepared = _prepare_dual_metric_scene(df,scene) if scene.get('chart')=='2指標・企業横比較' else None
-    if not is_timeline and not is_ranking and scene.get('chart')!='2指標・企業横比較': dates,companies,pivot=_prepare_scene(df,scene)
-    if scene.get('chart')=='2指標・企業横比較': _draw_dual_metric_scene(fig,ax,df,scene,bg,text,grid,1/max(2,frames),dual_prepared)
+    if not is_timeline and not is_ranking and scene.get('chart') not in ('2指標・企業横比較','テキストカード一覧'): dates,companies,pivot=_prepare_scene(df,scene)
+    if scene.get('chart')=='テキストカード一覧': _draw_text_cards_on(fig,ax,scene,bg,text,grid,1/max(2,frames))
+    elif scene.get('chart')=='2指標・企業横比較': _draw_dual_metric_scene(fig,ax,df,scene,bg,text,grid,1/max(2,frames),dual_prepared)
     elif scene.get('chart')=='縦時系列年表': _draw_vertical_chronology_on(fig,ax,scene,bg,text,grid,1/max(2,frames))
     elif scene.get('chart')=='業績連動年表': _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,1/max(2,frames))
     elif is_timeline:
@@ -1140,7 +1189,8 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
         cached_dual_frame = None
         for i in range(total):
             pp=1. if i>=frames else (i+1)/frames
-            if scene.get('chart')=='2指標・企業横比較':
+            if scene.get('chart')=='テキストカード一覧': _draw_text_cards_on(fig,ax,scene,bg,text,grid,pp)
+            elif scene.get('chart')=='2指標・企業横比較':
                 if i<frames: _draw_dual_metric_scene(fig,ax,df,scene,bg,text,grid,pp,dual_prepared)
             elif scene.get('chart')=='縦時系列年表': _draw_vertical_chronology_on(fig,ax,scene,bg,text,grid,pp)
             elif scene.get('chart')=='業績連動年表': _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,pp,i/fps)
