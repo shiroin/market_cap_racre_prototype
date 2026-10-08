@@ -171,7 +171,7 @@ default_titles = ["上場買取再販4社の在庫", "各社の在庫キャッ�
 default_subtitles = ["販売用不動産（仕掛販売用不動産を含む）の期末残高", "販売用不動産の期末残高", "販売用不動産の期末残高÷売上高×12"]
 default_charts = ["積み上げ棒", "折れ線", "折れ線"]
 default_metrics = ["inventory", "inventory", "inventory_months"]
-chart_options = ["積み上げ棒", "折れ線", "棒グラフ", "100%積み上げ", "横比較ランキング", "年表", "横進行年表"]
+chart_options = ["積み上げ棒", "折れ線", "棒グラフ", "100%積み上げ", "横比較ランキング", "年表", "横進行年表", "業績連動年表"]
 
 for i in range(int(scene_count)):
     with st.expander(f"Scene {i+1}", expanded=i == 0):
@@ -215,7 +215,7 @@ for i in range(int(scene_count)):
         timeline_summary = ""
         timeline_summary_2 = ""
         timeline_summary_size = 12
-        if chart in ("年表","横進行年表"):
+        if chart in ("年表","横進行年表","業績連動年表"):
             st.markdown("**年表データ**")
             st.caption("横進行年表：画面下の年表上を現在位置が進み、各イベントの見出し・説明が順番にフェード表示されます。" if chart=="横進行年表" else "縦軸に沿ってイベントが順に現れる年表です。")
             default_timeline = pd.DataFrame([
@@ -235,8 +235,18 @@ for i in range(int(scene_count)):
             timeline_summary_2 = ""
             timeline_summary_size = 12
             timeline_note = st.text_area("出典・補足注記", "出典・補足事項をここに入力できます。", key=f"timeline_note_{i}")
-            if chart=="横進行年表":
+            if chart in ("横進行年表","業績連動年表"):
                 st.caption("イベントの badge 列を引用・補足ボックスとして表示します。各イベントの表示時間は描画時間÷イベント数で自動配分されます。")
+
+        timeline_bar_metric = metric
+        timeline_line_metric = "(なし)"
+        if chart == "業績連動年表":
+            st.markdown("**連動する業績グラフ**")
+            timeline_bar_metric = st.selectbox("棒グラフの指標", metric_columns,
+                index=metric_columns.index(metric), key=f"timeline_bar_metric_{i}")
+            timeline_line_metric = st.selectbox("折れ線の指標（任意）", ["(なし)"]+metric_columns,
+                key=f"timeline_line_metric_{i}")
+            st.caption("date列は 2022 / 2022Q1 / 2022-03 などの年度・期を使用します。year列のイベント時点に合わせてグラフ背景を強調します。")
 
         ranking_sort = "大きい順"
         ranking_reference = 0.0
@@ -269,6 +279,7 @@ for i in range(int(scene_count)):
             "data_label_size":data_label_size, "bar_gap":bar_gap, "timeline_events":timeline_events,
             "timeline_start":timeline_start, "timeline_end":timeline_end, "timeline_note":timeline_note,
             "timeline_summary":timeline_summary, "timeline_summary_2":timeline_summary_2, "timeline_summary_size":timeline_summary_size,
+            "timeline_bar_metric":timeline_bar_metric, "timeline_line_metric":timeline_line_metric,
             "ranking_sort":ranking_sort, "ranking_reference":ranking_reference, "ranking_highlight":ranking_highlight
         })
 
