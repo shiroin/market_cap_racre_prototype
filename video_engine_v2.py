@@ -1007,14 +1007,16 @@ def _draw_dual_metric_scene(fig, ax, df, scene, bg, text, grid, progress):
     ax.axvline(0,color=grid,lw=.8,zorder=0)
     color_a=scene.get('dual_color_a','#8799B1')
     color_b=scene.get('dual_color_b','#D95E37')
-    ax.barh(y-.19,current[:,0],height=.32,color=color_a,zorder=2)\n    for bar, opacity in zip(ax.patches,alpha_a): bar.set_alpha(float(opacity))
+    ax.barh(y-.19,current[:,0],height=.32,color=color_a,zorder=2)
+    for bar, opacity in zip(ax.patches,alpha_a): bar.set_alpha(float(opacity))
     ax_b=ax.twiny() if not shared else ax
     if not shared:
         ax_b.set_xlim(*lim_b)
         ax_b.set_ylim(ax.get_ylim())
         ax_b.tick_params(axis='x',colors=color_b,labelsize=8)
         for spine in ax_b.spines.values(): spine.set_visible(False)
-    second_bars=ax_b.barh(y+.19,current[:,1],height=.32,color=color_b,zorder=2)\n    for bar, opacity in zip(second_bars,alpha_b): bar.set_alpha(float(opacity))
+    second_bars=ax_b.barh(y+.19,current[:,1],height=.32,color=color_b,zorder=2)
+    for bar, opacity in zip(second_bars,alpha_b): bar.set_alpha(float(opacity))
     def fmt(v):
         return f"{v:+.0f}%" if mode=='基準年比成長率' else (f"{v:.2f}倍" if mode=='基準年倍率' else f"{v:,.1f}")
     for k, axis in enumerate((ax,ax_b)):
