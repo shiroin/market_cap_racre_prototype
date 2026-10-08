@@ -306,8 +306,13 @@ def _timeline_events(scene):
 def _draw_horizontal_timeline_on(fig,ax,scene,bg,text,grid,progress):
     """One event at a time, synchronized with a persistent horizontal timeline."""
     from matplotlib.patches import FancyBboxPatch
-    ax.clear(); fig.texts.clear()
-    for patch in list(fig.patches): patch.remove()
+    ax.clear()
+    # Timeline strokes and balls are FIGURE-level Line2D artists, not Axes artists.
+    # ax.clear() and fig.texts.clear() alone do not remove them, so each frame
+    # previously accumulated every old ball position as a visible ghost trail.
+    for artist in list(fig.lines): artist.remove()
+    for artist in list(fig.patches): artist.remove()
+    for artist in list(fig.texts): artist.remove()
     ax.axis('off')
     p=float(np.clip(progress,0,1))
     fig.text(.075,.93,scene.get('title','年表'),color=text,
