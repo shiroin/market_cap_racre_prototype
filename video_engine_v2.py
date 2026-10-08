@@ -465,7 +465,7 @@ def _draw_safe_financial_header(fig,scene,text,progress):
     return title_bottom
 
 
-def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
+def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress,elapsed=None):
     """Synchronized events, financial chart and horizontal year timeline."""
     import re
     from matplotlib.patches import Rectangle
@@ -682,10 +682,10 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
     # Financial timeline has its own chart, event card and moving timeline.
     # Keep explanatory notes and both bottom comments in *reserved* figure
     # zones instead of allowing text to fall beneath the canvas or overlap.
-    _draw_financial_timeline_footer(fig, scene, text, grid, p)
+    _draw_financial_timeline_footer(fig, scene, text, grid, p, elapsed=elapsed)
 
 
-def _draw_financial_timeline_footer(fig, scene, text, grid, progress):
+def _draw_financial_timeline_footer(fig, scene, text, grid, progress, elapsed=None):
     """Notes and comments for the synchronized financial timeline."""
     from matplotlib.patches import FancyBboxPatch
 
@@ -716,11 +716,21 @@ def _draw_financial_timeline_footer(fig, scene, text, grid, progress):
             facecolor='#233653' if scene.get('scene_comment_style') == '白抜き（濃紺背景）' else '#E8EDF3',
             edgecolor='none', zorder=25)
         duration = max(.01, float(scene.get('duration', 2.8)))
-        # Thumbnail previews draw at progress=1; the renderer independently
-        # controls the delay / hold after the chart animation.
-        a = float(np.clip(progress, 0, 1))
-        first_alpha = fade_window(a, .83, .91)
-        second_alpha = fade_window(a, .91, .98)
+        events = _timeline_events(scene)
+        count = max(1, len(events))
+        travel_ratio = float(np.clip(scene.get('timeline_travel_ratio', .16), .05, .60))
+        # The last description finishes fading in at this exact point of the
+        # final event's time slot. Delay is measured in REAL seconds from then.
+        description_end = min(.98, travel_ratio + .37)
+        description_time = duration * (count - 1 + description_end) / count
+        delay = float(np.clip(scene.get('financial_comment_delay', 2.0), 1.0, 3.0))
+        gap = max(0., float(scene.get('scene_comment_gap', .8)))
+        t = duration * float(progress) if elapsed is None else float(elapsed)
+        fade_seconds = .55
+        first_start = description_time + delay
+        second_start = first_start + fade_seconds + gap if c1 else first_start
+        first_alpha = ease_in_out(np.clip((t-first_start)/fade_seconds, 0, 1))
+        second_alpha = ease_in_out(np.clip((t-second_start)/fade_seconds, 0, 1))
         panel.set_alpha(max(first_alpha if c1 else 0.,second_alpha if c2 else 0.))
         fig.add_artist(panel)
         col = 'white' if scene.get('scene_comment_style') == '白抜き（濃紺背景）' else text
@@ -937,7 +947,17 @@ def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='pr
 
 
 def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
-    started=time.monotonic(); frames=max(2,int(scene.get('duration',2.5)*fps)); hold=max(0,int(scene.get('hold',1.0)*fps)); fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'),scene)
+    started=time.monotonic(); frames=max(2,int(scene.get('duration',2.5)*fps)); hold=max(0,int(scene.get('hold',1.0)*fps))
+    if scene.get('chart')=='業績連動年表' and (scene.get('scene_comment_1') or scene.get('scene_comment_2')):
+        count=max(1,len(_timeline_events(scene)))
+        travel=float(np.clip(scene.get('timeline_travel_ratio',.16),.05,.60))
+        desc_end=min(.98,travel+.37)
+        desc_time=float(scene.get('duration',2.5))*(count-1+desc_end)/count
+        delay=float(np.clip(scene.get('financial_comment_delay',2.0),1.0,3.0))
+        extra=.55+(max(0.,float(scene.get('scene_comment_gap',.8)))+.55 if scene.get('scene_comment_1') and scene.get('scene_comment_2') else 0.)
+        required=desc_time+delay+extra+0.4
+        hold=max(hold,int(np.ceil(max(0.,required-float(scene.get('duration',2.5)))*fps)))
+    fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'),scene)
     is_timeline=scene.get('chart') in ('年表','横進行年表','業績連動年表','縦時系列年表'); is_ranking=scene.get('chart')=='横比較ランキング'
     if not is_timeline and not is_ranking: dates,companies,pivot=_prepare_scene(df,scene)
     if scene.get('chart')=='縦時系列年表': _draw_vertical_chronology_on(fig,ax,scene,bg,text,grid,1/max(2,frames))
@@ -957,7 +977,7 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
         for i in range(total):
             pp=1. if i>=frames else (i+1)/frames
             if scene.get('chart')=='縦時系列年表': _draw_vertical_chronology_on(fig,ax,scene,bg,text,grid,pp)
-            elif scene.get('chart')=='業績連動年表': _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,pp)
+            elif scene.get('chart')=='業績連動年表': _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,pp,i/fps)
             elif is_timeline: (_draw_horizontal_timeline_on if scene.get('chart')=='横進行年表' else _draw_timeline_on)(fig,ax,scene,bg,text,grid,pp)
             elif is_ranking: _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,pp,i/fps)
             else: _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,pp,i/fps)
