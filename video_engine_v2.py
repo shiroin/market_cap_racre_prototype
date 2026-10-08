@@ -310,6 +310,10 @@ def _draw_horizontal_timeline_on(fig,ax,scene,bg,text,grid,progress):
     # Timeline strokes and balls are FIGURE-level Line2D artists, not Axes artists.
     # ax.clear() and fig.texts.clear() alone do not remove them, so each frame
     # previously accumulated every old ball position as a visible ghost trail.
+    # fig.add_artist(Line2D(...)) stores the line in fig.artists, NOT fig.lines.
+    # Clear both registries; otherwise the moving ball is permanently stamped
+    # into the figure on every frame (the actual cause of the ghost trail).
+    for artist in list(fig.artists): artist.remove()
     for artist in list(fig.lines): artist.remove()
     for artist in list(fig.patches): artist.remove()
     for artist in list(fig.texts): artist.remove()
