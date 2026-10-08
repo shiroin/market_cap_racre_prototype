@@ -416,6 +416,55 @@ def _draw_vertical_chronology_on(fig,ax,scene,bg,text,grid,progress):
             va='top',alpha=.6)
 
 
+def _draw_safe_financial_header(fig,scene,text,progress):
+    """Place subtitle below the measured title bbox, never at a fixed Y."""
+    title=str(scene.get('title','業績と年表') or '')
+    subtitle=str(scene.get('subtitle','') or '').strip()
+    title_size=float(scene.get('title_size',22))
+    subtitle_size=float(scene.get('subtitle_size',12))
+    left=.075
+    # Use the actual renderer to measure glyphs (including Japanese).
+    fig.canvas.draw()
+    renderer=fig.canvas.get_renderer()
+    fig_h=fig.bbox.height
+    fig_w=fig.bbox.width
+    max_width=fig_w*.85
+    def wrap_to_width(value,size,weight):
+        result=[]
+        for line in value.splitlines():
+            if not line:
+                result.append('')
+                continue
+            current=''
+            for char in line:
+                candidate=current+char
+                probe=fig.text(-2,-2,candidate,fontsize=size,fontweight=weight)
+                width=probe.get_window_extent(renderer=renderer).width
+                probe.remove()
+                if current and width>max_width:
+                    result.append(current)
+                    current=char
+                else:
+                    current=candidate
+            result.append(current)
+        return '\\n'.join(result)
+    title_text=fig.text(left,.955,wrap_to_width(title,title_size,'bold'),
+        color=text,fontsize=title_size,fontweight='bold',
+        ha='left',va='top',linespacing=1.20,zorder=24)
+    title_box=title_text.get_window_extent(renderer=renderer)
+    title_bottom=title_box.y0/fig_h
+    if subtitle:
+        subtitle_top=title_bottom-max(12/fig_h,.018)
+        subtitle_text=fig.text(left,subtitle_top,
+            wrap_to_width(subtitle,subtitle_size,'normal'),
+            color=text,fontsize=subtitle_size,ha='left',va='top',
+            linespacing=1.30,zorder=23,
+            alpha=.68*float(fade_window(progress,.01,.08)))
+        subtitle_box=subtitle_text.get_window_extent(renderer=renderer)
+        return subtitle_box.y0/fig_h
+    return title_bottom
+
+
 def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
     """Synchronized events, financial chart and horizontal year timeline."""
     import re
@@ -427,10 +476,7 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
     for artist in list(fig.texts): artist.remove()
     ax.set_facecolor(bg)
     p=float(np.clip(progress,0,1))
-    fig.text(.075,.945,scene.get('title','業績と年表'),color=text,
-        fontsize=scene.get('title_size',22),fontweight='bold',ha='left',va='top')
-    _draw_reference_subtitle(fig,scene,text,y=.897,
-        fontsize=scene.get('subtitle_size',12),alpha=fade_window(p,.01,.08))
+    header_bottom=_draw_safe_financial_header(fig,scene,text,p)
     events=_timeline_events(scene)
     bar_metric=scene.get('timeline_bar_metric',scene.get('metric'))
     line_metric=scene.get('timeline_line_metric','(なし)')
@@ -595,19 +641,21 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
         fig.text(.88,.616,str(line_metric),color=scene.get('timeline_line_color','#B83F68'),fontsize=7,ha='right')
     fig.text(.12,.616,str(bar_metric),color=text,fontsize=8,fontweight='bold',ha='left')
     # Show only the current stop's comment. Never switch comments mid-travel.
+    # Keep a clear gap between subtitle and the event comment band.
+    comment_top=min(.842,header_bottom-.035)
     if stop_events:
         current=stop_events[position]
         fade_in=float(fade_window(local,travel_ratio,min(.98,travel_ratio+.12)))
         fade_out=(1.-float(fade_window(local,.90,.99))) if position<len(stop_events)-1 else 1.
         opacity=float(np.clip(fade_in*fade_out,0,1))
         if current.get('date'):
-            fig.text(.09,.842,current['date'],color=text,fontsize=9,
+            fig.text(.09,comment_top,current['date'],color=text,fontsize=9,
                 fontweight='bold',ha='left',alpha=opacity)
         if current.get('title'):
-            fig.text(.09,.805,current['title'],color=text,fontsize=14,
+            fig.text(.09,comment_top-.038,current['title'],color=text,fontsize=14,
                 fontweight='bold',ha='left',alpha=opacity,wrap=True)
         if current.get('description'):
-            fig.text(.09,.735,current['description'],color=text,fontsize=8,
+            fig.text(.09,comment_top-.110,current['description'],color=text,fontsize=8,
                 ha='left',va='top',alpha=opacity,wrap=True)
     # One continuous pale line, pale stops, and exactly one moving ball.
     left,right=.10,.90
