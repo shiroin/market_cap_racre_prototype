@@ -916,6 +916,105 @@ def _draw_timeline_on(fig,ax,scene,bg,text,grid,progress):
         ax.text(.055,.094,note,transform=ax.transAxes,color=text,fontsize=3.8,ha='left',va='top',alpha=.56*note_a,wrap=True)
 
 
+def _draw_dual_metric_scene(fig, ax, df, scene, bg, text, grid, progress):
+    """Animate two metrics for each company inside the multi-scene renderer."""
+    from matplotlib.patches import Patch
+    ax.clear()
+    for artist in list(fig.artists): artist.remove()
+    for artist in list(fig.lines): artist.remove()
+    for artist in list(fig.patches): artist.remove()
+    for artist in list(fig.texts): artist.remove()
+    a, b = scene.get('dual_metric_a'), scene.get('dual_metric_b')
+    if a not in df.columns or b not in df.columns:
+        raise ValueError("2指標・企業横比較の指標列がありません")
+    data = df[['date','company',a,b]].copy() if a != b else df[['date','company',a]].copy()
+    data[a] = pd.to_numeric(data[a], errors='coerce')
+    data[b] = pd.to_numeric(data[b], errors='coerce')
+    if data[[a,b]].isna().any().any():
+        raise ValueError("2指標の値に空欄または数値以外があります")
+    if data.duplicated(['date','company']).any():
+        raise ValueError("date×company が重複しています")
+    dates = list(dict.fromkeys(data['date'].astype(str)))
+    companies = list(dict.fromkeys(data['company'].astype(str)))
+    pivot_a = data.pivot(index='date',columns='company',values=a).reindex(index=dates,columns=companies)
+    pivot_b = data.pivot(index='date',columns='company',values=b).reindex(index=dates,columns=companies)
+    if pivot_a.isna().any().any() or pivot_b.isna().any().any():
+        raise ValueError("各期間に全企業の2指標を入力してください")
+    vals = np.stack([pivot_a.to_numpy(dtype=float),pivot_b.to_numpy(dtype=float)],axis=-1)
+    mode = scene.get('dual_mode','実数値')
+    if mode != '実数値':
+        base = vals[0]
+        if np.any(base == 0):
+            raise ValueError("基準年倍率・成長率には基準期の非ゼロ値が必要です")
+        vals = vals / base
+        if mode == '基準年比成長率': vals = (vals-1)*100
+    ordering = scene.get('dual_sort','入力順')
+    if ordering != '入力順':
+        k = 0 if '指標A' in ordering else 1
+        indices = np.argsort(-vals[-1,:,k],kind='stable')
+        vals = vals[:,indices,:]
+        companies = [companies[j] for j in indices]
+    p = float(np.clip(progress,0,1))
+    step = p*max(0,len(dates)-1)
+    i = min(int(step),len(dates)-1)
+    j = min(i+1,len(dates)-1)
+    blend = ease_in_out(step-i)
+    current = vals[i]*(1-blend)+vals[j]*blend
+    label = dates[i if blend<.5 else j]
+    shared = scene.get('dual_axis','同一軸')=='同一軸'
+    def limits(k):
+        selected = vals if shared else vals[:,:,k]
+        lo = min(0,float(np.min(selected)))
+        hi = max(0,float(np.max(selected)))
+        pad = max((hi-lo)*.16,.1)
+        return lo-pad,hi+pad
+    lim_a,lim_b = limits(0),limits(1)
+    ax.set_position([.26,.31,.64,.39] if fig.get_figheight()>fig.get_figwidth()*1.2 else [.23,.30,.69,.45])
+    ax.set_facecolor(bg)
+    y = np.arange(len(companies))
+    ax.set_ylim(len(companies)-.65,-.65)
+    ax.set_xlim(*lim_a)
+    ax.set_yticks(y,companies)
+    ax.tick_params(axis='y',labelsize=max(6,min(10,13-len(companies)//3)),colors=text,length=0)
+    ax.tick_params(axis='x',labelsize=8,colors=text,length=0)
+    for spine in ax.spines.values(): spine.set_visible(False)
+    ax.axvline(0,color=grid,lw=.8,zorder=0)
+    color_a=scene.get('dual_color_a','#8799B1')
+    color_b=scene.get('dual_color_b','#D95E37')
+    ax.barh(y-.19,current[:,0],height=.32,color=color_a,zorder=2)
+    ax_b=ax.twiny() if not shared else ax
+    if not shared:
+        ax_b.set_xlim(*lim_b)
+        ax_b.set_ylim(ax.get_ylim())
+        ax_b.tick_params(axis='x',colors=color_b,labelsize=8)
+        for spine in ax_b.spines.values(): spine.set_visible(False)
+    ax_b.barh(y+.19,current[:,1],height=.32,color=color_b,zorder=2)
+    def fmt(v):
+        return f"{v:+.0f}%" if mode=='基準年比成長率' else (f"{v:.2f}倍" if mode=='基準年倍率' else f"{v:,.1f}")
+    for k, axis in enumerate((ax,ax_b)):
+        lo,hi=(lim_a,lim_b)[k]
+        offset=(hi-lo)*.012
+        for yy,v in zip(y,current[:,k]):
+            axis.text(v+(offset if v>=0 else -offset),yy+(-.19 if k==0 else .19),
+                fmt(v),color=text,fontsize=7,va='center',ha='left' if v>=0 else 'right',clip_on=False)
+    fig.text(.075,.93,scene.get('title','2指標・企業横比較'),fontsize=scene.get('title_size',22),
+        fontweight='bold',color=text,ha='left',va='top')
+    subtitle=str(scene.get('subtitle','') or '').strip()
+    if subtitle:
+        fig.text(.075,.87,subtitle,color=text,fontsize=scene.get('subtitle_size',12),
+            ha='left',va='top',alpha=.7)
+    fig.text(.5,.755,str(label),fontsize=15,fontweight='bold',color=text,ha='center')
+    fig.legend(handles=[Patch(color=color_a,label=str(a)),Patch(color=color_b,label=str(b))],
+        loc='lower center',bbox_to_anchor=(.5,.245),ncol=2,frameon=False,labelcolor=text,fontsize=9)
+    if not shared:
+        fig.text(.5,.225,f"下軸: {a} / 上軸: {b}",color=text,fontsize=7,ha='center')
+    _draw_scene_comments(fig,scene,text,p,elapsed=p*float(scene.get('duration',2.8))+float(scene.get('hold',0)))
+    note='\\n'.join(v for v in [str(scene.get('scene_note','') or '').strip(),
+        str(scene.get('source','') or '').strip()] if v)
+    if note:
+        fig.text(.075,.045,note,color=text,fontsize=5.2,alpha=.65,ha='left',va='bottom')
+
+
 def _make_canvas(ratio,bg,quality,chart=None,scene=None):
     size,dpi=_figure_spec(ratio,quality); fig=plt.figure(figsize=size,dpi=dpi); fig.patch.set_facecolor(bg)
     if chart=='横比較ランキング': pos=[.30,.16,.62,.65] if ratio in ('4:5','1:1','5:4','16:9') else [.32,.15,.58,.66]
@@ -931,7 +1030,9 @@ def _make_canvas(ratio,bg,quality,chart=None,scene=None):
 
 def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='preview'):
     fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'),scene)
-    if scene.get('chart')=='縦時系列年表':
+    if scene.get('chart')=='2指標・企業横比較':
+        _draw_dual_metric_scene(fig,ax,df,scene,bg,text,grid,progress)
+    elif scene.get('chart')=='縦時系列年表':
         _draw_vertical_chronology_on(fig,ax,scene,bg,text,grid,progress)
     elif scene.get('chart')=='業績連動年表':
         _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress)
@@ -959,8 +1060,9 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
         hold=max(hold,int(np.ceil(max(0.,required-float(scene.get('duration',2.5)))*fps)))
     fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'),scene)
     is_timeline=scene.get('chart') in ('年表','横進行年表','業績連動年表','縦時系列年表'); is_ranking=scene.get('chart')=='横比較ランキング'
-    if not is_timeline and not is_ranking: dates,companies,pivot=_prepare_scene(df,scene)
-    if scene.get('chart')=='縦時系列年表': _draw_vertical_chronology_on(fig,ax,scene,bg,text,grid,1/max(2,frames))
+    if not is_timeline and not is_ranking and scene.get('chart')!='2指標・企業横比較': dates,companies,pivot=_prepare_scene(df,scene)
+    if scene.get('chart')=='2指標・企業横比較': _draw_dual_metric_scene(fig,ax,df,scene,bg,text,grid,1/max(2,frames))
+    elif scene.get('chart')=='縦時系列年表': _draw_vertical_chronology_on(fig,ax,scene,bg,text,grid,1/max(2,frames))
     elif scene.get('chart')=='業績連動年表': _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,1/max(2,frames))
     elif is_timeline:
         (_draw_horizontal_timeline_on if scene.get('chart')=='横進行年表' else _draw_timeline_on)(fig,ax,scene,bg,text,grid,1/max(2,frames))
@@ -976,7 +1078,8 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
         total=frames+hold
         for i in range(total):
             pp=1. if i>=frames else (i+1)/frames
-            if scene.get('chart')=='縦時系列年表': _draw_vertical_chronology_on(fig,ax,scene,bg,text,grid,pp)
+            if scene.get('chart')=='2指標・企業横比較': _draw_dual_metric_scene(fig,ax,df,scene,bg,text,grid,pp)
+            elif scene.get('chart')=='縦時系列年表': _draw_vertical_chronology_on(fig,ax,scene,bg,text,grid,pp)
             elif scene.get('chart')=='業績連動年表': _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,pp,i/fps)
             elif is_timeline: (_draw_horizontal_timeline_on if scene.get('chart')=='横進行年表' else _draw_timeline_on)(fig,ax,scene,bg,text,grid,pp)
             elif is_ranking: _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,pp,i/fps)
