@@ -650,15 +650,32 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress,elaps
         opacity=float(np.clip(fade_in*fade_out,0,1))
         description_start=min(.90,travel_ratio+.25)
         description_opacity=float(np.clip(fade_window(local,description_start,min(.98,description_start+.12))*fade_out,0,1))
+        # Treat the date, title and description as one compact event card.
+        # Anchor all lines from the top to avoid the large gap previously
+        # created by mixing baseline and top-aligned text.
+        event_x=.09
+        date_y=comment_top
+        title_y=date_y-.031
+        title_lines=textwrap.wrap(str(current.get('title','') or '').strip(),
+            width=24,break_long_words=True,break_on_hyphens=False) or []
+        # Allow a second title line without colliding with description.
+        desc_y=title_y-.041-.032*max(0,len(title_lines)-1)
         if current.get('date'):
-            fig.text(.09,comment_top,current['date'],color=text,fontsize=9,
-                fontweight='bold',ha='left',alpha=opacity)
-        if current.get('title'):
-            fig.text(.09,comment_top-.038,current['title'],color=text,fontsize=14,
-                fontweight='bold',ha='left',alpha=opacity,wrap=True)
+            fig.text(event_x,date_y,current['date'],color=text,fontsize=9,
+                fontweight='bold',ha='left',va='top',alpha=opacity)
+        if title_lines:
+            fig.text(event_x,title_y,'\n'.join(title_lines[:2]),color=text,fontsize=14,
+                fontweight='bold',ha='left',va='top',alpha=opacity,linespacing=1.1)
         if current.get('description'):
-            fig.text(.09,comment_top-.110,current['description'],color=text,fontsize=8,
+            fig.text(event_x,desc_y,current['description'],color=text,fontsize=8,
                 ha='left',va='top',alpha=description_opacity,wrap=True)
+        # Subtle visual connector makes the title and description read as
+        # one module without introducing a heavy background panel.
+        if current.get('title') and current.get('description'):
+            fig.add_artist(plt.Line2D([event_x,event_x+.037],
+                [desc_y+.014,desc_y+.014],transform=fig.transFigure,
+                color=scene.get('timeline_highlight_color','#B83F68'),
+                lw=2.0,alpha=.65*description_opacity,zorder=4))
     # One continuous pale line, pale stops, and exactly one moving ball.
     left,right=.10,.90
     yline=.235
