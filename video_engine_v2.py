@@ -338,18 +338,23 @@ def _draw_horizontal_timeline_on(fig,ax,scene,bg,text,grid,progress):
     position=min(n-1,int(p*n))
     local=float(np.clip(p*n-position,0,1))
     event=events[position]
-    # A single solid ball glides along the line. No ghost markers, glow, or trail.
+    # Reference motion: fixed pale stop markers, one moving ball, no trail.
+    # The baseline remains pale across its full length, including behind the ball.
+    for ev in events:
+        fig.add_artist(plt.Line2D([xpos(ev['year'])],[yline],
+            transform=fig.transFigure,marker='o',markersize=8,
+            markerfacecolor='#A9A59D',markeredgecolor='none',
+            alpha=.32,linestyle='None',zorder=7))
     slot=float(np.clip(p*n-position,0,1))
+    # Move between stops with smooth acceleration/deceleration, then dwell.
     travel=float(ease_in_out(np.clip(slot/.30,0,1)))
     previous_x=left if position==0 else xpos(events[position-1]['year'])
     target_x=xpos(event['year'])
     cursor=previous_x+(target_x-previous_x)*travel
     if p>=1.0:
-        cursor=right
-    fig.add_artist(plt.Line2D([left,cursor],[yline,yline],transform=fig.transFigure,
-        color='#173453',lw=2.0,zorder=6))
+        cursor=target_x
     fig.add_artist(plt.Line2D([cursor],[yline],transform=fig.transFigure,
-        marker='o',markersize=12,markerfacecolor='#173453',
+        marker='o',markersize=8.5,markerfacecolor='#172B47',
         markeredgecolor='none',linestyle='None',zorder=12))
     # Fade the current card in, then gently fade it out before the next event.
     fade_in=float(fade_window(local,.30,.46))
