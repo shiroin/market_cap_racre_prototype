@@ -171,7 +171,7 @@ default_titles = ["上場買取再販4社の在庫", "各社の在庫キャッ�
 default_subtitles = ["販売用不動産（仕掛販売用不動産を含む）の期末残高", "販売用不動産の期末残高", "販売用不動産の期末残高÷売上高×12"]
 default_charts = ["積み上げ棒", "折れ線", "折れ線"]
 default_metrics = ["inventory", "inventory", "inventory_months"]
-chart_options = ["積み上げ棒", "折れ線", "棒グラフ", "100%積み上げ", "横比較ランキング", "年表", "横進行年表", "業績連動年表"]
+chart_options = ["積み上げ棒", "折れ線", "棒グラフ", "100%積み上げ", "横比較ランキング", "年表", "横進行年表", "業績連動年表", "縦時系列年表"]
 
 for i in range(int(scene_count)):
     with st.expander(f"Scene {i+1}", expanded=i == 0):
@@ -179,7 +179,7 @@ for i in range(int(scene_count)):
         default_chart = default_charts[i] if i < 3 else "折れ線"
         chart = c1.selectbox("グラフ種類", chart_options, index=chart_options.index(default_chart), key=f"chart_{i}")
         preferred = default_metrics[i] if i < 3 and default_metrics[i] in metric_columns else metric_columns[0]
-        metric = c2.selectbox("指標列", metric_columns, index=metric_columns.index(preferred), key=f"metric_{i}", disabled=chart in ("年表","横進行年表"))
+        metric = c2.selectbox("指標列", metric_columns, index=metric_columns.index(preferred), key=f"metric_{i}", disabled=chart in ("年表","横進行年表","縦時系列年表"))
         title = st.text_input("タイトル", default_titles[i] if i < 3 else f"Scene {i+1}", key=f"title_{i}")
         subtitle = st.text_area("サブタイトル", default_subtitles[i] if i < 3 else "", key=f"subtitle_{i}", height=80, help="長い場合は任意の位置で改行できます。")
         c3, c4 = st.columns(2)
@@ -215,7 +215,7 @@ for i in range(int(scene_count)):
         timeline_summary = ""
         timeline_summary_2 = ""
         timeline_summary_size = 12
-        if chart in ("年表","横進行年表","業績連動年表"):
+        if chart in ("年表","横進行年表","業績連動年表","縦時系列年表"):
             st.markdown("**年表データ**")
             st.caption("横進行年表：画面下の年表上を現在位置が進み、各イベントの見出し・説明が順番にフェード表示されます。" if chart=="横進行年表" else "縦軸に沿ってイベントが順に現れる年表です。")
             default_timeline = pd.DataFrame([
@@ -234,6 +234,9 @@ for i in range(int(scene_count)):
             timeline_end = int(t2.number_input("終了年", 1900, 2200, 2025, 1, key=f"timeline_end_{i}"))
             timeline_summary = ""
             timeline_summary_2 = ""
+            if chart == "縦時系列年表":
+                timeline_summary = st.text_input("総括コメント①", "", key=f"vertical_summary_{i}")
+                timeline_summary_2 = st.text_input("総括コメント②", "", key=f"vertical_summary_2_{i}")
             timeline_summary_size = 12
             timeline_note = st.text_area("出典・補足注記", "出典・補足事項をここに入力できます。", key=f"timeline_note_{i}")
             if chart in ("横進行年表","業績連動年表"):
