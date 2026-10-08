@@ -958,12 +958,23 @@ def _draw_dual_metric_scene(fig, ax, df, scene, bg, text, grid, progress):
         vals = vals[:,indices,:]
         companies = [companies[j] for j in indices]
     p = float(np.clip(progress,0,1))
-    step = p*max(0,len(dates)-1)
-    i = min(int(step),len(dates)-1)
-    j = min(i+1,len(dates)-1)
-    blend = ease_in_out(step-i)
-    current = vals[i]*(1-blend)+vals[j]*blend
-    label = dates[i if blend<.5 else j]
+    # Each period enters in two stages: upper metric A grows smoothly from
+    # zero (first period) or its previous value, then lower metric B follows.
+    # The zero baseline is retained for both shared and independent axes.
+    phase_position = p * len(dates)
+    period_index = min(int(phase_position),len(dates)-1)
+    phase = float(np.clip(phase_position-period_index,0,1))
+    if p>=1.: phase=1.
+    previous = np.zeros_like(vals[0]) if period_index==0 else vals[period_index-1]
+    target = vals[period_index]
+    a_progress = ease_in_out(np.clip(phase/.46,0,1))
+    b_progress = ease_in_out(np.clip((phase-.52)/.46,0,1))
+    current = previous.copy()
+    current[:,0] = previous[:,0]+(target[:,0]-previous[:,0])*a_progress
+    current[:,1] = previous[:,1]+(target[:,1]-previous[:,1])*b_progress
+    alpha_a = float(a_progress) if period_index==0 else 1.
+    alpha_b = float(b_progress) if period_index==0 else 1.
+    label = dates[period_index]
     shared = scene.get('dual_axis','同一軸')=='同一軸'
     def limits(k):
         selected = vals if shared else vals[:,:,k]
@@ -984,14 +995,14 @@ def _draw_dual_metric_scene(fig, ax, df, scene, bg, text, grid, progress):
     ax.axvline(0,color=grid,lw=.8,zorder=0)
     color_a=scene.get('dual_color_a','#8799B1')
     color_b=scene.get('dual_color_b','#D95E37')
-    ax.barh(y-.19,current[:,0],height=.32,color=color_a,zorder=2)
+    ax.barh(y-.19,current[:,0],height=.32,color=color_a,alpha=alpha_a,zorder=2)
     ax_b=ax.twiny() if not shared else ax
     if not shared:
         ax_b.set_xlim(*lim_b)
         ax_b.set_ylim(ax.get_ylim())
         ax_b.tick_params(axis='x',colors=color_b,labelsize=8)
         for spine in ax_b.spines.values(): spine.set_visible(False)
-    ax_b.barh(y+.19,current[:,1],height=.32,color=color_b,zorder=2)
+    ax_b.barh(y+.19,current[:,1],height=.32,color=color_b,alpha=alpha_b,zorder=2)
     def fmt(v):
         return f"{v:+.0f}%" if mode=='基準年比成長率' else (f"{v:.2f}倍" if mode=='基準年倍率' else f"{v:,.1f}")
     for k, axis in enumerate((ax,ax_b)):
@@ -999,7 +1010,7 @@ def _draw_dual_metric_scene(fig, ax, df, scene, bg, text, grid, progress):
         offset=(hi-lo)*.012
         for yy,v in zip(y,current[:,k]):
             axis.text(v+(offset if v>=0 else -offset),yy+(-.19 if k==0 else .19),
-                fmt(v),color=text,fontsize=7,va='center',ha='left' if v>=0 else 'right',clip_on=False)
+                fmt(v),color=text,alpha=alpha_a if k==0 else alpha_b,fontsize=7,va='center',ha='left' if v>=0 else 'right',clip_on=False)
     fig.text(.075,.93,scene.get('title','2指標・企業横比較'),fontsize=scene.get('title_size',22),
         fontweight='bold',color=text,ha='left',va='top')
     subtitle=str(scene.get('subtitle','') or '').strip()
