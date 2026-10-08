@@ -219,13 +219,14 @@ for i in range(int(scene_count)):
             st.markdown("**年表データ**")
             st.caption("横進行年表：画面下の年表上を現在位置が進み、各イベントの見出し・説明が順番にフェード表示されます。" if chart=="横進行年表" else "縦軸に沿ってイベントが順に現れる年表です。")
             default_timeline = pd.DataFrame([
-                {"year":2018.45,"date":"2018年6月","title":"運営会社を設立","description":"プロジェクトの運営会社などが設立","badge":""},
-                {"year":2020.05,"date":"2020年1月","title":"140億円","description":"出資を受け、プロジェクトが本格始動","badge":"出資"},
-                {"year":2022.72,"date":"2022年9月","title":"80億円","description":"出資を決定","badge":"資金調達"},
-                {"year":2023.86,"date":"2023年11月","title":"366億円の協調融資","description":"複数の金融機関による協調融資","badge":"融資"},
-                {"year":2025.04,"date":"2025年1月","title":"開業日を発表","description":"同日に経済効果の試算も公表","badge":""},
-                {"year":2025.56,"date":"2025年7月25日","title":"開業","description":"開業を迎える","badge":""},
+                {"year":2018,"month":6,"day":1,"date":"2018年6月","title":"運営会社を設立","description":"プロジェクトの運営会社などが設立","badge":""},
+                {"year":2020,"month":1,"day":1,"date":"2020年1月","title":"140億円","description":"出資を受け、プロジェクトが本格始動","badge":"出資"},
+                {"year":2022,"month":9,"day":1,"date":"2022年9月","title":"80億円","description":"出資を決定","badge":"資金調達"},
+                {"year":2023,"month":11,"day":1,"date":"2023年11月","title":"366億円の協調融資","description":"複数の金融機関による協調融資","badge":"融資"},
+                {"year":2025,"month":1,"day":1,"date":"2025年1月","title":"開業日を発表","description":"同日に経済効果の試算も公表","badge":""},
+                {"year":2025,"month":7,"day":25,"date":"2025年7月25日","title":"開業","description":"開業を迎える","badge":""},
             ])
+            st.caption("year・month・day が年表の位置を決めます。date は画面に表示する日付文字列です。月日不明の場合は month=1、day=1 を指定してください。")
             timeline_df = st.data_editor(default_timeline, num_rows="dynamic", use_container_width=True, key=f"timeline_data_{i}")
             timeline_events = timeline_df.to_dict("records")
             t1,t2 = st.columns(2)
