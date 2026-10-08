@@ -242,6 +242,7 @@ for i in range(int(scene_count)):
             if chart in ("横進行年表","業績連動年表"):
                 st.caption("イベントの badge 列を引用・補足ボックスとして表示します。各イベントの表示時間は描画時間÷イベント数で自動配分されます。")
 
+        financial_comment_delay = 2.0
         timeline_bar_metric = metric
         timeline_line_metric = "(なし)"
         timeline_bar_color = "#B83F68"
@@ -265,6 +266,7 @@ for i in range(int(scene_count)):
             timeline_highlight_alpha = st.slider("年度背景の濃さ", 0.0, 1.0, 0.42, 0.05, key=f"timeline_highlight_alpha_{i}")
             timeline_period_mapping = st.selectbox("イベントと業績期の対応", ["日付","イベント順"], key=f"timeline_period_mapping_{i}", help="日付（推奨）: イベント年月日が属する四半期・年度の棒を強調。同じ期のイベントは同じ棒に固定。イベント順: 日付が対応しないデモなどでのみ使用。")
             timeline_travel_ratio = st.slider("イベント間の移動時間（1イベントの割合）", 0.05, 0.60, 0.16, 0.01, key=f"timeline_travel_ratio_{i}", help="初期値16%：最初の16%で次のイベントへ移動し、残り84%は完全停止してコメントを表示します。")
+            financial_comment_delay = st.slider("最後のdescription表示後→下部コメント①まで（秒）", 1.0, 3.0, 2.0, 0.1, key=f"financial_comment_delay_{i}", help="最後のイベント説明のフェードイン完了から指定秒数後に下部コメントを表示します。")
             st.caption("球は年表イベントのyear/month/day座標で停止します。停止中にコメントを表示し、グラフ背景は到達時点の期を強調します。")
 
         ranking_sort = "大きい順"
@@ -298,7 +300,7 @@ for i in range(int(scene_count)):
             "data_label_size":data_label_size, "bar_gap":bar_gap, "timeline_events":timeline_events,
             "timeline_start":timeline_start, "timeline_end":timeline_end, "timeline_note":timeline_note,
             "timeline_summary":timeline_summary, "timeline_summary_2":timeline_summary_2, "timeline_summary_size":timeline_summary_size,
-            "timeline_bar_metric":timeline_bar_metric, "timeline_line_metric":timeline_line_metric, "timeline_bar_color":timeline_bar_color, "timeline_line_color":timeline_line_color, "timeline_highlight_color":timeline_highlight_color, "timeline_highlight_alpha":timeline_highlight_alpha, "timeline_fiscal_year_end_month":timeline_fiscal_year_end_month, "timeline_travel_ratio":timeline_travel_ratio, "timeline_period_mapping":timeline_period_mapping,
+            "timeline_bar_metric":timeline_bar_metric, "timeline_line_metric":timeline_line_metric, "timeline_bar_color":timeline_bar_color, "timeline_line_color":timeline_line_color, "timeline_highlight_color":timeline_highlight_color, "timeline_highlight_alpha":timeline_highlight_alpha, "timeline_fiscal_year_end_month":timeline_fiscal_year_end_month, "timeline_travel_ratio":timeline_travel_ratio, "timeline_period_mapping":timeline_period_mapping, "financial_comment_delay":financial_comment_delay,
             "ranking_sort":ranking_sort, "ranking_reference":ranking_reference, "ranking_highlight":ranking_highlight
         })
 
