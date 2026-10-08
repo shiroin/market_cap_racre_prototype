@@ -335,14 +335,32 @@ def _draw_vertical_chronology_on(fig,ax,scene,bg,text,grid,progress):
     ax.axis('off')
     p=float(np.clip(progress,0,1))
     events=_timeline_events(scene)
-    fig.text(.065,.936,scene.get('title','縦時系列年表'),color=text,
-        fontsize=scene.get('title_size',22),fontweight='bold',ha='left',va='top')
-    _draw_reference_subtitle(fig,scene,text,y=.887,
-        fontsize=scene.get('subtitle_size',12),alpha=fade_window(p,.01,.10))
+    # Reserve title and subtitle zones using real figure dimensions.
+    figure_height_pt=fig.get_size_inches()[1]*72.
+    figure_width_pt=fig.get_size_inches()[0]*72.
+    title_size=float(scene.get('title_size',22))
+    subtitle_size=float(scene.get('subtitle_size',12))
+    title=str(scene.get('title','縦時系列年表') or '')
+    subtitle=str(scene.get('subtitle','') or '').strip()
+    header_top=.952
+    title_height=title_size*1.30*max(1,len(title.splitlines()))/figure_height_pt
+    subtitle_top=header_top-title_height-.025
+    fig.text(.065,header_top,title,color=text,fontsize=title_size,
+        fontweight='bold',ha='left',va='top',linespacing=1.15)
+    subtitle_lines=[]
+    if subtitle:
+        max_chars=max(8,int(figure_width_pt*.86/(subtitle_size*.95)))
+        for line in subtitle.splitlines():
+            subtitle_lines.extend(textwrap.wrap(line,width=max_chars,
+                break_long_words=True,break_on_hyphens=False) or [''])
+        fig.text(.065,subtitle_top,'\n'.join(subtitle_lines),color=text,
+            fontsize=subtitle_size,ha='left',va='top',linespacing=1.30,
+            alpha=.75*float(fade_window(p,.01,.10)))
+    subtitle_height=len(subtitle_lines)*subtitle_size*1.42/figure_height_pt
+    header_bottom=subtitle_top-subtitle_height if subtitle else subtitle_top
     if not events: return
-    # Reserve a separate band for the final comments and footnotes.
     n=len(events)
-    top=.815
+    top=min(.815,header_bottom-.055)
     bottom=.335 if scene.get('scene_comment_1') or scene.get('timeline_summary') else .245
     # Even spacing is intentional: calendar distance must not collapse nearby
     # events into overlapping rows.
