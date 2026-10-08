@@ -919,6 +919,9 @@ def _draw_timeline_on(fig,ax,scene,bg,text,grid,progress):
 def _draw_dual_metric_scene(fig, ax, df, scene, bg, text, grid, progress):
     """Animate two metrics for each company inside the multi-scene renderer."""
     from matplotlib.patches import Patch
+    for other in list(fig.axes):
+        if other is not ax:
+            other.remove()
     ax.clear()
     for artist in list(fig.artists): artist.remove()
     for artist in list(fig.lines): artist.remove()
@@ -1008,7 +1011,7 @@ def _draw_dual_metric_scene(fig, ax, df, scene, bg, text, grid, progress):
         loc='lower center',bbox_to_anchor=(.5,.245),ncol=2,frameon=False,labelcolor=text,fontsize=9)
     if not shared:
         fig.text(.5,.225,f"下軸: {a} / 上軸: {b}",color=text,fontsize=7,ha='center')
-    _draw_scene_comments(fig,scene,text,p,elapsed=p*float(scene.get('duration',2.8))+float(scene.get('hold',0)))
+    _draw_scene_comments(fig,scene,text,p,elapsed=p*float(scene.get('duration',2.8)))
     note='\\n'.join(v for v in [str(scene.get('scene_note','') or '').strip(),
         str(scene.get('source','') or '').strip()] if v)
     if note:
