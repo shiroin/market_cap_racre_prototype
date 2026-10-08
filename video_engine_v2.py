@@ -958,12 +958,35 @@ def _draw_dual_metric_scene(fig, ax, df, scene, bg, text, grid, progress):
         vals = vals[:,indices,:]
         companies = [companies[j] for j in indices]
     p = float(np.clip(progress,0,1))
-    step = p*max(0,len(dates)-1)
-    i = min(int(step),len(dates)-1)
-    j = min(i+1,len(dates)-1)
-    blend = ease_in_out(step-i)
-    current = vals[i]*(1-blend)+vals[j]*blend
-    label = dates[i if blend<.5 else j]
+    # Reveal each reporting period in two passes: metric A company-by-company,
+    # followed by metric B company-by-company. On the first period, every bar
+    # grows out of the zero baseline rather than popping into existence.
+    phase_position = p * len(dates)
+    period_index = min(int(phase_position),len(dates)-1)
+    phase = float(np.clip(phase_position-period_index,0,1))
+    if p >= 1.: phase = 1.
+    previous = np.zeros_like(vals[0]) if period_index==0 else vals[period_index-1]
+    target = vals[period_index]
+    count = len(companies)
+    def reveal(metric_index):
+        # A: 0.02–0.48, B: 0.52–0.98, each with a company-level stagger.
+        phase_start = .02 if metric_index==0 else .52
+        window = .46
+        slot = window / max(1,count)
+        result = np.zeros(count)
+        for company_index in range(count):
+            local = (phase-phase_start-company_index*slot)/(slot*1.25)
+            result[company_index] = ease_in_out(np.clip(local,0,1))
+        return result
+    reveal_a, reveal_b = reveal(0), reveal(1)
+    current = previous.copy()
+    current[:,0] += (target[:,0]-previous[:,0])*reveal_a
+    current[:,1] += (target[:,1]-previous[:,1])*reveal_b
+    # Only fade the initial entry; later periods keep the bars visible while
+    # their lengths interpolate smoothly to the next value.
+    alpha_a = reveal_a if period_index==0 else np.ones(count)
+    alpha_b = reveal_b if period_index==0 else np.ones(count)
+    label = dates[period_index]
     shared = scene.get('dual_axis','同一軸')=='同一軸'
     def limits(k):
         selected = vals if shared else vals[:,:,k]
@@ -984,14 +1007,14 @@ def _draw_dual_metric_scene(fig, ax, df, scene, bg, text, grid, progress):
     ax.axvline(0,color=grid,lw=.8,zorder=0)
     color_a=scene.get('dual_color_a','#8799B1')
     color_b=scene.get('dual_color_b','#D95E37')
-    ax.barh(y-.19,current[:,0],height=.32,color=color_a,zorder=2)
+    ax.barh(y-.19,current[:,0],height=.32,color=color_a,zorder=2)\n    for bar, opacity in zip(ax.patches,alpha_a): bar.set_alpha(float(opacity))
     ax_b=ax.twiny() if not shared else ax
     if not shared:
         ax_b.set_xlim(*lim_b)
         ax_b.set_ylim(ax.get_ylim())
         ax_b.tick_params(axis='x',colors=color_b,labelsize=8)
         for spine in ax_b.spines.values(): spine.set_visible(False)
-    ax_b.barh(y+.19,current[:,1],height=.32,color=color_b,zorder=2)
+    second_bars=ax_b.barh(y+.19,current[:,1],height=.32,color=color_b,zorder=2)\n    for bar, opacity in zip(second_bars,alpha_b): bar.set_alpha(float(opacity))
     def fmt(v):
         return f"{v:+.0f}%" if mode=='基準年比成長率' else (f"{v:.2f}倍" if mode=='基準年倍率' else f"{v:,.1f}")
     for k, axis in enumerate((ax,ax_b)):
@@ -999,7 +1022,7 @@ def _draw_dual_metric_scene(fig, ax, df, scene, bg, text, grid, progress):
         offset=(hi-lo)*.012
         for yy,v in zip(y,current[:,k]):
             axis.text(v+(offset if v>=0 else -offset),yy+(-.19 if k==0 else .19),
-                fmt(v),color=text,fontsize=7,va='center',ha='left' if v>=0 else 'right',clip_on=False)
+                fmt(v),color=text,alpha=float((alpha_a if k==0 else alpha_b)[int(yy)]),fontsize=7,va='center',ha='left' if v>=0 else 'right',clip_on=False)
     fig.text(.075,.93,scene.get('title','2指標・企業横比較'),fontsize=scene.get('title_size',22),
         fontweight='bold',color=text,ha='left',va='top')
     subtitle=str(scene.get('subtitle','') or '').strip()
