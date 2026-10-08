@@ -292,14 +292,35 @@ def _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,progress,elaps
 
 
 def _timeline_events(scene):
+    from datetime import date as _date
+    import calendar
     events=scene.get('timeline_events',[])
     clean=[]
     for row in events:
         try:
-            year=float(row.get('year'))
-        except (TypeError,ValueError):
+            raw_year=row.get('year')
+            if pd.isna(raw_year): continue
+            year_value=float(raw_year)
+            if not np.isfinite(year_value): continue
+            # New schema: year, month, day. Old decimal-year data is supported
+            # for existing saved scenes and is not silently reinterpreted.
+            has_month='month' in row and not pd.isna(row.get('month'))
+            has_day='day' in row and not pd.isna(row.get('day'))
+            if has_month or has_day:
+                y=int(year_value)
+                m=int(row.get('month',1)) if has_month else 1
+                d=int(row.get('day',1)) if has_day else 1
+                actual=_date(y,m,d)
+                next_year=_date(y+1,1,1)
+                fraction=(actual-_date(y,1,1)).days/(next_year-_date(y,1,1)).days
+                position=y+fraction
+            else:
+                position=year_value
+            label=str(row.get('date','')).strip()
+            clean.append({'year':position,'date':label,'title':str(row.get('title','')).strip(),
+                'description':str(row.get('description','')).strip(),'badge':str(row.get('badge','')).strip()})
+        except (TypeError,ValueError,OverflowError):
             continue
-        clean.append({'year':year,'date':str(row.get('date','')).strip(),'title':str(row.get('title','')).strip(),'description':str(row.get('description','')).strip(),'badge':str(row.get('badge','')).strip()})
     return sorted(clean,key=lambda r:r['year'])
 
 
