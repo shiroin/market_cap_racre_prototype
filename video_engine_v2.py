@@ -952,101 +952,110 @@ def _prepare_dual_metric_scene(df, scene):
 
 
 def _draw_dual_metric_scene(fig, ax, df, scene, bg, text, grid, progress, prepared=None):
-    """Animate two metrics for each company inside the multi-scene renderer."""
+    """Update persistent artists instead of rebuilding Matplotlib each frame."""
     from matplotlib.patches import Patch
-    for other in list(fig.axes):
-        if other is not ax:
-            other.remove()
-    ax.clear()
-    for artist in list(fig.artists): artist.remove()
-    for artist in list(fig.lines): artist.remove()
-    for artist in list(fig.patches): artist.remove()
-    for artist in list(fig.texts): artist.remove()
     vals, dates, companies, a, b, mode = prepared if prepared is not None else _prepare_dual_metric_scene(df, scene)
-    p = float(np.clip(progress,0,1))
-    # Reveal each reporting period in two passes: metric A company-by-company,
-    # followed by metric B company-by-company. On the first period, every bar
-    # grows out of the zero baseline rather than popping into existence.
-    phase_position = p * len(dates)
-    period_index = min(int(phase_position),len(dates)-1)
-    phase = float(np.clip(phase_position-period_index,0,1))
-    if p >= 1.: phase = 1.
-    previous = np.zeros_like(vals[0]) if period_index==0 else vals[period_index-1]
-    target = vals[period_index]
-    count = len(companies)
-    def reveal(metric_index):
-        # A: 0.02–0.48, B: 0.52–0.98, each with a company-level stagger.
-        phase_start = .02 if metric_index==0 else .52
-        window = .46
-        slot = window / max(1,count)
-        result = np.zeros(count)
-        for company_index in range(count):
-            local = (phase-phase_start-company_index*slot)/(slot*1.25)
-            result[company_index] = ease_in_out(np.clip(local,0,1))
-        return result
-    reveal_a, reveal_b = reveal(0), reveal(1)
-    current = previous.copy()
-    current[:,0] += (target[:,0]-previous[:,0])*reveal_a
-    current[:,1] += (target[:,1]-previous[:,1])*reveal_b
-    # Only fade the initial entry; later periods keep the bars visible while
-    # their lengths interpolate smoothly to the next value.
-    alpha_a = reveal_a if period_index==0 else np.ones(count)
-    alpha_b = reveal_b if period_index==0 else np.ones(count)
-    label = dates[period_index]
-    shared = scene.get('dual_axis','同一軸')=='同一軸'
-    def limits(k):
-        selected = vals if shared else vals[:,:,k]
-        lo = min(0,float(np.min(selected)))
-        hi = max(0,float(np.max(selected)))
-        pad = max((hi-lo)*.16,.1)
-        return lo-pad,hi+pad
-    lim_a,lim_b = limits(0),limits(1)
-    ax.set_position([.26,.31,.64,.39] if fig.get_figheight()>fig.get_figwidth()*1.2 else [.23,.30,.69,.45])
-    ax.set_facecolor(bg)
-    y = np.arange(len(companies))
-    ax.set_ylim(len(companies)-.65,-.65)
-    ax.set_xlim(*lim_a)
-    ax.set_yticks(y,companies)
-    ax.tick_params(axis='y',labelsize=max(6,min(10,13-len(companies)//3)),colors=text,length=0)
-    ax.tick_params(axis='x',labelsize=8,colors=text,length=0)
-    for spine in ax.spines.values(): spine.set_visible(False)
-    ax.axvline(0,color=grid,lw=.8,zorder=0)
-    color_a=scene.get('dual_color_a','#8799B1')
-    color_b=scene.get('dual_color_b','#D95E37')
-    ax.barh(y-.19,current[:,0],height=.32,color=color_a,zorder=2)
-    for bar, opacity in zip(ax.patches,alpha_a): bar.set_alpha(float(opacity))
-    ax_b=ax.twiny() if not shared else ax
-    if not shared:
-        ax_b.set_xlim(*lim_b)
-        ax_b.set_ylim(ax.get_ylim())
-        ax_b.tick_params(axis='x',colors=color_b,labelsize=8)
-        for spine in ax_b.spines.values(): spine.set_visible(False)
-    second_bars=ax_b.barh(y+.19,current[:,1],height=.32,color=color_b,zorder=2)
-    for bar, opacity in zip(second_bars,alpha_b): bar.set_alpha(float(opacity))
-    def fmt(v):
-        return f"{v:+.0f}%" if mode=='基準年比成長率' else (f"{v:.2f}倍" if mode=='基準年倍率' else f"{v:,.1f}")
-    for k, axis in enumerate((ax,ax_b)):
-        lo,hi=(lim_a,lim_b)[k]
-        offset=(hi-lo)*.012
-        for yy,v in zip(y,current[:,k]):
-            axis.text(v+(offset if v>=0 else -offset),yy+(-.19 if k==0 else .19),
-                fmt(v),color=text,alpha=float((alpha_a if k==0 else alpha_b)[int(yy)]),fontsize=7,va='center',ha='left' if v>=0 else 'right',clip_on=False)
-    fig.text(.075,.93,scene.get('title','2指標・企業横比較'),fontsize=scene.get('title_size',22),
-        fontweight='bold',color=text,ha='left',va='top')
-    subtitle=str(scene.get('subtitle','') or '').strip()
-    if subtitle:
-        fig.text(.075,.87,subtitle,color=text,fontsize=scene.get('subtitle_size',12),
-            ha='left',va='top',alpha=.7)
-    fig.text(.5,.755,str(label),fontsize=15,fontweight='bold',color=text,ha='center')
-    fig.legend(handles=[Patch(color=color_a,label=str(a)),Patch(color=color_b,label=str(b))],
-        loc='lower center',bbox_to_anchor=(.5,.245),ncol=2,frameon=False,labelcolor=text,fontsize=9)
-    if not shared:
-        fig.text(.5,.225,f"下軸: {a} / 上軸: {b}",color=text,fontsize=7,ha='center')
+    state = getattr(fig, '_dual_metric_state', None)
+    if state is None or state['scene_id'] != id(scene):
+        for other in list(fig.axes):
+            if other is not ax: other.remove()
+        ax.clear()
+        for artist in list(fig.artists): artist.remove()
+        for artist in list(fig.lines): artist.remove()
+        for artist in list(fig.patches): artist.remove()
+        for artist in list(fig.texts): artist.remove()
+        for legend in list(fig.legends): legend.remove()
+        count=len(companies)
+        shared=scene.get('dual_axis','同一軸')=='同一軸'
+        def limits(k):
+            selected=vals if shared else vals[:,:,k]
+            lo=min(0.,float(np.min(selected)))
+            hi=max(0.,float(np.max(selected)))
+            pad=max((hi-lo)*.16,.1)
+            return lo-pad,hi+pad
+        lim_a,lim_b=limits(0),limits(1)
+        ax.set_position([.26,.31,.64,.39] if fig.get_figheight()>fig.get_figwidth()*1.2 else [.23,.30,.69,.45])
+        ax.set_facecolor(bg)
+        y=np.arange(count)
+        ax.set_ylim(count-.65,-.65)
+        ax.set_xlim(*lim_a)
+        ax.set_yticks(y,companies)
+        ax.tick_params(axis='y',labelsize=max(6,min(10,13-count//3)),colors=text,length=0)
+        ax.tick_params(axis='x',labelsize=8,colors=text,length=0)
+        for spine in ax.spines.values(): spine.set_visible(False)
+        ax.axvline(0,color=grid,lw=.8,zorder=0)
+        color_a=scene.get('dual_color_a','#8799B1')
+        color_b=scene.get('dual_color_b','#D95E37')
+        bars_a=ax.barh(y-.19,np.zeros(count),height=.32,color=color_a,zorder=2)
+        ax_b=ax.twiny() if not shared else ax
+        if not shared:
+            ax_b.set_xlim(*lim_b)
+            ax_b.set_ylim(ax.get_ylim())
+            ax_b.tick_params(axis='x',colors=color_b,labelsize=8)
+            for spine in ax_b.spines.values(): spine.set_visible(False)
+        bars_b=ax_b.barh(y+.19,np.zeros(count),height=.32,color=color_b,zorder=2)
+        def fmt(v):
+            return f"{v:+.0f}%" if mode=='基準年比成長率' else (f"{v:.2f}倍" if mode=='基準年倍率' else f"{v:,.1f}")
+        labels_a=[]
+        labels_b=[]
+        for k,(axis,lim) in enumerate(((ax,lim_a),(ax_b,lim_b))):
+            offset=(lim[1]-lim[0])*.012
+            labels=labels_a if k==0 else labels_b
+            for yy in y:
+                labels.append(axis.text(offset,yy+(-.19 if k==0 else .19),'',
+                    color=text,fontsize=7,va='center',ha='left',clip_on=False))
+        fig.text(.075,.93,scene.get('title','2指標・企業横比較'),
+            fontsize=scene.get('title_size',22),fontweight='bold',color=text,ha='left',va='top')
+        subtitle=str(scene.get('subtitle','') or '').strip()
+        if subtitle:
+            fig.text(.075,.87,subtitle,color=text,fontsize=scene.get('subtitle_size',12),
+                ha='left',va='top',alpha=.7)
+        period_text=fig.text(.5,.755,'',fontsize=15,fontweight='bold',color=text,ha='center')
+        fig.legend(handles=[Patch(color=color_a,label=str(a)),Patch(color=color_b,label=str(b))],
+            loc='lower center',bbox_to_anchor=(.5,.245),ncol=2,frameon=False,labelcolor=text,fontsize=9)
+        if not shared:
+            fig.text(.5,.225,f"下軸: {a} / 上軸: {b}",color=text,fontsize=7,ha='center')
+        note='\\n'.join(v for v in [str(scene.get('scene_note','') or '').strip(),
+            str(scene.get('source','') or '').strip()] if v)
+        if note:
+            fig.text(.075,.045,note,color=text,fontsize=5.2,alpha=.65,ha='left',va='bottom')
+        state={'scene_id':id(scene),'bars_a':bars_a,'bars_b':bars_b,
+               'labels_a':labels_a,'labels_b':labels_b,'period_text':period_text,
+               'lim_a':lim_a,'lim_b':lim_b,'fmt':fmt,'count':count}
+        fig._dual_metric_state=state
+    p=float(np.clip(progress,0,1))
+    phase_position=p*len(dates)
+    period_index=min(int(phase_position),len(dates)-1)
+    phase=float(np.clip(phase_position-period_index,0,1))
+    if p>=1.: phase=1.
+    previous=np.zeros_like(vals[0]) if period_index==0 else vals[period_index-1]
+    target=vals[period_index]
+    count=state['count']
+    indices=np.arange(count)
+    slot=.46/max(1,count)
+    reveal_a=ease_in_out(np.clip((phase-.02-indices*slot)/(slot*1.25),0,1))
+    reveal_b=ease_in_out(np.clip((phase-.52-indices*slot)/(slot*1.25),0,1))
+    current=previous.copy()
+    current[:,0]+=(target[:,0]-previous[:,0])*reveal_a
+    current[:,1]+=(target[:,1]-previous[:,1])*reveal_b
+    alpha_a=reveal_a if period_index==0 else np.ones(count)
+    alpha_b=reveal_b if period_index==0 else np.ones(count)
+    state['period_text'].set_text(str(dates[period_index]))
+    for k,(bars,labels,alphas,lim) in enumerate((
+        (state['bars_a'],state['labels_a'],alpha_a,state['lim_a']),
+        (state['bars_b'],state['labels_b'],alpha_b,state['lim_b']))):
+        offset=(lim[1]-lim[0])*.012
+        for i,(bar,label) in enumerate(zip(bars,labels)):
+            v=float(current[i,k])
+            bar.set_width(v)
+            bar.set_alpha(float(alphas[i]))
+            label.set_text(state['fmt'](v))
+            label.set_x(v+(offset if v>=0 else -offset))
+            label.set_ha('left' if v>=0 else 'right')
+            label.set_alpha(float(alphas[i]))
+    # Comments may animate independently; retain their existing drawing helper.
     _draw_scene_comments(fig,scene,text,p,elapsed=p*float(scene.get('duration',2.8)))
-    note='\\n'.join(v for v in [str(scene.get('scene_note','') or '').strip(),
-        str(scene.get('source','') or '').strip()] if v)
-    if note:
-        fig.text(.075,.045,note,color=text,fontsize=5.2,alpha=.65,ha='left',va='bottom')
+
 
 
 def _make_canvas(ratio,bg,quality,chart=None,scene=None):
