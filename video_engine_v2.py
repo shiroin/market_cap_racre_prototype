@@ -344,11 +344,29 @@ def _draw_horizontal_timeline_on(fig,ax,scene,bg,text,grid,progress):
         fig.add_artist(plt.Line2D([x],[yline],transform=fig.transFigure,
             marker='o',markersize=5 if i!=position else 8,color='#173453' if i<=position else '#A8B9CA',
             linestyle='None',zorder=8))
-    cursor=xpos(event['year'])
+    # Animate a spherical cursor between event positions. Each event slot uses
+    # the first 30% for travel and the remaining 70% to pause and read.
+    # The first event starts at the left edge, and the last event reaches the right edge.
+    slot=float(np.clip(p*n-position,0,1))
+    travel=float(ease_in_out(np.clip(slot/.30,0,1)))
+    previous_x=left if position==0 else xpos(events[position-1]['year'])
+    target_x=xpos(event['year'])
+    cursor=previous_x+(target_x-previous_x)*travel
+    if p>=1.0:
+        cursor=right
     fig.add_artist(plt.Line2D([left,cursor],[yline,yline],transform=fig.transFigure,
-        color='#173453',lw=2.0,zorder=6))
+        color='#173453',lw=2.8,zorder=6))
+    # Layered circular markers produce a softly lit, spherical appearance.
+    for marker_size,color,marker_alpha in ((19,'#A8BFD1',.30),(14,'#173453',1.0),(9,'#38688C',1.0),(4,'#C9E1F2',.95)):
+        fig.add_artist(plt.Line2D([cursor],[yline],transform=fig.transFigure,
+            marker='o',markersize=marker_size,markerfacecolor=color,
+            markeredgecolor='none',linestyle='None',alpha=marker_alpha,zorder=12))
+    # A small specular highlight gives the moving marker a rounded finish.
+    fig.add_artist(plt.Line2D([cursor-.003],[yline+.003],transform=fig.transFigure,
+        marker='o',markersize=2.6,markerfacecolor='white',
+        markeredgecolor='none',linestyle='None',alpha=.85,zorder=13))
     # Fade the current card in, then gently fade it out before the next event.
-    fade_in=float(fade_window(local,.04,.23))
+    fade_in=float(fade_window(local,.30,.46))
     fade_out=1.-float(fade_window(local,.88,.99)) if position<n-1 else 1.
     opacity=float(np.clip(fade_in*fade_out,0,1))
     date=event.get('date','')
