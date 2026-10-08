@@ -191,6 +191,7 @@ for i in range(int(scene_count)):
         scene_comment_1 = cc1.text_area("下部コメント①", "", key=f"scene_comment_1_{i}", height=70, help="グラフ下部の専用スペースに表示します。")
         scene_comment_2 = cc2.text_area("下部コメント②", "", key=f"scene_comment_2_{i}", height=70, help="下部コメント①の後に表示します。")
         scene_comment_size = st.slider("下部コメントサイズ", 8, 24, 12, key=f"scene_comment_size_{i}")
+        scene_comment_style = st.selectbox("下部コメントのデザイン", ["白抜き（濃紺背景）", "従来（文字のみ）"], key=f"scene_comment_style_{i}", help="白抜きでは濃紺の角丸ボックスに白文字で表示します。")
         scene_comment_delay = st.slider("グラフ完了後→下部コメント①まで（秒）", 0.0, 3.0, 0.7, 0.1, key=f"scene_comment_delay_{i}", help="グラフの描画が完了してから下部コメント①のフェード開始までの待ち時間です。")
         scene_comment_gap = st.slider("下部コメント①→②まで（秒）", 0.0, 3.0, 0.8, 0.1, key=f"scene_comment_gap_{i}", help="下部コメント①のフェード完了後から、下部コメント②のフェード開始までの待ち時間です。")
         c5, c6, c7, c7b = st.columns(4)
@@ -259,7 +260,7 @@ for i in range(int(scene_count)):
             bar_gap = st.slider("棒と棒の隙間", 0.0, 0.80, 0.32, 0.02, key=f"bar_gap_{i}", help="0にすると隣り合う期間の棒がぴったり接します。値を大きくすると棒の間隔が広がります。")
 
         scenes.append({
-            "chart":chart, "metric":metric, "title":title, "subtitle":subtitle, "unit":unit, "source":source_text, "scene_note":scene_note, "scene_comment_1":scene_comment_1, "scene_comment_2":scene_comment_2, "scene_comment_size":scene_comment_size, "scene_comment_delay":scene_comment_delay, "scene_comment_gap":scene_comment_gap,
+            "chart":chart, "metric":metric, "title":title, "subtitle":subtitle, "unit":unit, "source":source_text, "scene_note":scene_note, "scene_comment_1":scene_comment_1, "scene_comment_2":scene_comment_2, "scene_comment_size":scene_comment_size, "scene_comment_style":scene_comment_style, "scene_comment_delay":scene_comment_delay, "scene_comment_gap":scene_comment_gap,
             "duration":duration, "hold":hold, "title_size":title_size, "subtitle_size":subtitle_size, "legend":legend, "end_labels":end_labels,
             "latest_values":latest_values, "end_label_size":end_label_size, "label_gap":label_gap,
             "value_decimals":value_decimals, "bar_animation":bar_animation, "data_labels":data_labels,
