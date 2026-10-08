@@ -171,7 +171,7 @@ default_titles = ["上場買取再販4社の在庫", "各社の在庫キャッ�
 default_subtitles = ["販売用不動産（仕掛販売用不動産を含む）の期末残高", "販売用不動産の期末残高", "販売用不動産の期末残高÷売上高×12"]
 default_charts = ["積み上げ棒", "折れ線", "折れ線"]
 default_metrics = ["inventory", "inventory", "inventory_months"]
-chart_options = ["積み上げ棒", "折れ線", "棒グラフ", "100%積み上げ", "横比較ランキング", "年表"]
+chart_options = ["積み上げ棒", "折れ線", "棒グラフ", "100%積み上げ", "横比較ランキング", "年表", "横進行年表"]
 
 for i in range(int(scene_count)):
     with st.expander(f"Scene {i+1}", expanded=i == 0):
@@ -179,7 +179,7 @@ for i in range(int(scene_count)):
         default_chart = default_charts[i] if i < 3 else "折れ線"
         chart = c1.selectbox("グラフ種類", chart_options, index=chart_options.index(default_chart), key=f"chart_{i}")
         preferred = default_metrics[i] if i < 3 and default_metrics[i] in metric_columns else metric_columns[0]
-        metric = c2.selectbox("指標列", metric_columns, index=metric_columns.index(preferred), key=f"metric_{i}", disabled=chart == "年表")
+        metric = c2.selectbox("指標列", metric_columns, index=metric_columns.index(preferred), key=f"metric_{i}", disabled=chart in ("年表","横進行年表"))
         title = st.text_input("タイトル", default_titles[i] if i < 3 else f"Scene {i+1}", key=f"title_{i}")
         subtitle = st.text_area("サブタイトル", default_subtitles[i] if i < 3 else "", key=f"subtitle_{i}", height=80, help="長い場合は任意の位置で改行できます。")
         c3, c4 = st.columns(2)
@@ -215,9 +215,9 @@ for i in range(int(scene_count)):
         timeline_summary = ""
         timeline_summary_2 = ""
         timeline_summary_size = 12
-        if chart == "年表":
+        if chart in ("年表","横進行年表"):
             st.markdown("**年表データ**")
-            st.caption("元動画風：左に年、中央に縦軸、右に「日付 → 見出し → 補足」。イベントは上から順に1件ずつ表示されます。")
+            st.caption("横進行年表：画面下の年表上を現在位置が進み、各イベントの見出し・説明が順番にフェード表示されます。" if chart=="横進行年表" else "縦軸に沿ってイベントが順に現れる年表です。")
             default_timeline = pd.DataFrame([
                 {"year":2018.45,"date":"2018年6月","title":"運営会社を設立","description":"プロジェクトの運営会社などが設立","badge":""},
                 {"year":2020.05,"date":"2020年1月","title":"140億円","description":"出資を受け、プロジェクトが本格始動","badge":"出資"},
@@ -235,6 +235,8 @@ for i in range(int(scene_count)):
             timeline_summary_2 = ""
             timeline_summary_size = 12
             timeline_note = st.text_area("出典・補足注記", "出典・補足事項をここに入力できます。", key=f"timeline_note_{i}")
+            if chart=="横進行年表":
+                st.caption("イベントの badge 列を引用・補足ボックスとして表示します。各イベントの表示時間は描画時間÷イベント数で自動配分されます。")
 
         ranking_sort = "大きい順"
         ranking_reference = 0.0
