@@ -344,7 +344,23 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
     start=float(scene.get('timeline_start',min((y for y in years if y is not None),default=2018)))
     end=float(scene.get('timeline_end',max((y for y in years if y is not None),default=2025)))
     if end<=start: end=start+1
-    now=start+(end-start)*p
+    # Move between actual financial periods, then dwell at each period.
+    # Same 30% travel / 70% hold rhythm as the horizontal event timeline.
+    stops=[(k,yr) for k,yr in enumerate(years) if yr is not None and start<=yr<=end]
+    if stops:
+        nstops=len(stops)
+        slot_index=min(nstops-1,int(p*nstops))
+        slot=float(np.clip(p*nstops-slot_index,0,1))
+        travel=float(ease_in_out(np.clip(slot/.30,0,1)))
+        active_index,target_year=stops[slot_index]
+        previous_year=start if slot_index==0 else stops[slot_index-1][1]
+        now=previous_year+(target_year-previous_year)*travel
+        if p>=1.: now=target_year
+        arrival=float(ease_in_out(np.clip((slot-.30)/.20,0,1)))
+    else:
+        now=start+(end-start)*p
+        active_index=None
+        arrival=0.
     x=np.arange(len(labels))
     values=data[bar_metric].to_numpy(dtype=float)
     ymax=max(1.,float(np.nanmax(values))*1.20)
@@ -361,17 +377,10 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
     ax.set_xticklabels([labels[i] for i in range(0,len(labels),stride)],rotation=0)
     # Highlight only the active period. The background fades in as the
     # timeline ball reaches that period; earlier periods do not leave a trail.
-    active_index=None
-    for k,yr in enumerate(years):
-        if yr is not None and now>=yr:
-            active_index=k
-    if active_index is not None:
-        active_year=years[active_index]
-        fade=float(np.clip((now-active_year)/max((end-start)*.018,.02),0,1))
-        fade=float(ease_in_out(fade))
+    if active_index is not None and arrival>0:
         ax.axvspan(active_index-.48,active_index+.48,
             color=scene.get('timeline_highlight_color','#EAC6D3'),
-            alpha=float(np.clip(scene.get('timeline_highlight_alpha',.42),0,1))*fade,
+            alpha=float(np.clip(scene.get('timeline_highlight_alpha',.42),0,1))*arrival,
             zorder=0,lw=0)
     bar_color=scene.get('timeline_bar_color','#B83F68')
     ax.bar(x,values,width=.66,color=bar_color,alpha=.78,zorder=3)
