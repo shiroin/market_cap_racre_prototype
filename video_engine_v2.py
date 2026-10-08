@@ -1033,8 +1033,10 @@ def _draw_dual_metric_scene(fig, ax, df, scene, bg, text, grid, progress, prepar
     count=state['count']
     indices=np.arange(count)
     slot=.46/max(1,count)
-    reveal_a=ease_in_out(np.clip((phase-.02-indices*slot)/(slot*1.25),0,1))
-    reveal_b=ease_in_out(np.clip((phase-.52-indices*slot)/(slot*1.25),0,1))
+    reveal_a=np.clip((phase-.02-indices*slot)/(slot*1.25),0,1)
+    reveal_a=reveal_a*reveal_a*(3.-2.*reveal_a)
+    reveal_b=np.clip((phase-.52-indices*slot)/(slot*1.25),0,1)
+    reveal_b=reveal_b*reveal_b*(3.-2.*reveal_b)
     current=previous.copy()
     current[:,0]+=(target[:,0]-previous[:,0])*reveal_a
     current[:,1]+=(target[:,1]-previous[:,1])*reveal_b
