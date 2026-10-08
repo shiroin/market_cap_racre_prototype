@@ -383,21 +383,32 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
     start=min(valid_years+event_years+[float(scene.get('timeline_start',2018))])
     end=max(valid_years+event_years+[float(scene.get('timeline_end',2025))])
     if end<=start: end=start+1
-    # Move between actual financial periods, then dwell at each period.
-    # Same 30% travel / 70% hold rhythm as the horizontal event timeline.
-    stops=[(k,yr) for k,yr in enumerate(years) if yr is not None and start<=yr<=end]
-    if stops:
-        nstops=len(stops)
-        slot_index=min(nstops-1,int(p*nstops))
-        slot=float(np.clip(p*nstops-slot_index,0,1))
-        travel=float(ease_in_out(np.clip(slot/.30,0,1)))
-        active_index,target_year=stops[slot_index]
-        previous_year=start if slot_index==0 else stops[slot_index-1][1]
+    # Event coordinates, not every quarterly bar, are the reading stops.
+    # The ball travels briefly and then remains EXACTLY stationary while the
+    # associated comment is readable. Each event receives an equal time slot.
+    stop_events=[ev for ev in events if start<=ev['year']<=end]
+    if not stop_events:
+        stop_events=[{'year':yr,'date':labels[k],'title':'','description':'','badge':''}
+                     for k,yr in enumerate(years) if yr is not None]
+    travel_ratio=float(np.clip(scene.get('timeline_travel_ratio',.16),.05,.60))
+    if stop_events:
+        count=len(stop_events)
+        position=min(count-1,int(p*count))
+        local=float(np.clip(p*count-position,0,1))
+        target_year=stop_events[position]['year']
+        previous_year=start if position==0 else stop_events[position-1]['year']
+        travel=float(ease_in_out(np.clip(local/travel_ratio,0,1)))
         now=previous_year+(target_year-previous_year)*travel
         if p>=1.: now=target_year
-        arrival=float(ease_in_out(np.clip((slot-.30)/.20,0,1)))
+        # Highlight the most recent financial period at/before the stop.
+        eligible=[(k,yr) for k,yr in enumerate(years)
+                  if yr is not None and yr<=target_year+1e-8]
+        active_index=max(eligible,key=lambda item:item[1])[0] if eligible else None
+        arrival=float(fade_window(local,travel_ratio,min(.95,travel_ratio+.12)))
     else:
-        now=start+(end-start)*p
+        position=0
+        local=0.
+        now=start
         active_index=None
         arrival=0.
     x=np.arange(len(labels))
@@ -433,19 +444,21 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress):
         ax.plot(x,mapped,color=scene.get('timeline_line_color','#B83F68'),lw=2.0,marker='o',markersize=2.6,zorder=5)
         fig.text(.88,.705,str(line_metric),color=scene.get('timeline_line_color','#B83F68'),fontsize=7,ha='right')
     fig.text(.12,.715,str(bar_metric),color=text,fontsize=8,fontweight='bold',ha='left')
-    # Event comment above the graph; the most recent reached event is displayed.
-    current=None
-    for ev in events:
-        if ev['year']<=now: current=ev
-    if current is not None:
-        age=(now-current['year'])/max(end-start,1.)
-        opacity=float(fade_window(age,0,.018))
-        fig.text(.09,.835,current.get('date',''),color=text,fontsize=9,
-            fontweight='bold',ha='left',alpha=opacity)
-        fig.text(.09,.800,current.get('title',''),color=text,fontsize=14,
-            fontweight='bold',ha='left',alpha=opacity,wrap=True)
-        fig.text(.09,.762,current.get('description',''),color=text,fontsize=8,
-            ha='left',alpha=opacity,wrap=True)
+    # Show only the current stop's comment. Never switch comments mid-travel.
+    if stop_events:
+        current=stop_events[position]
+        fade_in=float(fade_window(local,travel_ratio,min(.98,travel_ratio+.12)))
+        fade_out=(1.-float(fade_window(local,.90,.99))) if position<len(stop_events)-1 else 1.
+        opacity=float(np.clip(fade_in*fade_out,0,1))
+        if current.get('date'):
+            fig.text(.09,.835,current['date'],color=text,fontsize=9,
+                fontweight='bold',ha='left',alpha=opacity)
+        if current.get('title'):
+            fig.text(.09,.800,current['title'],color=text,fontsize=14,
+                fontweight='bold',ha='left',alpha=opacity,wrap=True)
+        if current.get('description'):
+            fig.text(.09,.762,current['description'],color=text,fontsize=8,
+                ha='left',alpha=opacity,wrap=True)
     # One continuous pale line, pale stops, and exactly one moving ball.
     left,right=.10,.90
     yline=.235
