@@ -1512,8 +1512,8 @@ def _draw_dual_separated_guidance(fig,ax,df,scene,bg,text,grid,progress,elapsed=
     ax.set_xticklabels(ordered,rotation=35,ha='right',fontsize=8,color=text)
     from matplotlib.transforms import blended_transform_factory
     forecast_heading_transform=blended_transform_factory(ax.transData,ax.transAxes)
-    ax.text(gx,1.025,str(scene.get('guidance_label','会社予想')),
-        transform=forecast_heading_transform,ha='center',va='bottom',
+    ax.text(gx,1.005,str(scene.get('guidance_label','会社予想')),
+        transform=forecast_heading_transform,ha='center',va='top',
         fontsize=9,color=text,fontweight='bold',clip_on=False)
 
     ax.grid(axis='y',color=grid,alpha=.35)
