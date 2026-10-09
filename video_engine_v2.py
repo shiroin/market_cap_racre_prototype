@@ -1088,7 +1088,7 @@ def _make_canvas(ratio,bg,quality,chart=None,scene=None):
     ax=fig.add_axes(pos); return fig,ax
 
 
-def _draw_text_cards_on(fig, ax, scene, bg, text, grid, progress):
+def _draw_text_cards_on(fig, ax, scene, bg, text, grid, progress, elapsed=None):
     """Render a sequence of headline and description cards."""
     from matplotlib.patches import FancyBboxPatch
     ax.set_axis_off()
@@ -1161,6 +1161,7 @@ def _draw_text_cards_on(fig, ax, scene, bg, text, grid, progress):
                 fig.text(.103,ty,'\n'.join(details),color='#647080',
                     fontsize=detail_pt*factor,ha='left',va='top',
                     linespacing=1.2,alpha=opacity,zorder=4)
+    _draw_scene_comments(fig,scene,text,p,elapsed=elapsed)
     note='\n'.join(v for v in (str(scene.get('scene_note','') or '').strip(),
         str(scene.get('source','') or '').strip()) if v)
     if note:
@@ -1222,7 +1223,7 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
         cached_dual_frame = None
         for i in range(total):
             pp=1. if i>=frames else (i+1)/frames
-            if scene.get('chart')=='テキストカード一覧': _draw_text_cards_on(fig,ax,scene,bg,text,grid,pp)
+            if scene.get('chart')=='テキストカード一覧': _draw_text_cards_on(fig,ax,scene,bg,text,grid,pp,i/fps)
             elif scene.get('chart')=='2指標・企業横比較':
                 if i<frames: _draw_dual_metric_scene(fig,ax,df,scene,bg,text,grid,pp,dual_prepared)
             elif scene.get('chart')=='縦時系列年表': _draw_vertical_chronology_on(fig,ax,scene,bg,text,grid,pp)
