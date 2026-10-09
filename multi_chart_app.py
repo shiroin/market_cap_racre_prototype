@@ -351,6 +351,7 @@ for i in range(int(scene_count)):
         ranking_sort = "大きい順"
         ranking_reference = 0.0
         ranking_highlight = 3
+        ranking_company_colors = {}
         if chart == "横比較ランキング":
             st.markdown("**横比較ランキング表示**")
             r1,r2,r3 = st.columns(3)
@@ -358,6 +359,15 @@ for i in range(int(scene_count)):
             ranking_reference = float(r2.number_input("基準値（0で非表示）", value=0.0, key=f"ranking_reference_{i}"))
             ranking_highlight = int(r3.number_input("強調する上位件数", 0, 50, 3, 1, key=f"ranking_highlight_{i}"))
             st.caption("対象名は company 列、比較値は選択した指標列を使用します。同一対象に複数行ある場合は最新行の値を使います。")
+            if "company" in scene_df.columns and metric in scene_df.columns:
+                ranking_names = scene_df[["company",metric]].dropna(subset=[metric]).groupby("company",sort=False).tail(1)["company"].astype(str).tolist()
+                ranking_names = list(dict.fromkeys(ranking_names))
+                with st.expander("項目別の棒の色を設定", expanded=False):
+                    st.caption("チェックした項目のみ個別の色を適用します。未指定の場合は従来のランキング色を使用します。")
+                    for name in ranking_names:
+                        enabled=st.checkbox(f"{name} の色を個別指定",key=f"ranking_color_enabled_{i}_{name}")
+                        if enabled:
+                            ranking_company_colors[name]=st.color_picker(f"{name} の棒の色","#4472C4",key=f"ranking_color_{i}_{name}")
 
         bar_animation = "左→右"
         data_labels = "自動"
@@ -427,7 +437,7 @@ for i in range(int(scene_count)):
             "timeline_start":timeline_start, "timeline_end":timeline_end, "timeline_note":timeline_note,
             "timeline_summary":timeline_summary, "timeline_summary_2":timeline_summary_2, "timeline_summary_size":timeline_summary_size,
             "timeline_bar_metric":timeline_bar_metric, "timeline_line_metric":timeline_line_metric, "timeline_line_axis":timeline_line_axis, "timeline_bar_color":timeline_bar_color, "timeline_line_color":timeline_line_color, "timeline_highlight_color":timeline_highlight_color, "timeline_highlight_alpha":timeline_highlight_alpha, "timeline_description_text_color":timeline_description_text_color, "timeline_description_accent_color":timeline_description_accent_color, "timeline_fiscal_year_end_month":timeline_fiscal_year_end_month, "timeline_travel_ratio":timeline_travel_ratio, "timeline_period_mapping":timeline_period_mapping, "financial_comment_delay":financial_comment_delay,
-            "dual_metric_a":dual_metric_a, "dual_metric_b":dual_metric_b, "dual_mode":dual_mode, "dual_axis":dual_axis, "dual_sort":dual_sort, "dual_color_a":dual_color_a, "dual_color_b":dual_color_b, "ranking_sort":ranking_sort, "ranking_reference":ranking_reference, "ranking_highlight":ranking_highlight
+            "dual_metric_a":dual_metric_a, "dual_metric_b":dual_metric_b, "dual_mode":dual_mode, "dual_axis":dual_axis, "dual_sort":dual_sort, "dual_color_a":dual_color_a, "dual_color_b":dual_color_b, "ranking_sort":ranking_sort, "ranking_reference":ranking_reference, "ranking_highlight":ranking_highlight, "ranking_company_colors":ranking_company_colors
         })
 
 preview_scene = st.selectbox("プレビューするScene", range(1, len(scenes)+1), format_func=lambda x:f"Scene {x}")
