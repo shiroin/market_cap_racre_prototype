@@ -712,11 +712,13 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress,elaps
             available=max(.018,desc_top-.625)
             font_size=8.5
             def layout_description(size):
-                # Convert available width to approximate full-width glyph count.
-                pixel_width=fig.bbox.width*(card_w-.065)
-                font_pixels=size*fig.dpi/72.
-                capacity=max(12,int(pixel_width/max(1.,font_pixels*1.20)))
-                lines=wrap_event(description,capacity*2)
+                # Conservative character-cell width prevents long CJK text
+                # from spilling outside the card even with bold fonts.
+                # Width scales with actual canvas width and font size.
+                usable_px=fig.bbox.width*(card_w-.075)
+                glyph_px=size*fig.dpi/72.
+                max_cells=max(12,int(usable_px/max(glyph_px*.78,1.)))
+                lines=wrap_event(description,max_cells)
                 step=size/72/fig.get_figheight()*1.45
                 return lines,step,.016+len(lines)*step
             lines,line_step,desired=layout_description(font_size)
