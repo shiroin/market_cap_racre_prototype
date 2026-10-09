@@ -352,6 +352,7 @@ for i in range(int(scene_count)):
         ranking_reference = 0.0
         ranking_highlight = 3
         ranking_company_colors = {}
+        ranking_company_icons = {}
         if chart == "横比較ランキング":
             st.markdown("**横比較ランキング表示**")
             r1,r2,r3 = st.columns(3)
@@ -368,6 +369,28 @@ for i in range(int(scene_count)):
                         enabled=st.checkbox(f"{name} の色を個別指定",key=f"ranking_color_enabled_{i}_{name}")
                         if enabled:
                             ranking_company_colors[name]=st.color_picker(f"{name} の棒の色","#4472C4",key=f"ranking_color_{i}_{name}")
+
+        if chart == "横比較ランキング" and "company" in scene_df.columns and metric in scene_df.columns:
+            with st.expander("Y軸ラベルの国旗・企業ロゴを設定", expanded=False):
+                st.caption("各項目名の左側に国旗・絵文字またはアップロード画像を表示します。")
+                for name in ranking_names:
+                    icon_mode=st.selectbox(f"{name} の画像",["なし","国旗・絵文字","ロゴ画像"],
+                        key=f"ranking_icon_mode_{i}_{name}")
+                    if icon_mode=="国旗・絵文字":
+                        symbol=st.text_input(f"{name} の国旗・絵文字",placeholder="🇯🇵",
+                            key=f"ranking_icon_emoji_{i}_{name}")
+                        if symbol.strip():
+                            ranking_company_icons[name]={"type":"emoji","value":symbol.strip()}
+                    elif icon_mode=="ロゴ画像":
+                        uploaded=st.file_uploader(f"{name} のロゴ画像",
+                            type=["png","jpg","jpeg","webp"],key=f"ranking_icon_logo_{i}_{name}")
+                        if uploaded is not None:
+                            if uploaded.size>1024*1024:
+                                st.warning(f"{name}: 画像は1MB以下にしてください。")
+                            else:
+                                import base64
+                                ranking_company_icons[name]={"type":"image",
+                                    "value":base64.b64encode(uploaded.getvalue()).decode("ascii")}
 
         bar_animation = "左→右"
         data_labels = "自動"
@@ -437,7 +460,7 @@ for i in range(int(scene_count)):
             "timeline_start":timeline_start, "timeline_end":timeline_end, "timeline_note":timeline_note,
             "timeline_summary":timeline_summary, "timeline_summary_2":timeline_summary_2, "timeline_summary_size":timeline_summary_size,
             "timeline_bar_metric":timeline_bar_metric, "timeline_line_metric":timeline_line_metric, "timeline_line_axis":timeline_line_axis, "timeline_bar_color":timeline_bar_color, "timeline_line_color":timeline_line_color, "timeline_highlight_color":timeline_highlight_color, "timeline_highlight_alpha":timeline_highlight_alpha, "timeline_description_text_color":timeline_description_text_color, "timeline_description_accent_color":timeline_description_accent_color, "timeline_fiscal_year_end_month":timeline_fiscal_year_end_month, "timeline_travel_ratio":timeline_travel_ratio, "timeline_period_mapping":timeline_period_mapping, "financial_comment_delay":financial_comment_delay,
-            "dual_metric_a":dual_metric_a, "dual_metric_b":dual_metric_b, "dual_mode":dual_mode, "dual_axis":dual_axis, "dual_sort":dual_sort, "dual_color_a":dual_color_a, "dual_color_b":dual_color_b, "ranking_sort":ranking_sort, "ranking_reference":ranking_reference, "ranking_highlight":ranking_highlight, "ranking_company_colors":ranking_company_colors
+            "dual_metric_a":dual_metric_a, "dual_metric_b":dual_metric_b, "dual_mode":dual_mode, "dual_axis":dual_axis, "dual_sort":dual_sort, "dual_color_a":dual_color_a, "dual_color_b":dual_color_b, "ranking_sort":ranking_sort, "ranking_reference":ranking_reference, "ranking_highlight":ranking_highlight, "ranking_company_colors":ranking_company_colors, "ranking_company_icons":ranking_company_icons
         })
 
 preview_scene = st.selectbox("プレビューするScene", range(1, len(scenes)+1), format_func=lambda x:f"Scene {x}")
