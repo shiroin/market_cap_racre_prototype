@@ -1352,12 +1352,105 @@ def _draw_outlier_comparison_on(fig, ax, df, scene, bg, text, grid, progress):
     _draw_scene_comments(fig,scene,text,p,elapsed=p*float(scene.get('duration',2.8)))
 
 
+def _draw_company_financial_history(fig,ax,df,scene,bg,text,grid,progress,elapsed=None):
+    """Two vertical financial series for one company, revealed by period."""
+    for other in list(fig.axes):
+        if other is not ax:
+            other.remove()
+    ax.clear()
+    fig.texts.clear()
+    for artist in list(fig.artists):
+        artist.remove()
+    for artist in list(fig.patches):
+        artist.remove()
+    _style_axis(ax,bg,text,grid)
+    company=str(scene.get('financial_company',''))
+    a=scene.get('dual_metric_a')
+    b=scene.get('dual_metric_b')
+    if a not in df.columns or b not in df.columns:
+        raise ValueError("選択した売上高・営業利益の列がありません")
+    data=df.loc[df['company'].astype(str)==company,['date',a,b]].copy()
+    if data.empty:
+        raise ValueError(f"企業「{company}」のデータがありません")
+    for metric in dict.fromkeys([a,b]):
+        data[metric]=pd.to_numeric(data[metric].astype('string').str.replace(',','',regex=False).str.replace('，','',regex=False).str.strip(),errors='coerce')
+    data=data.dropna(subset=list(dict.fromkeys([a,b])))
+    if data.empty:
+        raise ValueError("選択した2指標に描画可能な数値がありません")
+    data=data.drop_duplicates(subset=['date'],keep='last')
+    # Preserve source order for fiscal labels such as FY2025Q1.
+    dates=data['date'].astype(str).tolist()
+    values_a=data[a].to_numpy(dtype=float)
+    values_b=data[b].to_numpy(dtype=float)
+    n=len(dates)
+    x=np.arange(n)
+    p=float(np.clip(progress,0,1))
+    reveal=np.clip(p*n-x,0,1)
+    va=values_a*reveal
+    vb=values_b*reveal
+    color_a=scene.get('dual_color_a','#4472C4')
+    color_b=scene.get('dual_color_b','#E58A3A')
+    style=scene.get('financial_chart_style','並列棒')
+    separate=scene.get('financial_axis','同一軸')=='左右別軸'
+    ax.set_position([.15,.29,.70,.46] if separate else [.15,.29,.77,.46])
+    right=ax.twinx() if separate else ax
+    if separate:
+        right.set_facecolor('none')
+        right.tick_params(axis='y',labelsize=8,colors=color_b)
+        right.spines['right'].set_color(grid)
+        right.spines['top'].set_visible(False)
+    if style=='並列棒':
+        ax.bar(x-.2,va,width=.38,color=color_a,label=a,zorder=3)
+        right.bar(x+.2,vb,width=.38,color=color_b,label=b,zorder=3)
+    elif style=='棒＋折れ線':
+        ax.bar(x,va,width=.58,color=color_a,label=a,zorder=3)
+        right.plot(x,vb,color=color_b,lw=2.5,marker='o',markersize=3.5,label=b,zorder=4)
+    else:
+        ax.plot(x,va,color=color_a,lw=2.5,marker='o',markersize=3,label=a,zorder=3)
+        right.plot(x,vb,color=color_b,lw=2.5,marker='o',markersize=3,label=b,zorder=4)
+    def limits(values):
+        lo=min(0.,float(np.nanmin(values)))
+        hi=max(0.,float(np.nanmax(values)))
+        span=max(hi-lo,1.)
+        return lo-span*.10,hi+span*.15
+    if separate:
+        ax.set_ylim(*limits(values_a))
+        right.set_ylim(*limits(values_b))
+    else:
+        ax.set_ylim(*limits(np.r_[values_a,values_b]))
+    ax.set_xlim(-.7,n-.3)
+    step=max(1,int(np.ceil(n/10)))
+    ticks=list(range(0,n,step))
+    if n-1 not in ticks: ticks.append(n-1)
+    ax.set_xticks(ticks)
+    ax.set_xticklabels([dates[j] for j in ticks],rotation=35,ha='right',fontsize=max(6,9-.08*n),color=text)
+    ax.tick_params(axis='y',labelsize=8,colors=text)
+    ax.grid(axis='y',color=grid,alpha=.45)
+    ax.grid(axis='x',visible=False)
+    from matplotlib.lines import Line2D
+    from matplotlib.patches import Patch
+    h1=Line2D([0],[0],color=color_a,lw=3) if style=='折れ線2本' else Patch(facecolor=color_a)
+    h2=Patch(facecolor=color_b) if style=='並列棒' else Line2D([0],[0],color=color_b,lw=3)
+    ax.legend([h1,h2],[a,b],loc='upper left',bbox_to_anchor=(0,1.13),
+        frameon=False,ncol=2,fontsize=9,labelcolor=text)
+    fig.text(.075,.93,scene.get('title',company+'の業績推移'),color=text,
+        fontsize=scene.get('title_size',22),fontweight='bold',ha='left')
+    _draw_reference_subtitle(fig,scene,text,y=.885,fontsize=scene.get('subtitle_size',12))
+    if scene.get('source'):
+        fig.text(.075,.052,"出典: "+str(scene['source']),color=text,fontsize=7,ha='left',alpha=.6)
+    if scene.get('scene_note'):
+        fig.text(.075,.033,str(scene['scene_note']),color=text,fontsize=6,ha='left',alpha=.65)
+    _draw_scene_comments(fig,scene,text,p,elapsed)
+
+
 def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='preview'):
     fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'),scene)
     if scene.get('chart')=='突出型・横比較':
         _draw_outlier_comparison_on(fig,ax,df,scene,bg,text,grid,progress)
     elif scene.get('chart')=='テキストカード一覧':
         _draw_text_cards_on(fig,ax,scene,bg,text,grid,progress)
+    elif scene.get('chart')=='2指標・企業業績推移':
+        _draw_company_financial_history(fig,ax,df,scene,bg,text,grid,progress)
     elif scene.get('chart')=='2指標・企業横比較':
         _draw_dual_metric_scene(fig,ax,df,scene,bg,text,grid,progress)
     elif scene.get('chart')=='縦時系列年表':
@@ -1395,9 +1488,10 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
     fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'),scene)
     is_timeline=scene.get('chart') in ('年表','横進行年表','業績連動年表','縦時系列年表'); is_ranking=scene.get('chart')=='横比較ランキング'
     dual_prepared = _prepare_dual_metric_scene(df,scene) if scene.get('chart')=='2指標・企業横比較' else None
-    if not is_timeline and not is_ranking and scene.get('chart') not in ('2指標・企業横比較','テキストカード一覧','突出型・横比較'): dates,companies,pivot=_prepare_scene(df,scene)
+    if not is_timeline and not is_ranking and scene.get('chart') not in ('2指標・企業横比較','2指標・企業業績推移','テキストカード一覧','突出型・横比較'): dates,companies,pivot=_prepare_scene(df,scene)
     if scene.get('chart')=='突出型・横比較': _draw_outlier_comparison_on(fig,ax,df,scene,bg,text,grid,1/max(2,frames))
     elif scene.get('chart')=='テキストカード一覧': _draw_text_cards_on(fig,ax,scene,bg,text,grid,1/max(2,frames))
+    elif scene.get('chart')=='2指標・企業業績推移': _draw_company_financial_history(fig,ax,df,scene,bg,text,grid,1/max(2,frames))
     elif scene.get('chart')=='2指標・企業横比較': _draw_dual_metric_scene(fig,ax,df,scene,bg,text,grid,1/max(2,frames),dual_prepared)
     elif scene.get('chart')=='縦時系列年表': _draw_vertical_chronology_on(fig,ax,scene,bg,text,grid,1/max(2,frames))
     elif scene.get('chart')=='業績連動年表': _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,1/max(2,frames))
@@ -1426,6 +1520,7 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
             pp=1. if i>=frames else (i+1)/frames
             if scene.get('chart')=='突出型・横比較': _draw_outlier_comparison_on(fig,ax,df,scene,bg,text,grid,pp)
             elif scene.get('chart')=='テキストカード一覧': _draw_text_cards_on(fig,ax,scene,bg,text,grid,pp,i/fps)
+            elif scene.get('chart')=='2指標・企業業績推移': _draw_company_financial_history(fig,ax,df,scene,bg,text,grid,pp,i/fps)
             elif scene.get('chart')=='2指標・企業横比較':
                 if i<frames: _draw_dual_metric_scene(fig,ax,df,scene,bg,text,grid,pp,dual_prepared)
             elif scene.get('chart')=='縦時系列年表': _draw_vertical_chronology_on(fig,ax,scene,bg,text,grid,pp)
