@@ -1180,19 +1180,21 @@ def _draw_outlier_comparison_on(fig, ax, df, scene, bg, text, grid, progress):
     names=data['company'].astype(str).tolist()
     target=data[metric].to_numpy(dtype=float)
     maximum=max(float(np.max(target)),0.01)
-    base=float(scene.get('outlier_base',0) or 0)
-    if base<=0: base=maximum*.15
     p=float(np.clip(progress,0,1))
-    # Initial common height, followed by staggered growth toward real values.
-    first=float(np.clip(p/.22,0,1))
-    first=first*first*(3-2*first)
     count=len(target)
-    steps=np.clip((p-.25-np.arange(count)*(.40/max(1,count)))/.34,0,1)
-    steps=steps*steps*(3-2*steps)
-    values=base*first+(target-base)*steps
+    # All bars move at the SAME numeric speed. Each stops exactly at its
+    # own actual value; the largest bar naturally keeps growing the longest.
+    travel=float(np.clip(p/.92,0,1))
+    common_level=maximum*travel
+    values=np.minimum(np.maximum(target,0.),common_level)
+    # Expand the Y-axis as the leader grows, starting from a useful small
+    # range and easing the axis upward without changing the bar growth rate.
+    initial=max(maximum*.15,0.01)
+    axis_ceiling=max(initial,common_level*1.18)
+    if p>=.92: axis_ceiling=maximum*1.18
     ax.set_position([.13,.29,.80,.45])
     ax.set_facecolor(bg)
-    ax.set_ylim(0,max(maximum,base)*1.26)
+    ax.set_ylim(0,axis_ceiling)
     ax.set_xlim(-.6,count-.4)
     ax.grid(axis='y',color=grid,alpha=.4,linewidth=.7)
     ax.set_axisbelow(True)
@@ -1207,7 +1209,7 @@ def _draw_outlier_comparison_on(fig, ax, df, scene, bg, text, grid, progress):
     decimals=int(scene.get('value_decimals',1))
     for j,value in enumerate(values):
         if p>.03:
-            ax.text(j,value+maximum*.028,f"{value:,.{decimals}f}",
+            ax.text(j,value+axis_ceiling*.018,f"{value:,.{decimals}f}",
                 ha='center',va='bottom',color=text,fontsize=9,fontweight='bold')
     fig.text(.075,.93,str(scene.get('title','突出型・横比較')),
         fontsize=scene.get('title_size',22),fontweight='bold',color=text,ha='left',va='top')
