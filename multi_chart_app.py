@@ -284,6 +284,8 @@ for i in range(int(scene_count)):
         timeline_line_color = "#B83F68"
         timeline_highlight_color = "#EAC6D3"
         timeline_highlight_alpha = 0.42
+        timeline_description_text_color = text
+        timeline_description_accent_color = text
         timeline_fiscal_year_end_month = 12
         timeline_travel_ratio = 0.16
         timeline_period_mapping = "日付"
@@ -301,6 +303,9 @@ for i in range(int(scene_count)):
             timeline_bar_color = color1.color_picker("棒グラフの色", "#B83F68", key=f"timeline_bar_color_{i}")
             timeline_line_color = color2.color_picker("折れ線の色", "#B83F68", key=f"timeline_line_color_{i}")
             timeline_highlight_color = color3.color_picker("年度の背景色", "#EAC6D3", key=f"timeline_highlight_color_{i}")
+            dc1,dc2=st.columns(2)
+            timeline_description_text_color=dc1.color_picker("descriptionの文字色",text,key=f"timeline_description_text_color_{i}")
+            timeline_description_accent_color=dc2.color_picker("description左端ラインの色",text,key=f"timeline_description_accent_color_{i}")
             timeline_highlight_alpha = st.slider("年度背景の濃さ", 0.0, 1.0, 0.42, 0.05, key=f"timeline_highlight_alpha_{i}")
             timeline_period_mapping = st.selectbox("イベントと業績期の対応", ["日付","イベント順"], key=f"timeline_period_mapping_{i}", help="日付（推奨）: イベント年月日が属する四半期・年度の棒を強調。同じ期のイベントは同じ棒に固定。イベント順: 日付が対応しないデモなどでのみ使用。")
             timeline_travel_ratio = st.slider("イベント間の移動時間（1イベントの割合）", 0.05, 0.60, 0.16, 0.01, key=f"timeline_travel_ratio_{i}", help="初期値16%：最初の16%で次のイベントへ移動し、残り84%は完全停止してコメントを表示します。")
@@ -371,7 +376,7 @@ for i in range(int(scene_count)):
             "data_label_size":data_label_size, "bar_gap":bar_gap, "timeline_events":timeline_events,
             "timeline_start":timeline_start, "timeline_end":timeline_end, "timeline_note":timeline_note,
             "timeline_summary":timeline_summary, "timeline_summary_2":timeline_summary_2, "timeline_summary_size":timeline_summary_size,
-            "timeline_bar_metric":timeline_bar_metric, "timeline_line_metric":timeline_line_metric, "timeline_line_axis":timeline_line_axis, "timeline_bar_color":timeline_bar_color, "timeline_line_color":timeline_line_color, "timeline_highlight_color":timeline_highlight_color, "timeline_highlight_alpha":timeline_highlight_alpha, "timeline_fiscal_year_end_month":timeline_fiscal_year_end_month, "timeline_travel_ratio":timeline_travel_ratio, "timeline_period_mapping":timeline_period_mapping, "financial_comment_delay":financial_comment_delay,
+            "timeline_bar_metric":timeline_bar_metric, "timeline_line_metric":timeline_line_metric, "timeline_line_axis":timeline_line_axis, "timeline_bar_color":timeline_bar_color, "timeline_line_color":timeline_line_color, "timeline_highlight_color":timeline_highlight_color, "timeline_highlight_alpha":timeline_highlight_alpha, "timeline_description_text_color":timeline_description_text_color, "timeline_description_accent_color":timeline_description_accent_color, "timeline_fiscal_year_end_month":timeline_fiscal_year_end_month, "timeline_travel_ratio":timeline_travel_ratio, "timeline_period_mapping":timeline_period_mapping, "financial_comment_delay":financial_comment_delay,
             "dual_metric_a":dual_metric_a, "dual_metric_b":dual_metric_b, "dual_mode":dual_mode, "dual_axis":dual_axis, "dual_sort":dual_sort, "dual_color_a":dual_color_a, "dual_color_b":dual_color_b, "ranking_sort":ranking_sort, "ranking_reference":ranking_reference, "ranking_highlight":ranking_highlight
         })
 
