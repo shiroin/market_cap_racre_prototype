@@ -378,6 +378,7 @@ for i in range(int(scene_count)):
         guidance_company = ""
         guidance_axis = "左右別軸"
         guidance_color_a, guidance_color_b = "#1877F2", "#0AA89E"
+        guidance_unit_a = guidance_unit_b = ""
         if chart == "実績＋ガイダンス分離":
             st.markdown("**実績＋会社ガイダンス（右端分離）**")
             available_periods=scene_df["date"].dropna().astype(str).drop_duplicates().tolist()
@@ -398,6 +399,9 @@ for i in range(int(scene_count)):
                 cca,ccb=st.columns(2)
                 guidance_color_a=cca.color_picker("売上高の色",guidance_color_a,key=f"guidance_color_a_{i}")
                 guidance_color_b=ccb.color_picker("営業利益の色",guidance_color_b,key=f"guidance_color_b_{i}")
+                cua,cub=st.columns(2)
+                guidance_unit_a=cua.text_input("売上高データラベルの単位","億円",key=f"guidance_unit_a_{i}")
+                guidance_unit_b=cub.text_input("営業利益データラベルの単位","億円",key=f"guidance_unit_b_{i}")
             else:
                 guidance_percent=st.checkbox("100%積み上げで表示",value=False,key=f"guidance_percent_{i}")
             st.caption("選択した期を右端に独立表示します。その他の期間は左側に時系列表示。company列が積み上げの内訳になります。")
@@ -514,7 +518,7 @@ for i in range(int(scene_count)):
             "timeline_start":timeline_start, "timeline_end":timeline_end, "timeline_note":timeline_note,
             "timeline_summary":timeline_summary, "timeline_summary_2":timeline_summary_2, "timeline_summary_size":timeline_summary_size,
             "timeline_bar_metric":timeline_bar_metric, "timeline_line_metric":timeline_line_metric, "timeline_line_axis":timeline_line_axis, "timeline_bar_color":timeline_bar_color, "timeline_line_color":timeline_line_color, "timeline_highlight_color":timeline_highlight_color, "timeline_highlight_alpha":timeline_highlight_alpha, "timeline_description_text_color":timeline_description_text_color, "timeline_description_accent_color":timeline_description_accent_color, "timeline_fiscal_year_end_month":timeline_fiscal_year_end_month, "timeline_travel_ratio":timeline_travel_ratio, "timeline_period_mapping":timeline_period_mapping, "financial_comment_delay":financial_comment_delay,
-            "guidance_display":guidance_display, "guidance_metric_a":guidance_metric_a, "guidance_metric_b":guidance_metric_b, "guidance_company":guidance_company, "guidance_axis":guidance_axis, "guidance_color_a":guidance_color_a, "guidance_color_b":guidance_color_b, "guidance_period":guidance_period, "guidance_gap":guidance_gap, "guidance_label":guidance_label, "guidance_percent":guidance_percent, "financial_company":financial_company, "financial_chart_style":financial_chart_style, "financial_axis":financial_axis, "dual_metric_a":dual_metric_a, "dual_metric_b":dual_metric_b, "dual_mode":dual_mode, "dual_axis":dual_axis, "dual_sort":dual_sort, "dual_color_a":dual_color_a, "dual_color_b":dual_color_b, "ranking_sort":ranking_sort, "ranking_reference":ranking_reference, "ranking_highlight":ranking_highlight, "ranking_company_colors":ranking_company_colors, "ranking_company_icons":ranking_company_icons
+            "guidance_display":guidance_display, "guidance_metric_a":guidance_metric_a, "guidance_metric_b":guidance_metric_b, "guidance_company":guidance_company, "guidance_axis":guidance_axis, "guidance_color_a":guidance_color_a, "guidance_color_b":guidance_color_b, "guidance_unit_a":guidance_unit_a, "guidance_unit_b":guidance_unit_b, "guidance_period":guidance_period, "guidance_gap":guidance_gap, "guidance_label":guidance_label, "guidance_percent":guidance_percent, "financial_company":financial_company, "financial_chart_style":financial_chart_style, "financial_axis":financial_axis, "dual_metric_a":dual_metric_a, "dual_metric_b":dual_metric_b, "dual_mode":dual_mode, "dual_axis":dual_axis, "dual_sort":dual_sort, "dual_color_a":dual_color_a, "dual_color_b":dual_color_b, "ranking_sort":ranking_sort, "ranking_reference":ranking_reference, "ranking_highlight":ranking_highlight, "ranking_company_colors":ranking_company_colors, "ranking_company_icons":ranking_company_icons
         })
 
 preview_scene = st.selectbox("プレビューするScene", range(1, len(scenes)+1), format_func=lambda x:f"Scene {x}")
