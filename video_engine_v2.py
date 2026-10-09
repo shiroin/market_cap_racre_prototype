@@ -690,15 +690,50 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress,elaps
             fig.text(event_x,title_y,'\n'.join(title_lines[:2]),color=text,fontsize=14,
                 fontweight='bold',ha='left',va='top',alpha=opacity,linespacing=1.1)
         if current.get('description'):
-            fig.text(event_x,desc_y,current['description'],color=text,fontsize=8,
-                ha='left',va='top',alpha=description_opacity,wrap=True)
-        # Subtle visual connector makes the title and description read as
-        # one module without introducing a heavy background panel.
-        if current.get('title') and current.get('description'):
-            fig.add_artist(plt.Line2D([event_x,event_x+.037],
-                [desc_y+.014,desc_y+.014],transform=fig.transFigure,
-                color=scene.get('timeline_highlight_color','#B83F68'),
-                lw=2.0,alpha=.65*description_opacity,zorder=4))
+            # Reference-style description: white rounded panel with an orange
+            # left accent. Keep the panel below the event title and above chart.
+            from matplotlib.patches import FancyBboxPatch
+            import unicodedata
+            description=str(current['description']).strip()
+            card_x=.09
+            card_w=.82
+            card_top=desc_y+.007
+            # Available height stops before the financial chart heading.
+            available=max(.038,card_top-.635)
+            def wrap_description(value, limit):
+                lines=[]
+                for paragraph in value.splitlines() or ['']:
+                    row=''; cells=0
+                    for ch in paragraph:
+                        width=2 if unicodedata.east_asian_width(ch) in ('W','F') else 1
+                        if row and cells+width>limit:
+                            lines.append(row); row=''; cells=0
+                        row+=ch; cells+=width
+                    lines.append(row)
+                return lines
+            font_size=8.5
+            lines=wrap_description(description,57)
+            line_height=.024
+            desired=.019+line_height*len(lines)
+            while desired>available and font_size>5.5:
+                font_size-=.5
+                lines=wrap_description(description,int(57*8.5/font_size))
+                line_height=.024*font_size/8.5
+                desired=.019+line_height*len(lines)
+            card_h=min(available,desired)
+            card_bottom=card_top-card_h
+            fig.add_artist(FancyBboxPatch((card_x,card_bottom),card_w,card_h,
+                boxstyle='round,pad=0.004,rounding_size=0.008',
+                transform=fig.transFigure,facecolor='#FFFFFF',
+                edgecolor='none',alpha=description_opacity,zorder=6))
+            fig.add_artist(FancyBboxPatch((card_x,card_bottom),.007,card_h,
+                boxstyle='round,pad=0,rounding_size=0.003',
+                transform=fig.transFigure,facecolor='#DA8729',
+                edgecolor='none',alpha=description_opacity,zorder=7))
+            fig.text(card_x+.025,card_top-.011,'\\n'.join(lines),
+                color='#233148',fontsize=font_size,fontweight='bold',
+                ha='left',va='top',linespacing=1.15,
+                alpha=description_opacity,zorder=8)
     # One continuous pale line, pale stops, and exactly one moving ball.
     left,right=.10,.90
     yline=.235
