@@ -372,6 +372,12 @@ for i in range(int(scene_count)):
         guidance_gap = 1.8
         guidance_label = "会社予想"
         guidance_percent = False
+        guidance_display = "セグメント積み上げ"
+        guidance_metric_a = metric
+        guidance_metric_b = scene_metric_columns[1] if len(scene_metric_columns)>1 else metric
+        guidance_company = ""
+        guidance_axis = "左右別軸"
+        guidance_color_a, guidance_color_b = "#4472C4", "#E58A3A"
         if chart == "実績＋ガイダンス分離":
             st.markdown("**実績＋会社ガイダンス（右端分離）**")
             available_periods=scene_df["date"].dropna().astype(str).drop_duplicates().tolist()
@@ -379,7 +385,21 @@ for i in range(int(scene_count)):
                 index=max(0,len(available_periods)-1),key=f"guidance_period_{i}")
             guidance_label=st.text_input("ガイダンスの表示名","会社予想",key=f"guidance_label_{i}")
             guidance_gap=st.slider("実績とガイダンスの間隔",0.6,4.0,1.8,.1,key=f"guidance_gap_{i}")
-            guidance_percent=st.checkbox("100%積み上げで表示",value=False,key=f"guidance_percent_{i}")
+            guidance_display=st.radio("表示方式",["セグメント積み上げ","売上高＋営業利益（2指標）"],
+                horizontal=True,key=f"guidance_display_{i}")
+            if guidance_display=="売上高＋営業利益（2指標）":
+                names=scene_df["company"].dropna().astype(str).unique().tolist()
+                guidance_company=st.selectbox("対象企業",names,key=f"guidance_company_{i}")
+                cga,cgb=st.columns(2)
+                guidance_metric_a=cga.selectbox("指標A（売上高）",scene_metric_columns,key=f"guidance_metric_a_{i}")
+                guidance_metric_b=cgb.selectbox("指標B（営業利益）",scene_metric_columns,
+                    index=min(1,len(scene_metric_columns)-1),key=f"guidance_metric_b_{i}")
+                guidance_axis=st.radio("Y軸",["左右別軸","同一軸"],horizontal=True,key=f"guidance_axis_{i}")
+                cca,ccb=st.columns(2)
+                guidance_color_a=cca.color_picker("売上高の色",guidance_color_a,key=f"guidance_color_a_{i}")
+                guidance_color_b=ccb.color_picker("営業利益の色",guidance_color_b,key=f"guidance_color_b_{i}")
+            else:
+                guidance_percent=st.checkbox("100%積み上げで表示",value=False,key=f"guidance_percent_{i}")
             st.caption("選択した期を右端に独立表示します。その他の期間は左側に時系列表示。company列が積み上げの内訳になります。")
 
         ranking_sort = "大きい順"
@@ -494,7 +514,7 @@ for i in range(int(scene_count)):
             "timeline_start":timeline_start, "timeline_end":timeline_end, "timeline_note":timeline_note,
             "timeline_summary":timeline_summary, "timeline_summary_2":timeline_summary_2, "timeline_summary_size":timeline_summary_size,
             "timeline_bar_metric":timeline_bar_metric, "timeline_line_metric":timeline_line_metric, "timeline_line_axis":timeline_line_axis, "timeline_bar_color":timeline_bar_color, "timeline_line_color":timeline_line_color, "timeline_highlight_color":timeline_highlight_color, "timeline_highlight_alpha":timeline_highlight_alpha, "timeline_description_text_color":timeline_description_text_color, "timeline_description_accent_color":timeline_description_accent_color, "timeline_fiscal_year_end_month":timeline_fiscal_year_end_month, "timeline_travel_ratio":timeline_travel_ratio, "timeline_period_mapping":timeline_period_mapping, "financial_comment_delay":financial_comment_delay,
-            "guidance_period":guidance_period, "guidance_gap":guidance_gap, "guidance_label":guidance_label, "guidance_percent":guidance_percent, "financial_company":financial_company, "financial_chart_style":financial_chart_style, "financial_axis":financial_axis, "dual_metric_a":dual_metric_a, "dual_metric_b":dual_metric_b, "dual_mode":dual_mode, "dual_axis":dual_axis, "dual_sort":dual_sort, "dual_color_a":dual_color_a, "dual_color_b":dual_color_b, "ranking_sort":ranking_sort, "ranking_reference":ranking_reference, "ranking_highlight":ranking_highlight, "ranking_company_colors":ranking_company_colors, "ranking_company_icons":ranking_company_icons
+            "guidance_display":guidance_display, "guidance_metric_a":guidance_metric_a, "guidance_metric_b":guidance_metric_b, "guidance_company":guidance_company, "guidance_axis":guidance_axis, "guidance_color_a":guidance_color_a, "guidance_color_b":guidance_color_b, "guidance_period":guidance_period, "guidance_gap":guidance_gap, "guidance_label":guidance_label, "guidance_percent":guidance_percent, "financial_company":financial_company, "financial_chart_style":financial_chart_style, "financial_axis":financial_axis, "dual_metric_a":dual_metric_a, "dual_metric_b":dual_metric_b, "dual_mode":dual_mode, "dual_axis":dual_axis, "dual_sort":dual_sort, "dual_color_a":dual_color_a, "dual_color_b":dual_color_b, "ranking_sort":ranking_sort, "ranking_reference":ranking_reference, "ranking_highlight":ranking_highlight, "ranking_company_colors":ranking_company_colors, "ranking_company_icons":ranking_company_icons
         })
 
 preview_scene = st.selectbox("プレビューするScene", range(1, len(scenes)+1), format_func=lambda x:f"Scene {x}")
