@@ -133,7 +133,16 @@ def _series_label(company,value,scene,decimals):
 
 
 def _prepare_scene(df,scene):
-    metric=scene['metric']; w=df[['date','company',metric]].copy(); w[metric]=pd.to_numeric(w[metric],errors='coerce'); w=w.dropna(); dates=list(dict.fromkeys(w.date.astype(str))); companies=list(dict.fromkeys(w.company.astype(str))); pivot=w.pivot_table(index='date',columns='company',values=metric,aggfunc='sum').reindex(dates).fillna(0); return dates,companies,pivot
+    metric=scene['metric']; w=df[['date','company',metric]].copy()
+    numbers=w[metric].astype('string').str.replace(',', '', regex=False).str.replace('，', '', regex=False).str.strip()
+    w[metric]=pd.to_numeric(numbers,errors='coerce')
+    w=w.dropna(subset=[metric])
+    if w.empty:
+        raise ValueError(f"「{metric}」に描画可能な数値がありません。Google Sheetsの列・指標を確認してください。")
+    dates=list(dict.fromkeys(w.date.astype(str)))
+    companies=list(dict.fromkeys(w.company.astype(str)))
+    pivot=w.pivot_table(index='date',columns='company',values=metric,aggfunc='sum').reindex(dates).fillna(0)
+    return dates,companies,pivot
 
 
 def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress,elapsed=None):
