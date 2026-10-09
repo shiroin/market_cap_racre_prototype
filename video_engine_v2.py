@@ -1509,18 +1509,40 @@ def _draw_dual_separated_guidance(fig,ax,df,scene,bg,text,grid,progress,elapsed=
         ha='center',va='bottom',fontsize=9,color=text,fontweight='bold')
     ax.grid(axis='y',color=grid,alpha=.35)
     ax.grid(axis='x',visible=False)
-    # Place the two final periods' labels in a reserved header band above
-    # the plotting area, never on top of the bars.
+    # Values live above the plot and are connected to the corresponding
+    # bar tips by thin leader lines. The bars remain fully visible.
     alpha=float(np.clip((p-.96)/.04,0,1))
     if alpha>0:
+        from matplotlib.lines import Line2D
         selected=([len(xx)-2,len(xx)-1] if len(xx)>1 else [0])
-        for slot,j in enumerate(selected):
-            center=(.55 if slot==0 and len(selected)==2 else .79)
-            if len(selected)==1: center=.79
-            for row,value,color in [(0,va[j],color_a),(1,vb[j],color_b)]:
+        for j in selected:
+            center_x=float(xx[j])
+            # Use data coordinates for horizontal anchoring so that the
+            # callouts track the two rightmost groups in any aspect ratio.
+            label_y=[1.29,1.18]
+            for row,(value,offset,axis,color) in enumerate([
+                (float(va[j]),-.19,ax,color_a),
+                (float(vb[j]),.19,right,color_b)]):
                 label=f"{value:,.0f}" if abs(value)>=100 else f"{value:,.1f}"
-                fig.text(center,.703-row*.029,label,ha='center',va='center',
-                    fontsize=9,fontweight='bold',color=color,alpha=alpha)
+                # The label is centered above the group, not above a bar face.
+                # Axes-fraction Y > 1 reserves a band outside the chart.
+                from matplotlib.transforms import blended_transform_factory
+                transform=blended_transform_factory(ax.transData,ax.transAxes)
+                ax.text(center_x,label_y[row],label,
+                    transform=transform,ha='center',va='center',
+                    fontsize=9,fontweight='bold',color=color,
+                    alpha=alpha,zorder=12,clip_on=False)
+                # A connector starts at the bar tip and stops just below
+                # the label, making the association unambiguous.
+                start=axis.transData.transform((center_x+offset,value))
+                end=ax.transData.transform((center_x,ax.get_ylim()[1]))
+                end[1]=ax.transAxes.transform((0,label_y[row]-.045))[1]
+                start_fig=fig.transFigure.inverted().transform(start)
+                end_fig=fig.transFigure.inverted().transform(end)
+                fig.add_artist(Line2D([start_fig[0],end_fig[0]],
+                    [start_fig[1],end_fig[1]],transform=fig.transFigure,
+                    color=color,linewidth=.85,alpha=alpha*.75,
+                    zorder=10,clip_on=False))
     from matplotlib.patches import Patch
     ax.legend([Patch(facecolor=color_a),Patch(facecolor=color_b)],[a,b],
         loc='upper left',bbox_to_anchor=(0,1.43),frameon=False,ncol=2,fontsize=9,labelcolor=text)
