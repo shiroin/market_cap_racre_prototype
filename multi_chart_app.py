@@ -330,7 +330,7 @@ for i in range(int(scene_count)):
         dual_mode = "実数値"
         dual_axis = "同一軸"
         dual_sort = "入力順"
-        dual_color_a, dual_color_b = "#8799B1", "#D95E37"
+        dual_color_a, dual_color_b = "#1877F2", "#0AA89E"
         if chart == "2指標・企業横比較":
             st.markdown("**2指標・企業横比較**")
             if len(scene_metric_columns)<2:
@@ -364,8 +364,8 @@ for i in range(int(scene_count)):
             financial_chart_style=fc.selectbox("表示方法",["並列棒","棒＋折れ線","折れ線2本"],key=f"financial_style_{i}")
             financial_axis=fd.selectbox("Y軸",["同一軸","左右別軸"],key=f"financial_axis_{i}")
             ca,cb=st.columns(2)
-            dual_color_a=ca.color_picker("指標Aの色","#4472C4",key=f"financial_color_a_{i}")
-            dual_color_b=cb.color_picker("指標Bの色","#E58A3A",key=f"financial_color_b_{i}")
+            dual_color_a=ca.color_picker("指標Aの色","#1877F2",key=f"financial_color_a_{i}")
+            dual_color_b=cb.color_picker("指標Bの色","#0AA89E",key=f"financial_color_b_{i}")
             st.caption("年度・四半期を横軸、数値を縦軸に表示。左から順にアニメーションします。")
 
         guidance_period = ""
@@ -377,7 +377,7 @@ for i in range(int(scene_count)):
         guidance_metric_b = scene_metric_columns[1] if len(scene_metric_columns)>1 else metric
         guidance_company = ""
         guidance_axis = "左右別軸"
-        guidance_color_a, guidance_color_b = "#4472C4", "#E58A3A"
+        guidance_color_a, guidance_color_b = "#1877F2", "#0AA89E"
         if chart == "実績＋ガイダンス分離":
             st.markdown("**実績＋会社ガイダンス（右端分離）**")
             available_periods=scene_df["date"].dropna().astype(str).drop_duplicates().tolist()
@@ -422,7 +422,7 @@ for i in range(int(scene_count)):
                     for name in ranking_names:
                         enabled=st.checkbox(f"{name} の色を個別指定",key=f"ranking_color_enabled_{i}_{name}")
                         if enabled:
-                            ranking_company_colors[name]=st.color_picker(f"{name} の棒の色","#4472C4",key=f"ranking_color_{i}_{name}")
+                            ranking_company_colors[name]=st.color_picker(f"{name} の棒の色","#1877F2",key=f"ranking_color_{i}_{name}")
 
         if chart == "横比較ランキング" and "company" in scene_df.columns and metric in scene_df.columns:
             with st.expander("Y軸ラベルの国旗・企業ロゴを設定", expanded=False):
@@ -481,7 +481,7 @@ for i in range(int(scene_count)):
                             key=f"outlier_custom_enabled_{i}_{company_name}")
                         if enabled:
                             outlier_company_colors[company_name] = st.color_picker(
-                                f"{company_name} の棒の色", "#4472C4",
+                                f"{company_name} の棒の色", "#1877F2",
                                 key=f"outlier_company_color_{i}_{company_name}")
             st.markdown("**項目別の国旗・ロゴ**")
             st.caption("各棒の下に表示します。国旗は絵文字、企業ロゴはPNG/JPG/WEBP画像を指定できます。")
