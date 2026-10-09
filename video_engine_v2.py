@@ -1543,10 +1543,18 @@ def _draw_dual_separated_guidance(fig,ax,df,scene,bg,text,grid,progress,elapsed=
                 fig.text(cx,.731-row*.036,label,ha='center',va='center',
                     fontsize=9,fontweight='bold',color=color,alpha=alpha,zorder=11)
     from matplotlib.patches import Patch
-    # Fixed legend row, above the summary row: no shared bounding boxes.
-    fig.legend([Patch(facecolor=color_a),Patch(facecolor=color_b)],[a,b],
-        loc='upper left',bbox_to_anchor=(.15,.825),frameon=False,
-        ncol=2,fontsize=9,labelcolor=text)
+    # Draw legend with the same fig.text pipeline as the Japanese title.
+    # Matplotlib's Legend creates separate text artists whose font fallback
+    # can differ and make Japanese glyphs appear unnaturally bold.
+    from matplotlib.patches import Rectangle
+    for legend_x,legend_color,legend_label in [
+        (.15,color_a,str(a)),(.39,color_b,str(b))]:
+        fig.add_artist(Rectangle((legend_x,.808),.043,.015,
+            transform=fig.transFigure,facecolor=legend_color,
+            edgecolor='none',zorder=9))
+        fig.text(legend_x+.057,.815,legend_label,
+            color=text,fontsize=9,fontweight='normal',
+            ha='left',va='center',zorder=9)
     fig.text(.075,.93,scene.get('title','売上高・営業利益の実績と会社予想'),
         color=text,fontsize=scene.get('title_size',22),fontweight='bold',ha='left')
     _draw_reference_subtitle(fig,scene,text,y=.885,fontsize=scene.get('subtitle_size',12))
