@@ -483,15 +483,22 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress,elaps
     bar_metric=scene.get('timeline_bar_metric',scene.get('metric'))
     line_metric=scene.get('timeline_line_metric','(なし)')
     if bar_metric not in df.columns: return
-    cols=['date',bar_metric]
-    if line_metric in df.columns and line_metric!=bar_metric: cols.append(line_metric)
-    data=df[cols].copy()
-    data['date']=data['date'].astype(str)
-    data[bar_metric]=pd.to_numeric(data[bar_metric],errors='coerce')
-    if line_metric in data.columns: data[line_metric]=pd.to_numeric(data[line_metric],errors='coerce')
-    data=data.dropna(subset=[bar_metric]).groupby('date',sort=False).sum(numeric_only=True)
-    if data.empty: return
-    labels=list(data.index)
+    cache=scene.get('_financial_render_cache')
+    cache_key=(id(df),bar_metric,line_metric)
+    if cache is not None and cache.get('key')==cache_key:
+        data=cache['data']
+        labels=cache['labels']
+    else:
+        cols=['date',bar_metric]
+        if line_metric in df.columns and line_metric!=bar_metric: cols.append(line_metric)
+        data=df[cols].copy()
+        data['date']=data['date'].astype(str)
+        data[bar_metric]=pd.to_numeric(data[bar_metric],errors='coerce')
+        if line_metric in data.columns: data[line_metric]=pd.to_numeric(data[line_metric],errors='coerce')
+        data=data.dropna(subset=[bar_metric]).groupby('date',sort=False).sum(numeric_only=True)
+        if data.empty: return
+        labels=list(data.index)
+        scene['_financial_render_cache']={'key':cache_key,'data':data,'labels':labels}
     fiscal_end=int(scene.get('timeline_fiscal_year_end_month',12))
     fiscal_end=max(1,min(12,fiscal_end))
     def date_year(label):
