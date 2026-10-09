@@ -1488,7 +1488,10 @@ def _draw_dual_separated_guidance(fig,ax,df,scene,bg,text,grid,progress,elapsed=
     ax.bar(xx-.19,va*reveal,width=.36,color=color_a,zorder=3)
     right.bar(xx+.19,vb*reveal,width=.36,color=color_b,zorder=3)
     def upper(v):
-        return max(1.,float(np.max(v)),0.)*1.18
+        past = v[:-1] if len(v)>1 else v
+        past_peak = max(0.,float(np.max(past)))
+        overall_peak = max(0.,float(np.max(v)))
+        return max(1.,past_peak*1.32,overall_peak*1.10)
     if separate:
         # Align the zero baseline on both axes, even when a series is negative.
         ua,ub=upper(va),upper(vb)
