@@ -41,6 +41,15 @@ def _draw_reference_subtitle(fig,scene,text,accent='#16718C',y=.885,fontsize=8,a
     fig.text(.075,y,wrapped,color=text,fontsize=fontsize,fontweight='normal',ha='left',va='center',alpha=.68*float(np.clip(alpha,0,1)),zorder=22,linespacing=1.30,wrap=False)
 
 
+def _comment_panel_layout(fig, comments, font_size, bottom, max_top, width=.85):
+    """Size a bottom comment panel from actual explicit line counts."""
+    lines=sum(max(1,len(str(v).splitlines())) for v in comments if str(v).strip())
+    lines=max(1,lines)
+    line_height=font_size/72./fig.get_figheight()*1.30
+    height=min(max_top-bottom,max(.035,.020+lines*line_height))
+    return bottom,height
+
+
 def _draw_scene_comments(fig,scene,text,progress,elapsed=None):
     c1=str(scene.get('scene_comment_1','') or '').strip()
     c2=str(scene.get('scene_comment_2','') or '').strip()
@@ -61,7 +70,8 @@ def _draw_scene_comments(fig,scene,text,progress,elapsed=None):
         # Its opacity follows the first comment, so the panel never flashes early.
         panel_alpha=a1 if c1 else a2
         if panel_alpha>0:
-            panel=FancyBboxPatch((.075,.086),.85,.150,boxstyle='round,pad=0.008,rounding_size=0.012',
+            panel_y,panel_h=_comment_panel_layout(fig,[c1,c2],size,.086,.236)
+            panel=FancyBboxPatch((.075,panel_y),.85,panel_h,boxstyle='round,pad=0.008,rounding_size=0.012',
                 transform=fig.transFigure,facecolor='#233653',edgecolor='none',alpha=panel_alpha,zorder=28)
             fig.add_artist(panel)
         if c1 and a1>0:
@@ -832,9 +842,11 @@ def _draw_financial_timeline_footer(fig, scene, text, grid, progress, elapsed=No
     # The comment panel is strictly below those labels. Source notes occupy
     # a separate bottom strip and never share the same rectangle.
     if has_comments:
-        panel_bottom, panel_top = .075, .190
+        panel_bottom, panel_height = _comment_panel_layout(
+            fig,[c1,c2],min(12,max(7,int(scene.get('scene_comment_size',12)))),
+            .075,.190)
         panel = FancyBboxPatch((.075, panel_bottom), .85,
-            panel_top-panel_bottom, boxstyle='round,pad=0.004,rounding_size=0.009',
+            panel_height, boxstyle='round,pad=0.004,rounding_size=0.009',
             transform=fig.transFigure,
             facecolor='#233653' if scene.get('scene_comment_style') == '白抜き（濃紺背景）' else '#E8EDF3',
             edgecolor='none', zorder=25)
