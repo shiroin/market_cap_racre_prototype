@@ -469,6 +469,8 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress,elaps
     """Synchronized events, financial chart and horizontal year timeline."""
     import re
     from matplotlib.patches import Rectangle
+    for other in list(fig.axes):
+        if other is not ax: other.remove()
     ax.clear()
     for artist in list(fig.artists): artist.remove()
     for artist in list(fig.lines): artist.remove()
@@ -601,11 +603,16 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress,elaps
         arrival=0.
     x=np.arange(len(labels))
     values=data[bar_metric].to_numpy(dtype=float)
-    ymax=max(1.,float(np.nanmax(values))*1.20)
+    line_values=data[line_metric].to_numpy(dtype=float) if line_metric in data.columns else None
+    same_axis=scene.get('timeline_line_axis','別軸（右軸）')=='同じ軸（左軸）'
+    valid_line=line_values[np.isfinite(line_values)] if line_values is not None else np.array([])
+    combined=np.concatenate([values,valid_line]) if same_axis and valid_line.size else values
+    ymax=max(1.,float(np.nanmax(combined))*1.20)
+    ymin=min(0.,float(np.nanmin(combined)))*1.1
     # The financial chart occupies its own middle band; labels stay above timeline.
     ax.set_position([.12,.345,.77,.255])
     ax.set_xlim(-.65,len(labels)-.35)
-    ax.set_ylim(min(0.,float(np.nanmin(values)))*1.1,ymax)
+    ax.set_ylim(ymin,ymax)
     ax.grid(axis='y',color=grid,alpha=.45,lw=.7)
     ax.set_axisbelow(True)
     for spine in ax.spines.values(): spine.set_visible(False)
@@ -630,15 +637,24 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress,elaps
             zorder=0,lw=0)
     bar_color=scene.get('timeline_bar_color','#B83F68')
     ax.bar(x,values,width=.66,color=bar_color,alpha=.78,zorder=3)
-    if line_metric in data.columns:
-        line_values=data[line_metric].to_numpy(dtype=float)
-        lo=float(np.nanmin(line_values)); hi=float(np.nanmax(line_values))
-        span=max(hi-lo,1e-8)
-        # Normalize the secondary metric to the same plotting area without creating
-        # a new twinx axis on each animation frame.
-        mapped=ymax*(.17+.68*(line_values-lo)/span)
-        ax.plot(x,mapped,color=scene.get('timeline_line_color','#B83F68'),lw=2.0,marker='o',markersize=2.6,zorder=5)
-        fig.text(.88,.616,str(line_metric),color=scene.get('timeline_line_color','#B83F68'),fontsize=7,ha='right')
+    if line_values is not None and valid_line.size:
+        color=scene.get('timeline_line_color','#B83F68')
+        if same_axis:
+            ax.plot(x,line_values,color=color,lw=2,marker='o',markersize=2.6,zorder=5)
+        else:
+            right=ax.twinx()
+            right.set_position(ax.get_position())
+            lo=min(0.,float(np.min(valid_line)))
+            hi=max(0.,float(np.max(valid_line)))
+            span=max(hi-lo,1e-9)
+            right.set_ylim(lo-.08*span,hi+.15*span)
+            right.set_xlim(ax.get_xlim())
+            right.tick_params(axis='y',colors=color,labelsize=6.5,length=0,pad=3)
+            right.tick_params(axis='x',bottom=False,top=False,labelbottom=False,labeltop=False)
+            for spine in right.spines.values(): spine.set_visible(False)
+            right.grid(False)
+            right.plot(x,line_values,color=color,lw=2,marker='o',markersize=2.6,zorder=5)
+        fig.text(.88,.616,str(line_metric),color=color,fontsize=7,ha='right')
     fig.text(.12,.616,str(bar_metric),color=text,fontsize=8,fontweight='bold',ha='left')
     # Show only the current stop's comment. Never switch comments mid-travel.
     # Keep a clear gap between subtitle and the event comment band.
