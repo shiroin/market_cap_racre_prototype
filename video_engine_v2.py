@@ -1509,40 +1509,30 @@ def _draw_dual_separated_guidance(fig,ax,df,scene,bg,text,grid,progress,elapsed=
         ha='center',va='bottom',fontsize=9,color=text,fontweight='bold')
     ax.grid(axis='y',color=grid,alpha=.35)
     ax.grid(axis='x',visible=False)
-    # Values live above the plot and are connected to the corresponding
-    # bar tips by thin leader lines. The bars remain fully visible.
+    # Compact, separated two-column summary in the free band above the
+    # plot. No leader lines or overlays on the bars. Columns are anchored
+    # to figure coordinates rather than adjacent data coordinates, so the
+    # latest actual and guidance labels cannot collide.
     alpha=float(np.clip((p-.96)/.04,0,1))
     if alpha>0:
-        from matplotlib.lines import Line2D
+        from matplotlib.patches import FancyBboxPatch
         selected=([len(xx)-2,len(xx)-1] if len(xx)>1 else [0])
-        for j in selected:
-            center_x=float(xx[j])
-            # Use data coordinates for horizontal anchoring so that the
-            # callouts track the two rightmost groups in any aspect ratio.
-            label_y=[1.29,1.18]
-            for row,(value,offset,axis,color) in enumerate([
-                (float(va[j]),-.19,ax,color_a),
-                (float(vb[j]),.19,right,color_b)]):
+        # Keep clear of the legend on the left and of the right-hand axis.
+        centers=[.61,.82] if len(selected)==2 else [.79]
+        for slot,j in enumerate(selected):
+            cx=centers[slot]
+            label_title=(str(ordered[j])+" 実績") if j!=len(xx)-1 else str(scene.get('guidance_label','会社予想'))
+            # Light outline, no opaque block hiding data or gridlines.
+            fig.add_artist(FancyBboxPatch((cx-.092,.665),.184,.114,
+                boxstyle='round,pad=0.003,rounding_size=0.008',
+                transform=fig.transFigure,facecolor=bg,
+                edgecolor=grid,linewidth=.8,alpha=alpha,zorder=10))
+            fig.text(cx,.762,label_title,ha='center',va='center',
+                fontsize=7.8,fontweight='bold',color=text,alpha=alpha,zorder=11)
+            for row,value,color in [(0,float(va[j]),color_a),(1,float(vb[j]),color_b)]:
                 label=f"{value:,.0f}" if abs(value)>=100 else f"{value:,.1f}"
-                # The label is centered above the group, not above a bar face.
-                # Axes-fraction Y > 1 reserves a band outside the chart.
-                from matplotlib.transforms import blended_transform_factory
-                transform=blended_transform_factory(ax.transData,ax.transAxes)
-                ax.text(center_x,label_y[row],label,
-                    transform=transform,ha='center',va='center',
-                    fontsize=9,fontweight='bold',color=color,
-                    alpha=alpha,zorder=12,clip_on=False)
-                # A connector starts at the bar tip and stops just below
-                # the label, making the association unambiguous.
-                start=axis.transData.transform((center_x+offset,value))
-                end=ax.transData.transform((center_x,ax.get_ylim()[1]))
-                end[1]=ax.transAxes.transform((0,label_y[row]-.045))[1]
-                start_fig=fig.transFigure.inverted().transform(start)
-                end_fig=fig.transFigure.inverted().transform(end)
-                fig.add_artist(Line2D([start_fig[0],end_fig[0]],
-                    [start_fig[1],end_fig[1]],transform=fig.transFigure,
-                    color=color,linewidth=.85,alpha=alpha*.75,
-                    zorder=10,clip_on=False))
+                fig.text(cx,.731-row*.036,label,ha='center',va='center',
+                    fontsize=9,fontweight='bold',color=color,alpha=alpha,zorder=11)
     from matplotlib.patches import Patch
     ax.legend([Patch(facecolor=color_a),Patch(facecolor=color_b)],[a,b],
         loc='upper left',bbox_to_anchor=(0,1.43),frameon=False,ncol=2,fontsize=9,labelcolor=text)
