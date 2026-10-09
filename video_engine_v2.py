@@ -1306,7 +1306,15 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
     try:
         total=frames+hold
         cached_dual_frame = None
+        # Financial timelines are expensive to lay out. Draw at approximately
+        # 12 unique frames/sec and duplicate RGBA frames for the encoder.
+        # MP4 frame rate and scene duration remain unchanged.
+        financial_stride=max(1,int(round(fps/12))) if scene.get('chart')=='業績連動年表' else 1
+        financial_frame_cache=None
         for i in range(total):
+            if financial_stride>1 and i%financial_stride and financial_frame_cache is not None:
+                proc.stdin.write(financial_frame_cache)
+                continue
             pp=1. if i>=frames else (i+1)/frames
             if scene.get('chart')=='突出型・横比較': _draw_outlier_comparison_on(fig,ax,df,scene,bg,text,grid,pp)
             elif scene.get('chart')=='テキストカード一覧': _draw_text_cards_on(fig,ax,scene,bg,text,grid,pp,i/fps)
@@ -1322,6 +1330,7 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
             else:
                 fig.canvas.draw()
                 frame_bytes = bytes(fig.canvas.buffer_rgba())
+                if scene.get('chart')=='業績連動年表': financial_frame_cache=frame_bytes
                 proc.stdin.write(frame_bytes)
                 if scene.get('chart')=='2指標・企業横比較' and i==frames-1:
                     cached_dual_frame = frame_bytes
