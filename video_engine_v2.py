@@ -1505,8 +1505,11 @@ def _draw_dual_separated_guidance(fig,ax,df,scene,bg,text,grid,progress,elapsed=
     ax.set_xticklabels(ordered,rotation=35,ha='right',fontsize=8,color=text)
     if history:
         ax.axvline(gx-gap/2,color=grid,ls='--',lw=1,alpha=.7)
-    ax.text(gx,1.025,str(scene.get('guidance_label','会社予想')),transform=ax.get_xaxis_transform(),
-        ha='center',va='bottom',fontsize=9,color=text,fontweight='bold')
+    # The forecast marker is part of the X tick, not a floating heading
+    # that could collide with the numerical summary cards.
+    tick_labels=history+[guide+"\\n"+str(scene.get('guidance_label','会社予想'))]
+    ax.set_xticklabels(tick_labels,rotation=35,ha='right',fontsize=8,color=text)
+
     ax.grid(axis='y',color=grid,alpha=.35)
     ax.grid(axis='x',visible=False)
     # Compact, separated two-column summary in the free band above the
@@ -1534,8 +1537,10 @@ def _draw_dual_separated_guidance(fig,ax,df,scene,bg,text,grid,progress,elapsed=
                 fig.text(cx,.731-row*.036,label,ha='center',va='center',
                     fontsize=9,fontweight='bold',color=color,alpha=alpha,zorder=11)
     from matplotlib.patches import Patch
-    ax.legend([Patch(facecolor=color_a),Patch(facecolor=color_b)],[a,b],
-        loc='upper left',bbox_to_anchor=(0,1.43),frameon=False,ncol=2,fontsize=9,labelcolor=text)
+    # Fixed legend row, above the summary row: no shared bounding boxes.
+    fig.legend([Patch(facecolor=color_a),Patch(facecolor=color_b)],[a,b],
+        loc='upper left',bbox_to_anchor=(.15,.825),frameon=False,
+        ncol=2,fontsize=9,labelcolor=text)
     fig.text(.075,.93,scene.get('title','売上高・営業利益の実績と会社予想'),
         color=text,fontsize=scene.get('title_size',22),fontweight='bold',ha='left')
     _draw_reference_subtitle(fig,scene,text,y=.885,fontsize=scene.get('subtitle_size',12))
