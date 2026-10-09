@@ -1107,8 +1107,8 @@ def _draw_dual_metric_scene(fig, ax, df, scene, bg, text, grid, progress, prepar
         ax.tick_params(axis='x',labelsize=8,colors=text,length=0)
         for spine in ax.spines.values(): spine.set_visible(False)
         ax.axvline(0,color=grid,lw=.8,zorder=0)
-        color_a=scene.get('dual_color_a','#8799B1')
-        color_b=scene.get('dual_color_b','#D95E37')
+        color_a=scene.get('dual_color_a','#1877F2')
+        color_b=scene.get('dual_color_b','#0AA89E')
         bars_a=ax.barh(y-.19,np.zeros(count),height=.32,color=color_a,zorder=2)
         ax_b=ax.twiny() if not shared else ax
         if not shared:
@@ -1388,8 +1388,8 @@ def _draw_company_financial_history(fig,ax,df,scene,bg,text,grid,progress,elapse
     reveal=np.clip(p*n-x,0,1)
     va=values_a*reveal
     vb=values_b*reveal
-    color_a=scene.get('dual_color_a','#4472C4')
-    color_b=scene.get('dual_color_b','#E58A3A')
+    color_a=scene.get('dual_color_a','#1877F2')
+    color_b=scene.get('dual_color_b','#0AA89E')
     style=scene.get('financial_chart_style','並列棒')
     separate=scene.get('financial_axis','同一軸')=='左右別軸'
     ax.set_position([.15,.29,.70,.46] if separate else [.15,.29,.77,.46])
@@ -1475,8 +1475,8 @@ def _draw_dual_separated_guidance(fig,ax,df,scene,bg,text,grid,progress,elapsed=
     xx=np.r_[np.arange(len(history),dtype=float),[gx]]
     p=float(np.clip(progress,0,1))
     reveal=np.clip(p*len(xx)-np.arange(len(xx)),0,1)
-    color_a=scene.get('guidance_color_a','#4472C4')
-    color_b=scene.get('guidance_color_b','#E58A3A')
+    color_a=scene.get('guidance_color_a','#1877F2')
+    color_b=scene.get('guidance_color_b','#0AA89E')
     separate=scene.get('guidance_axis','左右別軸')=='左右別軸'
     ax.set_position([.15,.29,.70,.35] if separate else [.15,.29,.77,.35])
     right=ax.twinx() if separate else ax
