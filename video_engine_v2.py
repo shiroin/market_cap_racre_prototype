@@ -1268,7 +1268,8 @@ def _draw_outlier_comparison_on(fig, ax, df, scene, bg, text, grid, progress):
     ax.set_xticklabels(names,fontsize=max(6,10-count//3),color=text)
     ax.tick_params(axis='x',length=0,pad=9)
     peak=int(np.argmax(target))
-    colors=[scene.get('outlier_color','#E55C45') if j==peak else scene.get('outlier_normal_color','#9A9A9A') for j in range(count)]
+    custom_colors=scene.get('outlier_company_colors') or {}
+    colors=[custom_colors.get(name,scene.get('outlier_color','#E55C45') if j==peak else scene.get('outlier_normal_color','#9A9A9A')) for j,name in enumerate(names)]
     ax.bar(range(count),values,color=colors,width=.66,zorder=3)
     decimals=int(scene.get('value_decimals',1))
     for j,value in enumerate(values):
