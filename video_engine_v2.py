@@ -1504,7 +1504,7 @@ def _draw_separated_guidance(fig,ax,df,scene,bg,text,grid,cmap,progress,elapsed=
 def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='preview'):
     fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'),scene)
     if scene.get('chart')=='実績＋ガイダンス分離':
-        _draw_separated_guidance(fig,ax,df,scene,bg,text,grid,progress)
+        _draw_separated_guidance(fig,ax,df,scene,bg,text,grid,cmap,progress)
     elif scene.get('chart')=='突出型・横比較':
         _draw_outlier_comparison_on(fig,ax,df,scene,bg,text,grid,progress)
     elif scene.get('chart')=='テキストカード一覧':
@@ -1549,7 +1549,7 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
     is_timeline=scene.get('chart') in ('年表','横進行年表','業績連動年表','縦時系列年表'); is_ranking=scene.get('chart')=='横比較ランキング'
     dual_prepared = _prepare_dual_metric_scene(df,scene) if scene.get('chart')=='2指標・企業横比較' else None
     if not is_timeline and not is_ranking and scene.get('chart') not in ('2指標・企業横比較','2指標・企業業績推移','実績＋ガイダンス分離','テキストカード一覧','突出型・横比較'): dates,companies,pivot=_prepare_scene(df,scene)
-    if scene.get('chart')=='実績＋ガイダンス分離': _draw_separated_guidance(fig,ax,df,scene,bg,text,grid,1/max(2,frames))
+    if scene.get('chart')=='実績＋ガイダンス分離': _draw_separated_guidance(fig,ax,df,scene,bg,text,grid,cmap,1/max(2,frames))
     elif scene.get('chart')=='突出型・横比較': _draw_outlier_comparison_on(fig,ax,df,scene,bg,text,grid,1/max(2,frames))
     elif scene.get('chart')=='テキストカード一覧': _draw_text_cards_on(fig,ax,scene,bg,text,grid,1/max(2,frames))
     elif scene.get('chart')=='2指標・企業業績推移': _draw_company_financial_history(fig,ax,df,scene,bg,text,grid,1/max(2,frames))
@@ -1579,7 +1579,7 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
                 proc.stdin.write(financial_frame_cache)
                 continue
             pp=1. if i>=frames else (i+1)/frames
-            if scene.get('chart')=='実績＋ガイダンス分離': _draw_separated_guidance(fig,ax,df,scene,bg,text,grid,pp,i/fps)
+            if scene.get('chart')=='実績＋ガイダンス分離': _draw_separated_guidance(fig,ax,df,scene,bg,text,grid,cmap,pp,i/fps)
             elif scene.get('chart')=='突出型・横比較': _draw_outlier_comparison_on(fig,ax,df,scene,bg,text,grid,pp)
             elif scene.get('chart')=='テキストカード一覧': _draw_text_cards_on(fig,ax,scene,bg,text,grid,pp,i/fps)
             elif scene.get('chart')=='2指標・企業業績推移': _draw_company_financial_history(fig,ax,df,scene,bg,text,grid,pp,i/fps)
