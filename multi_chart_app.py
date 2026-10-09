@@ -173,13 +173,36 @@ default_charts = ["積み上げ棒", "折れ線", "折れ線"]
 default_metrics = ["inventory", "inventory", "inventory_months"]
 chart_options = ["積み上げ棒", "折れ線", "棒グラフ", "100%積み上げ", "横比較ランキング", "2指標・企業横比較", "年表", "横進行年表", "業績連動年表", "縦時系列年表", "テキストカード一覧", "突出型・横比較"]
 
+scene_data = []
 for i in range(int(scene_count)):
     with st.expander(f"Scene {i+1}", expanded=i == 0):
+        scene_df = cleaned
+        scene_metric_columns = metric_columns
+        if source == "Google Sheets" and url:
+            sheet_gid = st.text_input("参照シートのgid", value="", key=f"scene_sheet_gid_{i}",
+                help="Google Sheetsのタブを開いたURLの #gid= に続く数字を入力。空欄なら共通データを使用します。")
+            if sheet_gid.strip():
+                if not sheet_gid.strip().isdigit():
+                    st.error("gidは数字で入力してください。")
+                    st.stop()
+                try:
+                    scene_url = google_sheets_csv_url(url)
+                    scene_url = re.sub(r"([?&])gid=[^&]*", "", scene_url)
+                    separator = "&" if "?" in scene_url else "?"
+                    scene_df = clean_data(pd.read_csv(scene_url + separator + "gid=" + sheet_gid.strip()))
+                    scene_metric_columns = [col for col in scene_df.columns if col not in ("date","company")]
+                    if not scene_metric_columns:
+                        raise ValueError("数値指標列がありません")
+                    st.caption(f"gid={sheet_gid.strip()}：{len(scene_df):,}行、指標 {len(scene_scene_metric_columns)}列")
+                except Exception as exc:
+                    st.error(f"Scene {i+1} のシートを読み込めません: {exc}")
+                    st.stop()
+        scene_data.append(scene_df)
         c1, c2 = st.columns(2)
         default_chart = default_charts[i] if i < 3 else "折れ線"
         chart = c1.selectbox("グラフ種類", chart_options, index=chart_options.index(default_chart), key=f"chart_{i}")
-        preferred = default_metrics[i] if i < 3 and default_metrics[i] in metric_columns else metric_columns[0]
-        metric = c2.selectbox("指標列", metric_columns, index=metric_columns.index(preferred), key=f"metric_{i}", disabled=chart in ("年表","横進行年表","縦時系列年表"))
+        preferred = default_metrics[i] if i < 3 and default_metrics[i] in scene_metric_columns else scene_metric_columns[0]
+        metric = c2.selectbox("指標列", scene_metric_columns, index=scene_metric_columns.index(preferred), key=f"metric_{i}", disabled=chart in ("年表","横進行年表","縦時系列年表"))
         title = st.text_input("タイトル", default_titles[i] if i < 3 else f"Scene {i+1}", key=f"title_{i}")
         subtitle = st.text_area("サブタイトル", default_subtitles[i] if i < 3 else "", key=f"subtitle_{i}", height=80, help="長い場合は任意の位置で改行できます。")
         c3, c4 = st.columns(2)
@@ -266,9 +289,9 @@ for i in range(int(scene_count)):
         if chart == "業績連動年表":
             st.markdown("**連動する業績グラフ**")
             timeline_fiscal_year_end_month = st.selectbox("決算月（四半期の期末判定）", list(range(1,13)), index=11, key=f"timeline_fiscal_year_end_month_{i}", help="2020Q1等を会計年度の四半期として解釈します。12月決算ならQ1=3月末、3月決算ならQ1=前年6月末です。")
-            timeline_bar_metric = st.selectbox("棒グラフの指標", metric_columns,
-                index=metric_columns.index(metric), key=f"timeline_bar_metric_{i}")
-            timeline_line_metric = st.selectbox("折れ線の指標（任意）", ["(なし)"]+metric_columns,
+            timeline_bar_metric = st.selectbox("棒グラフの指標", scene_metric_columns,
+                index=scene_metric_columns.index(metric), key=f"timeline_bar_metric_{i}")
+            timeline_line_metric = st.selectbox("折れ線の指標（任意）", ["(なし)"]+scene_metric_columns,
                 key=f"timeline_line_metric_{i}")
             color1,color2,color3 = st.columns(3)
             timeline_bar_color = color1.color_picker("棒グラフの色", "#B83F68", key=f"timeline_bar_color_{i}")
@@ -281,19 +304,19 @@ for i in range(int(scene_count)):
             st.caption("球は年表イベントのyear/month/day座標で停止します。停止中にコメントを表示し、グラフ背景は到達時点の期を強調します。")
 
         dual_metric_a = metric
-        dual_metric_b = metric_columns[1] if len(metric_columns)>1 else metric
+        dual_metric_b = scene_metric_columns[1] if len(scene_metric_columns)>1 else metric
         dual_mode = "実数値"
         dual_axis = "同一軸"
         dual_sort = "入力順"
         dual_color_a, dual_color_b = "#8799B1", "#D95E37"
         if chart == "2指標・企業横比較":
             st.markdown("**2指標・企業横比較**")
-            if len(metric_columns)<2:
+            if len(scene_metric_columns)<2:
                 st.warning("このSceneには数値指標列が2つ必要です。データに列を追加してください。")
             da,db = st.columns(2)
-            dual_metric_a = da.selectbox("指標A", metric_columns, key=f"dual_metric_a_{i}")
-            dual_metric_b = db.selectbox("指標B", metric_columns,
-                index=min(1,len(metric_columns)-1), key=f"dual_metric_b_{i}")
+            dual_metric_a = da.selectbox("指標A", scene_metric_columns, key=f"dual_metric_a_{i}")
+            dual_metric_b = db.selectbox("指標B", scene_metric_columns,
+                index=min(1,len(scene_metric_columns)-1), key=f"dual_metric_b_{i}")
             dc,dd, de = st.columns(3)
             dual_mode = dc.selectbox("表示形式", ["実数値","基準年倍率","基準年比成長率"], key=f"dual_mode_{i}")
             dual_axis = dd.radio("横軸", ["同一軸","別軸"], horizontal=True, key=f"dual_axis_{i}")
@@ -351,7 +374,7 @@ for i in range(int(scene_count)):
 preview_scene = st.selectbox("プレビューするScene", range(1, len(scenes)+1), format_func=lambda x:f"Scene {x}")
 preview_progress = st.slider("アニメーション位置", .05, 1.0, 1.0, .05)
 try:
-    preview = render_story_frame(cleaned, scenes[preview_scene-1], ratio, bg, text, grid, cmap, preview_progress, "preview")
+    preview = render_story_frame(scene_data[preview_scene-1], scenes[preview_scene-1], ratio, bg, text, grid, cmap, preview_progress, "preview")
     st.pyplot(preview, use_container_width=False)
     plt.close(preview)
 except Exception as e:
@@ -385,7 +408,7 @@ if st.button(f"MP4を生成（{render_mode}）", type="primary", use_container_w
             for i, scene in enumerate(scenes):
                 progress.progress(int(i/max(1, len(scenes))*85), text=f"Scene {i+1}/{len(scenes)} を生成中…")
                 p = workdir/f"scene_{i:02d}.mp4"
-                save_scene_v2(cleaned, scene, p, ratio, fps, bg, text, grid, cmap, quality)
+                save_scene_v2(scene_data[i], scene, p, ratio, fps, bg, text, grid, cmap, quality)
                 paths.append(p); durations.append(scene["duration"]+scene["hold"])
             progress.progress(90, text="Sceneを結合中…")
             output = workdir/"multi_chart_video_v13.mp4"
