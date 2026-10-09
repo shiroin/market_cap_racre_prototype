@@ -1443,8 +1443,84 @@ def _draw_company_financial_history(fig,ax,df,scene,bg,text,grid,progress,elapse
     _draw_scene_comments(fig,scene,text,p,elapsed)
 
 
+def _draw_dual_separated_guidance(fig,ax,df,scene,bg,text,grid,progress,elapsed=None):
+    """Historical two-metric bars with one guidance period separated to the right."""
+    for other in list(fig.axes):
+        if other is not ax: other.remove()
+    ax.clear()
+    fig.texts.clear()
+    for artist in list(fig.artists): artist.remove()
+    for artist in list(fig.patches): artist.remove()
+    _style_axis(ax,bg,text,grid)
+    a=scene.get('guidance_metric_a')
+    b=scene.get('guidance_metric_b')
+    company=str(scene.get('guidance_company',''))
+    if a not in df.columns or b not in df.columns:
+        raise ValueError("売上高・営業利益の指標列が見つかりません")
+    data=df.loc[df['company'].astype(str)==company,['date',a,b]].copy()
+    for metric in dict.fromkeys([a,b]):
+        data[metric]=pd.to_numeric(data[metric].astype('string').str.replace(',','',regex=False).str.replace('，','',regex=False).str.strip(),errors='coerce')
+    data=data.dropna(subset=list(dict.fromkeys([a,b]))).drop_duplicates('date',keep='last')
+    if data.empty: raise ValueError("対象企業の売上高・営業利益データがありません")
+    dates=data['date'].astype(str).tolist()
+    guide=str(scene.get('guidance_period') or dates[-1])
+    if guide not in dates: raise ValueError("選択したガイダンス期が対象企業のデータにありません")
+    history=[d for d in dates if d!=guide]
+    data.index=data['date'].astype(str)
+    ordered=history+[guide]
+    va=data.loc[ordered,a].to_numpy(dtype=float)
+    vb=data.loc[ordered,b].to_numpy(dtype=float)
+    gap=float(scene.get('guidance_gap',1.8))
+    gx=len(history)-1+gap if history else 0.
+    xx=np.r_[np.arange(len(history),dtype=float),[gx]]
+    p=float(np.clip(progress,0,1))
+    reveal=np.clip(p*len(xx)-np.arange(len(xx)),0,1)
+    color_a=scene.get('guidance_color_a','#4472C4')
+    color_b=scene.get('guidance_color_b','#E58A3A')
+    separate=scene.get('guidance_axis','左右別軸')=='左右別軸'
+    ax.set_position([.15,.30,.70,.43] if separate else [.15,.30,.77,.43])
+    right=ax.twinx() if separate else ax
+    if separate:
+        right.set_facecolor('none')
+        right.tick_params(axis='y',labelsize=8,colors=color_b)
+        right.spines['right'].set_color(grid)
+        right.spines['top'].set_visible(False)
+    ax.bar(xx-.19,va*reveal,width=.36,color=color_a,zorder=3)
+    right.bar(xx+.19,vb*reveal,width=.36,color=color_b,zorder=3)
+    def limits(v):
+        low=min(0.,float(np.min(v)))
+        high=max(0.,float(np.max(v)))
+        span=max(1.,high-low)
+        return low-.08*span,high+.17*span
+    if separate:
+        ax.set_ylim(*limits(va))
+        right.set_ylim(*limits(vb))
+    else:
+        ax.set_ylim(*limits(np.r_[va,vb]))
+    ax.set_xlim(-.7,gx+.75)
+    ax.set_xticks(xx)
+    ax.set_xticklabels(ordered,rotation=35,ha='right',fontsize=8,color=text)
+    if history:
+        ax.axvline(gx-gap/2,color=grid,ls='--',lw=1,alpha=.7)
+    ax.text(gx,1.025,str(scene.get('guidance_label','会社予想')),transform=ax.get_xaxis_transform(),
+        ha='center',va='bottom',fontsize=9,color=text,fontweight='bold')
+    ax.grid(axis='y',color=grid,alpha=.35)
+    ax.grid(axis='x',visible=False)
+    from matplotlib.patches import Patch
+    ax.legend([Patch(facecolor=color_a),Patch(facecolor=color_b)],[a,b],
+        loc='upper left',bbox_to_anchor=(0,1.14),frameon=False,ncol=2,fontsize=9,labelcolor=text)
+    fig.text(.075,.93,scene.get('title','売上高・営業利益の実績と会社予想'),
+        color=text,fontsize=scene.get('title_size',22),fontweight='bold',ha='left')
+    _draw_reference_subtitle(fig,scene,text,y=.885,fontsize=scene.get('subtitle_size',12))
+    if scene.get('source'): fig.text(.075,.052,"出典: "+str(scene['source']),color=text,fontsize=7,ha='left',alpha=.6)
+    if scene.get('scene_note'): fig.text(.075,.033,str(scene['scene_note']),color=text,fontsize=6,ha='left',alpha=.65)
+    _draw_scene_comments(fig,scene,text,p,elapsed)
+
+
 def _draw_separated_guidance(fig,ax,df,scene,bg,text,grid,cmap,progress,elapsed=None):
     """Stacked historical actuals plus a separately positioned guidance bar."""
+    if scene.get("guidance_display")=="売上高＋営業利益（2指標）":
+        return _draw_dual_separated_guidance(fig,ax,df,scene,bg,text,grid,progress,elapsed)
     ax.clear()
     fig.texts.clear()
     for artist in list(fig.artists): artist.remove()
