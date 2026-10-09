@@ -1104,30 +1104,63 @@ def _draw_text_cards_on(fig, ax, scene, bg, text, grid, progress):
             color=text,alpha=.75,ha='left',va='top')
     count=len(cards)
     if count:
-        top,bottom,gap=.77,.17,.013
-        h=min(.103,(top-bottom-gap*(count-1))/count)
-        for j,card in enumerate(cards):
+        import unicodedata
+        def wrapped(value, limit):
+            lines=[]
+            for paragraph in str(value or '').splitlines() or ['']:
+                line=''; width=0
+                for ch in paragraph:
+                    n=2 if unicodedata.east_asian_width(ch) in ('F','W') else 1
+                    if width+n>limit and line:
+                        lines.append(line); line=''; width=0
+                    line+=ch; width+=n
+                lines.append(line)
+            return lines
+        top,bottom,gap=.77,.13,.012
+        available=top-bottom-gap*(count-1)
+        font_scale=1.
+        for _ in range(16):
+            title_pt=max(5.,12.*font_scale)
+            detail_pt=max(4.,8.5*font_scale)
+            width_pt=fig.get_figwidth()*72*.76
+            rows=[]
+            for card in cards:
+                title_lines=wrapped(card.get('title',''),max(8,int(width_pt/(title_pt*.9))))
+                detail_lines=wrapped(card.get('description',''),max(8,int(width_pt/(detail_pt*.9)))) if card.get('description') else []
+                tstep=title_pt/72/fig.get_figheight()*1.4
+                dstep=detail_pt/72/fig.get_figheight()*1.5
+                height=.022+len(title_lines)*tstep+len(detail_lines)*dstep+(.01 if detail_lines else 0)
+                rows.append((title_lines,detail_lines,height,tstep,dstep))
+            if sum(row[2] for row in rows)<=available: break
+            font_scale*=.87
+        factor=min(1.,available/max(.001,sum(row[2] for row in rows)))
+        cursor=top
+        for j,(card,row) in enumerate(zip(cards,rows)):
+            titles,details,height,tstep,dstep=row
+            h=height*factor
+            y=cursor-h
+            cursor=y-gap
             phase=float(np.clip((p*count-j)/.8,0.,1.))
             opacity=phase*phase*(3-2*phase)
             if opacity<=0: continue
-            y=top-(j+1)*h-j*gap
             fig.add_artist(FancyBboxPatch((.075,y),.85,h,
-                boxstyle='round,pad=0.003,rounding_size=0.012',
+                boxstyle='round,pad=0.003,rounding_size=0.009',
                 transform=fig.transFigure,facecolor='#FFFFFF',
                 edgecolor=grid,linewidth=.65,alpha=opacity,zorder=2))
             fig.add_artist(FancyBboxPatch((.075,y),.007,h,
                 boxstyle='square,pad=0',transform=fig.transFigure,
                 facecolor=card.get('color','#C04A31'),edgecolor='none',
                 alpha=opacity,zorder=3))
-            title_size=min(13.,max(7.,h*115))
-            fig.text(.103,y+h*.68,str(card.get('title','')),color='#172235',
-                fontsize=title_size,fontweight='bold',ha='left',va='center',
-                alpha=opacity,zorder=4)
-            detail=str(card.get('description','') or '').strip()
-            if detail:
-                fig.text(.103,y+h*.26,detail,color='#647080',
-                    fontsize=max(6.,title_size*.66),ha='left',va='center',
-                    alpha=opacity,zorder=4)
+            ty=y+h-.012*factor
+            fig.text(.103,ty,'\\n'.join(titles),color='#172235',
+                fontsize=title_pt*factor,fontweight='bold',ha='left',va='top',
+                linespacing=1.2,alpha=opacity,zorder=4)
+            ty-=len(titles)*tstep*factor
+            if details:
+                ty-=.008*factor
+                fig.text(.103,ty,'\\n'.join(details),color='#647080',
+                    fontsize=detail_pt*factor,ha='left',va='top',
+                    linespacing=1.2,alpha=opacity,zorder=4)
     note='\\n'.join(v for v in (str(scene.get('scene_note','') or '').strip(),
         str(scene.get('source','') or '').strip()) if v)
     if note:
