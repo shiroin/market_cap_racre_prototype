@@ -1152,16 +1152,16 @@ def _draw_text_cards_on(fig, ax, scene, bg, text, grid, progress):
                 facecolor=card.get('color','#C04A31'),edgecolor='none',
                 alpha=opacity,zorder=3))
             ty=y+h-.012*factor
-            fig.text(.103,ty,'\\n'.join(titles),color='#172235',
+            fig.text(.103,ty,'\n'.join(titles),color='#172235',
                 fontsize=title_pt*factor,fontweight='bold',ha='left',va='top',
                 linespacing=1.2,alpha=opacity,zorder=4)
             ty-=len(titles)*tstep*factor
             if details:
                 ty-=.008*factor
-                fig.text(.103,ty,'\\n'.join(details),color='#647080',
+                fig.text(.103,ty,'\n'.join(details),color='#647080',
                     fontsize=detail_pt*factor,ha='left',va='top',
                     linespacing=1.2,alpha=opacity,zorder=4)
-    note='\\n'.join(v for v in (str(scene.get('scene_note','') or '').strip(),
+    note='\n'.join(v for v in (str(scene.get('scene_note','') or '').strip(),
         str(scene.get('source','') or '').strip()) if v)
     if note:
         fig.text(.075,.06,note,color=text,fontsize=7,alpha=.65,ha='left',va='bottom')
