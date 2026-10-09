@@ -1191,6 +1191,12 @@ def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='pr
 
 def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
     started=time.monotonic(); frames=max(2,int(scene.get('duration',2.5)*fps)); hold=max(0,int(scene.get('hold',1.0)*fps))
+    if scene.get('chart')=='テキストカード一覧' and (scene.get('scene_comment_1') or scene.get('scene_comment_2')):
+        delay=max(0.,float(scene.get('scene_comment_delay',.7)))
+        gap=max(0.,float(scene.get('scene_comment_gap',.8)))
+        both=bool(scene.get('scene_comment_1')) and bool(scene.get('scene_comment_2'))
+        required_hold=delay+.45+(gap+.45 if both else 0.)+.4
+        hold=max(hold,int(np.ceil(required_hold*fps)))
     if scene.get('chart')=='業績連動年表' and (scene.get('scene_comment_1') or scene.get('scene_comment_2')):
         count=max(1,len(_timeline_events(scene)))
         travel=float(np.clip(scene.get('timeline_travel_ratio',.16),.05,.60))
