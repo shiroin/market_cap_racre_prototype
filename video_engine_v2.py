@@ -1478,7 +1478,7 @@ def _draw_dual_separated_guidance(fig,ax,df,scene,bg,text,grid,progress,elapsed=
     color_a=scene.get('guidance_color_a','#4472C4')
     color_b=scene.get('guidance_color_b','#E58A3A')
     separate=scene.get('guidance_axis','左右別軸')=='左右別軸'
-    ax.set_position([.15,.30,.70,.43] if separate else [.15,.30,.77,.43])
+    ax.set_position([.15,.29,.70,.35] if separate else [.15,.29,.77,.35])
     right=ax.twinx() if separate else ax
     if separate:
         right.set_facecolor('none')
@@ -1487,16 +1487,19 @@ def _draw_dual_separated_guidance(fig,ax,df,scene,bg,text,grid,progress,elapsed=
         right.spines['top'].set_visible(False)
     ax.bar(xx-.19,va*reveal,width=.36,color=color_a,zorder=3)
     right.bar(xx+.19,vb*reveal,width=.36,color=color_b,zorder=3)
-    def limits(v):
-        low=min(0.,float(np.min(v)))
-        high=max(0.,float(np.max(v)))
-        span=max(1.,high-low)
-        return low-.08*span,high+.17*span
+    def upper(v):
+        return max(1.,float(np.max(v)),0.)*1.18
     if separate:
-        ax.set_ylim(*limits(va))
-        right.set_ylim(*limits(vb))
+        # Align the zero baseline on both axes, even when a series is negative.
+        ua,ub=upper(va),upper(vb)
+        negative_ratio=max(0.,-float(np.min(va))/ua,-float(np.min(vb))/ub)
+        ax.set_ylim(-negative_ratio*ua,ua)
+        right.set_ylim(-negative_ratio*ub,ub)
     else:
-        ax.set_ylim(*limits(np.r_[va,vb]))
+        values=np.r_[va,vb]
+        top=upper(values)
+        bottom=min(0.,float(np.min(values))*1.12)
+        ax.set_ylim(bottom,top)
     ax.set_xlim(-.7,gx+.75)
     ax.set_xticks(xx)
     ax.set_xticklabels(ordered,rotation=35,ha='right',fontsize=8,color=text)
@@ -1506,21 +1509,21 @@ def _draw_dual_separated_guidance(fig,ax,df,scene,bg,text,grid,progress,elapsed=
         ha='center',va='bottom',fontsize=9,color=text,fontweight='bold')
     ax.grid(axis='y',color=grid,alpha=.35)
     ax.grid(axis='x',visible=False)
-    # Label the last actual and guidance bars without covering their faces.
+    # Place the two final periods' labels in a reserved header band above
+    # the plotting area, never on top of the bars.
     alpha=float(np.clip((p-.96)/.04,0,1))
     if alpha>0:
-        from matplotlib import patheffects
-        for j in ([len(xx)-2,len(xx)-1] if len(xx)>1 else [0]):
-            for value,offset,axis,color in [(va[j],-.19,ax,color_a),(vb[j],.19,right,color_b)]:
+        selected=([len(xx)-2,len(xx)-1] if len(xx)>1 else [0])
+        for slot,j in enumerate(selected):
+            center=(.55 if slot==0 and len(selected)==2 else .79)
+            if len(selected)==1: center=.79
+            for row,value,color in [(0,va[j],color_a),(1,vb[j],color_b)]:
                 label=f"{value:,.0f}" if abs(value)>=100 else f"{value:,.1f}"
-                artist=axis.annotate(label,(xx[j]+offset,value),
-                    xytext=(0,8),textcoords='offset points',
-                    ha='center',va='bottom',fontsize=8,fontweight='bold',
-                    color=color,alpha=alpha,zorder=12,annotation_clip=False)
-                artist.set_path_effects([patheffects.withStroke(linewidth=2.5,foreground=bg)])
+                fig.text(center,.703-row*.029,label,ha='center',va='center',
+                    fontsize=9,fontweight='bold',color=color,alpha=alpha)
     from matplotlib.patches import Patch
     ax.legend([Patch(facecolor=color_a),Patch(facecolor=color_b)],[a,b],
-        loc='upper left',bbox_to_anchor=(0,1.14),frameon=False,ncol=2,fontsize=9,labelcolor=text)
+        loc='upper left',bbox_to_anchor=(0,1.43),frameon=False,ncol=2,fontsize=9,labelcolor=text)
     fig.text(.075,.93,scene.get('title','売上高・営業利益の実績と会社予想'),
         color=text,fontsize=scene.get('title_size',22),fontweight='bold',ha='left')
     _draw_reference_subtitle(fig,scene,text,y=.885,fontsize=scene.get('subtitle_size',12))
