@@ -171,7 +171,7 @@ default_titles = ["上場買取再販4社の在庫", "各社の在庫キャッ�
 default_subtitles = ["販売用不動産（仕掛販売用不動産を含む）の期末残高", "販売用不動産の期末残高", "販売用不動産の期末残高÷売上高×12"]
 default_charts = ["積み上げ棒", "折れ線", "折れ線"]
 default_metrics = ["inventory", "inventory", "inventory_months"]
-chart_options = ["積み上げ棒", "折れ線", "棒グラフ", "100%積み上げ", "横比較ランキング", "2指標・企業横比較", "年表", "横進行年表", "業績連動年表", "縦時系列年表", "テキストカード一覧", "突出型・横比較"]
+chart_options = ["積み上げ棒", "折れ線", "棒グラフ", "100%積み上げ", "横比較ランキング", "2指標・企業横比較", "2指標・企業業績推移", "年表", "横進行年表", "業績連動年表", "縦時系列年表", "テキストカード一覧", "突出型・横比較"]
 
 scene_data = []
 for i in range(int(scene_count)):
@@ -348,6 +348,26 @@ for i in range(int(scene_count)):
             dual_color_b = cb.color_picker("指標Bの色", dual_color_b, key=f"dual_color_b_{i}")
             st.caption("date / company / 指標A / 指標B を使用します。Sceneの描画時間中に期間を順番にアニメーションします。")
 
+        financial_company = ""
+        financial_chart_style = "並列棒"
+        financial_axis = "同一軸"
+        if chart == "2指標・企業業績推移":
+            st.markdown("**1企業の売上高・営業利益の推移**")
+            company_choices=scene_df["company"].dropna().astype(str).unique().tolist()
+            financial_company=st.selectbox("対象企業",company_choices,key=f"financial_company_{i}")
+            if len(scene_metric_columns)<2:
+                st.warning("売上高・営業利益など、2つの数値指標列が必要です。")
+            fa,fb=st.columns(2)
+            dual_metric_a=fa.selectbox("指標A（例：売上高）",scene_metric_columns,key=f"financial_metric_a_{i}")
+            dual_metric_b=fb.selectbox("指標B（例：営業利益）",scene_metric_columns,index=min(1,len(scene_metric_columns)-1),key=f"financial_metric_b_{i}")
+            fc,fd=st.columns(2)
+            financial_chart_style=fc.selectbox("表示方法",["並列棒","棒＋折れ線","折れ線2本"],key=f"financial_style_{i}")
+            financial_axis=fd.selectbox("Y軸",["同一軸","左右別軸"],key=f"financial_axis_{i}")
+            ca,cb=st.columns(2)
+            dual_color_a=ca.color_picker("指標Aの色","#4472C4",key=f"financial_color_a_{i}")
+            dual_color_b=cb.color_picker("指標Bの色","#E58A3A",key=f"financial_color_b_{i}")
+            st.caption("年度・四半期を横軸、数値を縦軸に表示。左から順にアニメーションします。")
+
         ranking_sort = "大きい順"
         ranking_reference = 0.0
         ranking_highlight = 3
@@ -460,7 +480,7 @@ for i in range(int(scene_count)):
             "timeline_start":timeline_start, "timeline_end":timeline_end, "timeline_note":timeline_note,
             "timeline_summary":timeline_summary, "timeline_summary_2":timeline_summary_2, "timeline_summary_size":timeline_summary_size,
             "timeline_bar_metric":timeline_bar_metric, "timeline_line_metric":timeline_line_metric, "timeline_line_axis":timeline_line_axis, "timeline_bar_color":timeline_bar_color, "timeline_line_color":timeline_line_color, "timeline_highlight_color":timeline_highlight_color, "timeline_highlight_alpha":timeline_highlight_alpha, "timeline_description_text_color":timeline_description_text_color, "timeline_description_accent_color":timeline_description_accent_color, "timeline_fiscal_year_end_month":timeline_fiscal_year_end_month, "timeline_travel_ratio":timeline_travel_ratio, "timeline_period_mapping":timeline_period_mapping, "financial_comment_delay":financial_comment_delay,
-            "dual_metric_a":dual_metric_a, "dual_metric_b":dual_metric_b, "dual_mode":dual_mode, "dual_axis":dual_axis, "dual_sort":dual_sort, "dual_color_a":dual_color_a, "dual_color_b":dual_color_b, "ranking_sort":ranking_sort, "ranking_reference":ranking_reference, "ranking_highlight":ranking_highlight, "ranking_company_colors":ranking_company_colors, "ranking_company_icons":ranking_company_icons
+            "financial_company":financial_company, "financial_chart_style":financial_chart_style, "financial_axis":financial_axis, "dual_metric_a":dual_metric_a, "dual_metric_b":dual_metric_b, "dual_mode":dual_mode, "dual_axis":dual_axis, "dual_sort":dual_sort, "dual_color_a":dual_color_a, "dual_color_b":dual_color_b, "ranking_sort":ranking_sort, "ranking_reference":ranking_reference, "ranking_highlight":ranking_highlight, "ranking_company_colors":ranking_company_colors, "ranking_company_icons":ranking_company_icons
         })
 
 preview_scene = st.selectbox("プレビューするScene", range(1, len(scenes)+1), format_func=lambda x:f"Scene {x}")
