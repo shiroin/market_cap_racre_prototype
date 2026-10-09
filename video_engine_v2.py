@@ -1554,7 +1554,9 @@ def _draw_dual_separated_guidance(fig,ax,df,scene,bg,text,grid,progress,elapsed=
             fig.text(cx,.762,label_title,ha='center',va='center',
                 fontsize=7.8,fontweight='bold',color=text,alpha=alpha,zorder=11)
             for row,value,color in [(0,float(va[j]),color_a),(1,float(vb[j]),color_b)]:
-                label=f"{value:,.0f}" if abs(value)>=100 else f"{value:,.1f}"
+                number=f"{value:,.0f}" if abs(value)>=100 else f"{value:,.1f}"
+                suffix=str(scene.get('guidance_unit_a' if row==0 else 'guidance_unit_b','') or '').strip()
+                label=number+suffix
                 fig.text(cx,.731-row*.036,label,ha='center',va='center',
                     fontsize=9,fontweight='bold',color=color,alpha=alpha,zorder=11)
     from matplotlib.patches import Patch
