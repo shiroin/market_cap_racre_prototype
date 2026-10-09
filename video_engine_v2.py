@@ -1256,7 +1256,7 @@ def _draw_outlier_comparison_on(fig, ax, df, scene, bg, text, grid, progress):
     initial=max(maximum*.15,0.01)
     axis_ceiling=max(initial,common_level*1.18)
     if p>=.92: axis_ceiling=maximum*1.18
-    ax.set_position([.13,.29,.80,.45])
+    ax.set_position([.13,.34,.80,.40])
     ax.set_facecolor(bg)
     ax.set_ylim(0,axis_ceiling)
     ax.set_xlim(-.6,count-.4)
@@ -1266,7 +1266,31 @@ def _draw_outlier_comparison_on(fig, ax, df, scene, bg, text, grid, progress):
     ax.tick_params(axis='y',colors=text,labelsize=8,length=0)
     ax.set_xticks(range(count))
     ax.set_xticklabels(names,fontsize=max(6,10-count//3),color=text)
-    ax.tick_params(axis='x',length=0,pad=9)
+    ax.tick_params(axis='x',length=0,pad=30)
+    icons=scene.get('outlier_company_icons') or {}
+    if icons:
+        from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+        import base64
+        from io import BytesIO
+        from PIL import Image
+        for j,name in enumerate(names):
+            spec=icons.get(name) or {}
+            if spec.get('type')=='emoji' and spec.get('value'):
+                ax.annotate(str(spec['value']),xy=(j,0),xycoords=('data','axes fraction'),
+                    xytext=(0,-9),textcoords='offset points',ha='center',va='top',
+                    fontsize=15,annotation_clip=False)
+            elif spec.get('type')=='image' and spec.get('value'):
+                try:
+                    logo=Image.open(BytesIO(base64.b64decode(spec['value']))).convert('RGBA')
+                    logo.thumbnail((120,120))
+                    zoom=25/max(1,max(logo.size))
+                    image=OffsetImage(np.asarray(logo),zoom=zoom)
+                    ax.add_artist(AnnotationBbox(image,(j,0),
+                        xycoords=('data','axes fraction'),xybox=(0,-19),
+                        boxcoords='offset points',frameon=False,
+                        box_alignment=(.5,.5),annotation_clip=False))
+                except (ValueError, OSError, TypeError):
+                    pass
     peak=int(np.argmax(target))
     custom_colors=scene.get('outlier_company_colors') or {}
     colors=[custom_colors.get(name,scene.get('outlier_color','#E55C45') if j==peak else scene.get('outlier_normal_color','#9A9A9A')) for j,name in enumerate(names)]
