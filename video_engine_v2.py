@@ -668,72 +668,76 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress,elaps
     comment_top=min(.842,header_bottom-.035)
     if stop_events:
         current=stop_events[position]
-        fade_in=float(fade_window(local,travel_ratio,min(.98,travel_ratio+.12)))
+        # Delay the first event until the subtitle has finished fading in.
+        first_event_delay=.12 if position==0 else 0.
+        fade_begin=max(travel_ratio,first_event_delay)
+        fade_in=float(fade_window(local,fade_begin,min(.98,fade_begin+.13)))
         fade_out=(1.-float(fade_window(local,.90,.99))) if position<len(stop_events)-1 else 1.
         opacity=float(np.clip(fade_in*fade_out,0,1))
-        description_start=min(.90,travel_ratio+.25)
-        description_opacity=float(np.clip(fade_window(local,description_start,min(.98,description_start+.12))*fade_out,0,1))
-        # Treat the date, title and description as one compact event card.
-        # Anchor all lines from the top to avoid the large gap previously
-        # created by mixing baseline and top-aligned text.
+        description_start=min(.90,fade_begin+.20)
+        description_opacity=float(np.clip(fade_window(local,description_start,min(.98,description_start+.13))*fade_out,0,1))
         event_x=.09
         date_y=comment_top
         title_y=date_y-.031
-        title_lines=textwrap.wrap(str(current.get('title','') or '').strip(),
-            width=24,break_long_words=True,break_on_hyphens=False) or []
-        # Allow a second title line without colliding with description.
-        desc_y=title_y-.041-.032*max(0,len(title_lines)-1)
+        import unicodedata
+        from matplotlib.patches import FancyBboxPatch
+        def wrap_event(value,capacity):
+            result=[]
+            for paragraph in str(value or '').replace('\\\\n','\\n').split('\\n'):
+                line=''; cells=0
+                for char in paragraph:
+                    width=2 if unicodedata.east_asian_width(char) in ('F','W') else 1
+                    if line and cells+width>capacity:
+                        result.append(line); line=''; cells=0
+                    line+=char; cells+=width
+                result.append(line)
+            return result
+        # Title and description share one column and never overlap.
+        title_lines=wrap_event(current.get('title',''),27)
+        title_font=14.
+        title_step=title_font/72/fig.get_figheight()*1.32
+        title_height=max(1,len(title_lines))*title_step
+        desc_top=title_y-title_height-.012
         if current.get('date'):
             fig.text(event_x,date_y,current['date'],color=text,fontsize=9,
                 fontweight='bold',ha='left',va='top',alpha=opacity)
-        if title_lines:
-            fig.text(event_x,title_y,'\n'.join(title_lines[:2]),color=text,fontsize=14,
-                fontweight='bold',ha='left',va='top',alpha=opacity,linespacing=1.1)
+        if current.get('title'):
+            fig.text(event_x,title_y,'\\n'.join(title_lines),color=text,fontsize=title_font,
+                fontweight='bold',ha='left',va='top',alpha=opacity,linespacing=1.15)
         if current.get('description'):
-            # Reference-style description: white rounded panel with an orange
-            # left accent. Keep the panel below the event title and above chart.
-            from matplotlib.patches import FancyBboxPatch
-            import unicodedata
             description=str(current['description']).strip()
             card_x=.09
             card_w=.82
-            card_top=desc_y+.007
-            # Available height stops before the financial chart heading.
-            available=max(.038,card_top-.635)
-            def wrap_description(value, limit):
-                lines=[]
-                for paragraph in value.splitlines() or ['']:
-                    row=''; cells=0
-                    for ch in paragraph:
-                        width=2 if unicodedata.east_asian_width(ch) in ('W','F') else 1
-                        if row and cells+width>limit:
-                            lines.append(row); row=''; cells=0
-                        row+=ch; cells+=width
-                    lines.append(row)
-                return lines
+            # Financial chart starts at y=.60; keep a small safety gap.
+            available=max(.018,desc_top-.625)
             font_size=8.5
-            lines=wrap_description(description,57)
-            line_height=.024
-            desired=.019+line_height*len(lines)
-            while desired>available and font_size>5.5:
+            def layout_description(size):
+                # Convert available width to approximate full-width glyph count.
+                pixel_width=fig.bbox.width*(card_w-.065)
+                font_pixels=size*fig.dpi/72.
+                capacity=max(12,int(pixel_width/max(1.,font_pixels*1.20)))
+                lines=wrap_event(description,capacity*2)
+                step=size/72/fig.get_figheight()*1.45
+                return lines,step,.016+len(lines)*step
+            lines,line_step,desired=layout_description(font_size)
+            while desired>available and font_size>5.:
                 font_size-=.5
-                lines=wrap_description(description,int(57*8.5/font_size))
-                line_height=.024*font_size/8.5
-                desired=.019+line_height*len(lines)
+                lines,line_step,desired=layout_description(font_size)
             card_h=min(available,desired)
-            card_bottom=card_top-card_h
+            card_bottom=desc_top-card_h
             fig.add_artist(FancyBboxPatch((card_x,card_bottom),card_w,card_h,
                 boxstyle='round,pad=0.004,rounding_size=0.008',
                 transform=fig.transFigure,facecolor='#FFFFFF',
                 edgecolor='none',alpha=description_opacity,zorder=6))
             fig.add_artist(FancyBboxPatch((card_x,card_bottom),.007,card_h,
                 boxstyle='round,pad=0,rounding_size=0.003',
-                transform=fig.transFigure,facecolor=scene.get('timeline_description_accent_color',text),
+                transform=fig.transFigure,
+                facecolor=scene.get('timeline_description_accent_color',text),
                 edgecolor='none',alpha=description_opacity,zorder=7))
-            fig.text(card_x+.025,card_top-.011,'\\n'.join(lines),
-                color=scene.get('timeline_description_text_color',text),fontsize=font_size,fontweight='bold',
-                ha='left',va='top',linespacing=1.15,
-                alpha=description_opacity,zorder=8)
+            fig.text(card_x+.025,desc_top-.009,'\\n'.join(lines),
+                color=scene.get('timeline_description_text_color',text),
+                fontsize=font_size,fontweight='bold',ha='left',va='top',
+                linespacing=1.15,alpha=description_opacity,zorder=8)
     # One continuous pale line, pale stops, and exactly one moving ball.
     left,right=.10,.90
     yline=.235
