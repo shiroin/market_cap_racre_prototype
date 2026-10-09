@@ -1507,8 +1507,14 @@ def _draw_dual_separated_guidance(fig,ax,df,scene,bg,text,grid,progress,elapsed=
         ax.axvline(gx-gap/2,color=grid,ls='--',lw=1,alpha=.7)
     # The forecast marker is part of the X tick, not a floating heading
     # that could collide with the numerical summary cards.
-    tick_labels=history+[guide+"\\n"+str(scene.get('guidance_label','会社予想'))]
-    ax.set_xticklabels(tick_labels,rotation=35,ha='right',fontsize=8,color=text)
+    # Keep the X axis to period labels only; put the forecast heading
+    # directly above the final bar group, outside the plotting area.
+    ax.set_xticklabels(ordered,rotation=35,ha='right',fontsize=8,color=text)
+    from matplotlib.transforms import blended_transform_factory
+    forecast_heading_transform=blended_transform_factory(ax.transData,ax.transAxes)
+    ax.text(gx,1.025,str(scene.get('guidance_label','会社予想')),
+        transform=forecast_heading_transform,ha='center',va='bottom',
+        fontsize=9,color=text,fontweight='bold',clip_on=False)
 
     ax.grid(axis='y',color=grid,alpha=.35)
     ax.grid(axis='x',visible=False)
