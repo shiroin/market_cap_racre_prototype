@@ -193,7 +193,7 @@ for i in range(int(scene_count)):
                     scene_metric_columns = [col for col in scene_df.columns if col not in ("date","company")]
                     if not scene_metric_columns:
                         raise ValueError("数値指標列がありません")
-                    st.caption(f"gid={sheet_gid.strip()}：{len(scene_df):,}行、指標 {len(scene_scene_metric_columns)}列")
+                    st.caption(f"gid={sheet_gid.strip()}：{len(scene_df):,}行、指標 {len(scene_metric_columns)}列")
                 except Exception as exc:
                     st.error(f"Scene {i+1} のシートを読み込めません: {exc}")
                     st.stop()
