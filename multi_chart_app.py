@@ -263,6 +263,19 @@ for i in range(int(scene_count)):
             st.caption("year・month・day が年表の位置を決めます。date は画面に表示する日付文字列です。月日不明の場合は month=1、day=1 を指定してください。")
             timeline_df = st.data_editor(default_timeline, num_rows="dynamic", use_container_width=True, key=f"timeline_data_{i}")
             timeline_events = timeline_df.to_dict("records")
+            if chart == "業績連動年表" and timeline_events:
+                st.caption("descriptionは下の複数行エディタでも編集できます。Enterで改行できます。")
+                edit_event_index = st.selectbox("descriptionを編集するイベント",
+                    range(len(timeline_events)),
+                    format_func=lambda n: f"{n+1}. {timeline_events[n].get('date','')} {timeline_events[n].get('title','')}",
+                    key=f"financial_description_event_{i}")
+                selected_event = timeline_events[edit_event_index]
+                edited_description = st.text_area("description（改行可）",
+                    value=str(selected_event.get("description","") or ""),
+                    height=130,
+                    key=f"financial_description_multiline_{i}_{edit_event_index}")
+                timeline_events[edit_event_index]["description"] = edited_description
+
             t1,t2 = st.columns(2)
             timeline_start = int(t1.number_input("開始年", 1900, 2200, 2018, 1, key=f"timeline_start_{i}"))
             timeline_end = int(t2.number_input("終了年", 1900, 2200, 2025, 1, key=f"timeline_end_{i}"))
