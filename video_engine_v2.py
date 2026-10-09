@@ -69,16 +69,16 @@ def _draw_scene_comments(fig,scene,text,progress,elapsed=None):
         # A single reserved panel keeps the two staggered comments together.
         # Its opacity follows the first comment, so the panel never flashes early.
         panel_alpha=a1 if c1 else a2
+        panel_y,panel_h=_comment_panel_layout(fig,[c1,c2],size,.086,.236)
         if panel_alpha>0:
-            panel_y,panel_h=_comment_panel_layout(fig,[c1,c2],size,.086,.236)
             panel=FancyBboxPatch((.075,panel_y),.85,panel_h,boxstyle='round,pad=0.008,rounding_size=0.012',
                 transform=fig.transFigure,facecolor='#233653',edgecolor='none',alpha=panel_alpha,zorder=28)
             fig.add_artist(panel)
         if c1 and a1>0:
-            fig.text(.50,.187,c1,color='white',fontsize=size,fontweight='bold',
+            fig.text(.50,panel_y+panel_h*(.73 if c2 else .50),c1,color='white',fontsize=size,fontweight='bold',
                 ha='center',va='center',alpha=a1,zorder=30,wrap=True,linespacing=1.18)
         if c2 and a2>0:
-            fig.text(.50,.125,c2,color='white',fontsize=size,fontweight='bold',
+            fig.text(.50,panel_y+panel_h*(.27 if c1 else .50),c2,color='white',fontsize=size,fontweight='bold',
                 ha='center',va='center',alpha=a2,zorder=30,wrap=True,linespacing=1.18)
     else:
         if c1 and a1>0:
