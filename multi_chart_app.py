@@ -279,6 +279,7 @@ for i in range(int(scene_count)):
         financial_comment_delay = 2.0
         timeline_bar_metric = metric
         timeline_line_metric = "(なし)"
+        timeline_line_axis = "別軸（右軸）"
         timeline_bar_color = "#B83F68"
         timeline_line_color = "#B83F68"
         timeline_highlight_color = "#EAC6D3"
@@ -293,6 +294,9 @@ for i in range(int(scene_count)):
                 index=scene_metric_columns.index(metric), key=f"timeline_bar_metric_{i}")
             timeline_line_metric = st.selectbox("折れ線の指標（任意）", ["(なし)"]+scene_metric_columns,
                 key=f"timeline_line_metric_{i}")
+            timeline_line_axis = st.radio("折れ線のY軸", ["同じ軸（左軸）", "別軸（右軸）"], index=1,
+                horizontal=True, key=f"timeline_line_axis_{i}",
+                help="同じ軸は棒と折れ線を同じ実数値の目盛りで表示。別軸は折れ線の実数値を右側のY軸で表示します。")
             color1,color2,color3 = st.columns(3)
             timeline_bar_color = color1.color_picker("棒グラフの色", "#B83F68", key=f"timeline_bar_color_{i}")
             timeline_line_color = color2.color_picker("折れ線の色", "#B83F68", key=f"timeline_line_color_{i}")
@@ -367,7 +371,7 @@ for i in range(int(scene_count)):
             "data_label_size":data_label_size, "bar_gap":bar_gap, "timeline_events":timeline_events,
             "timeline_start":timeline_start, "timeline_end":timeline_end, "timeline_note":timeline_note,
             "timeline_summary":timeline_summary, "timeline_summary_2":timeline_summary_2, "timeline_summary_size":timeline_summary_size,
-            "timeline_bar_metric":timeline_bar_metric, "timeline_line_metric":timeline_line_metric, "timeline_bar_color":timeline_bar_color, "timeline_line_color":timeline_line_color, "timeline_highlight_color":timeline_highlight_color, "timeline_highlight_alpha":timeline_highlight_alpha, "timeline_fiscal_year_end_month":timeline_fiscal_year_end_month, "timeline_travel_ratio":timeline_travel_ratio, "timeline_period_mapping":timeline_period_mapping, "financial_comment_delay":financial_comment_delay,
+            "timeline_bar_metric":timeline_bar_metric, "timeline_line_metric":timeline_line_metric, "timeline_line_axis":timeline_line_axis, "timeline_bar_color":timeline_bar_color, "timeline_line_color":timeline_line_color, "timeline_highlight_color":timeline_highlight_color, "timeline_highlight_alpha":timeline_highlight_alpha, "timeline_fiscal_year_end_month":timeline_fiscal_year_end_month, "timeline_travel_ratio":timeline_travel_ratio, "timeline_period_mapping":timeline_period_mapping, "financial_comment_delay":financial_comment_delay,
             "dual_metric_a":dual_metric_a, "dual_metric_b":dual_metric_b, "dual_mode":dual_mode, "dual_axis":dual_axis, "dual_sort":dual_sort, "dual_color_a":dual_color_a, "dual_color_b":dual_color_b, "ranking_sort":ranking_sort, "ranking_reference":ranking_reference, "ranking_highlight":ranking_highlight
         })
 
