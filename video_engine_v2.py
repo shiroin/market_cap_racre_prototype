@@ -1443,9 +1443,69 @@ def _draw_company_financial_history(fig,ax,df,scene,bg,text,grid,progress,elapse
     _draw_scene_comments(fig,scene,text,p,elapsed)
 
 
+def _draw_separated_guidance(fig,ax,df,scene,bg,text,grid,cmap,progress,elapsed=None):
+    """Stacked historical actuals plus a separately positioned guidance bar."""
+    ax.clear()
+    fig.texts.clear()
+    for artist in list(fig.artists): artist.remove()
+    for artist in list(fig.patches): artist.remove()
+    _style_axis(ax,bg,text,grid)
+    metric=scene.get('metric')
+    data=df[['date','company',metric]].copy()
+    data[metric]=pd.to_numeric(data[metric].astype('string').str.replace(',','',regex=False).str.replace('，','',regex=False).str.strip(),errors='coerce')
+    data=data.dropna(subset=[metric])
+    if data.empty: raise ValueError("実績・ガイダンスの数値を読み取れません")
+    dates=list(dict.fromkeys(data['date'].astype(str)))
+    guide=str(scene.get('guidance_period') or dates[-1])
+    if guide not in dates: raise ValueError("選択したガイダンス期がデータにありません")
+    historical=[d for d in dates if d!=guide]
+    companies=list(dict.fromkeys(data['company'].astype(str)))
+    pivot=data.pivot_table(index='date',columns='company',values=metric,aggfunc='sum').reindex(index=dates,columns=companies).fillna(0)
+    if scene.get('guidance_percent'):
+        pivot=pivot.div(pivot.sum(axis=1).replace(0,np.nan),axis=0).fillna(0)*100
+    gap=float(scene.get('guidance_gap',1.8))
+    xhist=np.arange(len(historical),dtype=float)
+    gx=len(historical)-1+gap if historical else 0.
+    xall=np.r_[xhist,[gx]]
+    p=float(np.clip(progress,0,1))
+    # Reveal historical periods first, then the separate guidance column.
+    reveal=np.clip(p*(len(historical)+1)-np.arange(len(historical)+1),0,1)
+    hist_bottom=np.zeros(len(historical))
+    guide_bottom=0.
+    for company in companies:
+        color=cmap.get(company,'#8496AE')
+        hv=pivot.loc[historical,company].to_numpy(dtype=float) if historical else np.array([])
+        gv=float(pivot.loc[guide,company])
+        if len(historical):
+            ax.bar(xhist,hv*reveal[:-1],bottom=hist_bottom,width=.76,color=color,edgecolor=bg,linewidth=.4)
+            hist_bottom+=hv*reveal[:-1]
+        ax.bar([gx],[gv*reveal[-1]],bottom=[guide_bottom],width=.86,color=color,edgecolor=bg,linewidth=.4)
+        guide_bottom+=gv*reveal[-1]
+    totals=pivot.sum(axis=1).to_numpy(dtype=float)
+    ymax=max(1.,float(np.max(totals))*1.18)
+    ax.set_ylim(0,100 if scene.get('guidance_percent') else ymax)
+    ax.set_xlim(-.7,gx+.8)
+    ax.set_xticks(xall)
+    ax.set_xticklabels(historical+[guide],rotation=35,ha='right',fontsize=8,color=text)
+    ax.axvline(gx-gap/2,color=grid,linestyle='--',lw=1,alpha=.65)
+    ax.text(gx,1.025,str(scene.get('guidance_label','会社予想')),transform=ax.get_xaxis_transform(),
+        ha='center',va='bottom',color=text,fontsize=9,fontweight='bold')
+    ax.grid(axis='y',color=grid,alpha=.35)
+    ax.grid(axis='x',visible=False)
+    ax.set_position([.13,.30,.80,.43])
+    fig.text(.075,.93,scene.get('title','実績と会社ガイダンス'),color=text,
+        fontsize=scene.get('title_size',22),fontweight='bold',ha='left')
+    _draw_reference_subtitle(fig,scene,text,y=.885,fontsize=scene.get('subtitle_size',12))
+    if scene.get('source'): fig.text(.075,.052,"出典: "+str(scene['source']),color=text,fontsize=7,ha='left',alpha=.6)
+    if scene.get('scene_note'): fig.text(.075,.033,str(scene['scene_note']),color=text,fontsize=6,ha='left',alpha=.65)
+    _draw_scene_comments(fig,scene,text,p,elapsed)
+
+
 def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='preview'):
     fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'),scene)
-    if scene.get('chart')=='突出型・横比較':
+    if scene.get('chart')=='実績＋ガイダンス分離':
+        _draw_separated_guidance(fig,ax,df,scene,bg,text,grid,progress)
+    elif scene.get('chart')=='突出型・横比較':
         _draw_outlier_comparison_on(fig,ax,df,scene,bg,text,grid,progress)
     elif scene.get('chart')=='テキストカード一覧':
         _draw_text_cards_on(fig,ax,scene,bg,text,grid,progress)
@@ -1488,8 +1548,9 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
     fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'),scene)
     is_timeline=scene.get('chart') in ('年表','横進行年表','業績連動年表','縦時系列年表'); is_ranking=scene.get('chart')=='横比較ランキング'
     dual_prepared = _prepare_dual_metric_scene(df,scene) if scene.get('chart')=='2指標・企業横比較' else None
-    if not is_timeline and not is_ranking and scene.get('chart') not in ('2指標・企業横比較','2指標・企業業績推移','テキストカード一覧','突出型・横比較'): dates,companies,pivot=_prepare_scene(df,scene)
-    if scene.get('chart')=='突出型・横比較': _draw_outlier_comparison_on(fig,ax,df,scene,bg,text,grid,1/max(2,frames))
+    if not is_timeline and not is_ranking and scene.get('chart') not in ('2指標・企業横比較','2指標・企業業績推移','実績＋ガイダンス分離','テキストカード一覧','突出型・横比較'): dates,companies,pivot=_prepare_scene(df,scene)
+    if scene.get('chart')=='実績＋ガイダンス分離': _draw_separated_guidance(fig,ax,df,scene,bg,text,grid,1/max(2,frames))
+    elif scene.get('chart')=='突出型・横比較': _draw_outlier_comparison_on(fig,ax,df,scene,bg,text,grid,1/max(2,frames))
     elif scene.get('chart')=='テキストカード一覧': _draw_text_cards_on(fig,ax,scene,bg,text,grid,1/max(2,frames))
     elif scene.get('chart')=='2指標・企業業績推移': _draw_company_financial_history(fig,ax,df,scene,bg,text,grid,1/max(2,frames))
     elif scene.get('chart')=='2指標・企業横比較': _draw_dual_metric_scene(fig,ax,df,scene,bg,text,grid,1/max(2,frames),dual_prepared)
@@ -1518,7 +1579,8 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
                 proc.stdin.write(financial_frame_cache)
                 continue
             pp=1. if i>=frames else (i+1)/frames
-            if scene.get('chart')=='突出型・横比較': _draw_outlier_comparison_on(fig,ax,df,scene,bg,text,grid,pp)
+            if scene.get('chart')=='実績＋ガイダンス分離': _draw_separated_guidance(fig,ax,df,scene,bg,text,grid,pp,i/fps)
+            elif scene.get('chart')=='突出型・横比較': _draw_outlier_comparison_on(fig,ax,df,scene,bg,text,grid,pp)
             elif scene.get('chart')=='テキストカード一覧': _draw_text_cards_on(fig,ax,scene,bg,text,grid,pp,i/fps)
             elif scene.get('chart')=='2指標・企業業績推移': _draw_company_financial_history(fig,ax,df,scene,bg,text,grid,pp,i/fps)
             elif scene.get('chart')=='2指標・企業横比較':
