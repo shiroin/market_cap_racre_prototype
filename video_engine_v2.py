@@ -274,7 +274,8 @@ def _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,progress,elaps
     n=len(names); y=np.arange(n); starts=.08+np.arange(n)*(.68/max(1,n))
     reveal=np.array([ease_in_out(np.clip((p-s)/.18,0,1)) for s in starts])
     vmax=max(float(np.nanmax(values)),1e-9); xmax=vmax*1.18; highlight=max(0,int(scene.get('ranking_highlight',3))); base='#AEB8C4'
-    colors=[(cmap.get(name,base) if i<highlight else base) for i,name in enumerate(names)]
+    custom_colors=scene.get('ranking_company_colors') or {}
+    colors=[custom_colors.get(name,cmap.get(name,base) if i<highlight else base) for i,name in enumerate(names)]
     ax.barh(y,values*reveal,color=colors,height=.58,alpha=.95)
     label_fs=max(5.5,min(9.5,11-.16*n))
     ax.set_yticks(y); ax.set_yticklabels([]); ax.tick_params(axis='y',length=0,pad=0)
