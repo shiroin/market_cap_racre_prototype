@@ -1168,9 +1168,62 @@ def _draw_text_cards_on(fig, ax, scene, bg, text, grid, progress, elapsed=None):
         fig.text(.075,.06,note,color=text,fontsize=7,alpha=.65,ha='left',va='bottom')
 
 
+def _draw_outlier_comparison_on(fig, ax, df, scene, bg, text, grid, progress):
+    """Vertical latest-value comparison with a common-height opening reveal."""
+    ax.clear()
+    for artist in list(fig.texts): artist.remove()
+    metric=scene['metric']
+    data=df[['company',metric]].copy()
+    data[metric]=pd.to_numeric(data[metric],errors='coerce')
+    data=data.dropna().groupby('company',sort=False).tail(1)
+    if data.empty: return
+    names=data['company'].astype(str).tolist()
+    target=data[metric].to_numpy(dtype=float)
+    maximum=max(float(np.max(target)),0.01)
+    base=float(scene.get('outlier_base',0) or 0)
+    if base<=0: base=maximum*.15
+    p=float(np.clip(progress,0,1))
+    # Initial common height, followed by staggered growth toward real values.
+    first=float(np.clip(p/.22,0,1))
+    first=first*first*(3-2*first)
+    count=len(target)
+    steps=np.clip((p-.25-np.arange(count)*(.40/max(1,count)))/.34,0,1)
+    steps=steps*steps*(3-2*steps)
+    values=base*first+(target-base)*steps
+    ax.set_position([.13,.29,.80,.45])
+    ax.set_facecolor(bg)
+    ax.set_ylim(0,max(maximum,base)*1.26)
+    ax.set_xlim(-.6,count-.4)
+    ax.grid(axis='y',color=grid,alpha=.4,linewidth=.7)
+    ax.set_axisbelow(True)
+    for spine in ax.spines.values(): spine.set_visible(False)
+    ax.tick_params(axis='y',colors=text,labelsize=8,length=0)
+    ax.set_xticks(range(count))
+    ax.set_xticklabels(names,fontsize=max(6,10-count//3),color=text)
+    ax.tick_params(axis='x',length=0,pad=9)
+    peak=int(np.argmax(target))
+    colors=[scene.get('outlier_color','#E55C45') if j==peak else scene.get('outlier_normal_color','#9A9A9A') for j in range(count)]
+    ax.bar(range(count),values,color=colors,width=.66,zorder=3)
+    decimals=int(scene.get('value_decimals',1))
+    for j,value in enumerate(values):
+        if p>.03:
+            ax.text(j,value+maximum*.028,f"{value:,.{decimals}f}",
+                ha='center',va='bottom',color=text,fontsize=9,fontweight='bold')
+    fig.text(.075,.93,str(scene.get('title','突出型・横比較')),
+        fontsize=scene.get('title_size',22),fontweight='bold',color=text,ha='left',va='top')
+    subtitle=str(scene.get('subtitle','') or '').strip()
+    if subtitle:
+        fig.text(.075,.87,subtitle,color=text,fontsize=scene.get('subtitle_size',12),alpha=.75,ha='left',va='top')
+    unit=str(scene.get('unit','') or '').strip()
+    if unit: ax.set_ylabel(unit,color=text,fontsize=9)
+    _draw_scene_comments(fig,scene,text,p,elapsed=p*float(scene.get('duration',2.8)))
+
+
 def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='preview'):
     fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'),scene)
-    if scene.get('chart')=='テキストカード一覧':
+    if scene.get('chart')=='突出型・横比較':
+        _draw_outlier_comparison_on(fig,ax,df,scene,bg,text,grid,progress)
+    elif scene.get('chart')=='テキストカード一覧':
         _draw_text_cards_on(fig,ax,scene,bg,text,grid,progress)
     elif scene.get('chart')=='2指標・企業横比較':
         _draw_dual_metric_scene(fig,ax,df,scene,bg,text,grid,progress)
@@ -1209,8 +1262,9 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
     fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'),scene)
     is_timeline=scene.get('chart') in ('年表','横進行年表','業績連動年表','縦時系列年表'); is_ranking=scene.get('chart')=='横比較ランキング'
     dual_prepared = _prepare_dual_metric_scene(df,scene) if scene.get('chart')=='2指標・企業横比較' else None
-    if not is_timeline and not is_ranking and scene.get('chart') not in ('2指標・企業横比較','テキストカード一覧'): dates,companies,pivot=_prepare_scene(df,scene)
-    if scene.get('chart')=='テキストカード一覧': _draw_text_cards_on(fig,ax,scene,bg,text,grid,1/max(2,frames))
+    if not is_timeline and not is_ranking and scene.get('chart') not in ('2指標・企業横比較','テキストカード一覧','突出型・横比較'): dates,companies,pivot=_prepare_scene(df,scene)
+    if scene.get('chart')=='突出型・横比較': _draw_outlier_comparison_on(fig,ax,df,scene,bg,text,grid,1/max(2,frames))
+    elif scene.get('chart')=='テキストカード一覧': _draw_text_cards_on(fig,ax,scene,bg,text,grid,1/max(2,frames))
     elif scene.get('chart')=='2指標・企業横比較': _draw_dual_metric_scene(fig,ax,df,scene,bg,text,grid,1/max(2,frames),dual_prepared)
     elif scene.get('chart')=='縦時系列年表': _draw_vertical_chronology_on(fig,ax,scene,bg,text,grid,1/max(2,frames))
     elif scene.get('chart')=='業績連動年表': _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,1/max(2,frames))
@@ -1229,7 +1283,8 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
         cached_dual_frame = None
         for i in range(total):
             pp=1. if i>=frames else (i+1)/frames
-            if scene.get('chart')=='テキストカード一覧': _draw_text_cards_on(fig,ax,scene,bg,text,grid,pp,i/fps)
+            if scene.get('chart')=='突出型・横比較': _draw_outlier_comparison_on(fig,ax,df,scene,bg,text,grid,pp)
+            elif scene.get('chart')=='テキストカード一覧': _draw_text_cards_on(fig,ax,scene,bg,text,grid,pp,i/fps)
             elif scene.get('chart')=='2指標・企業横比較':
                 if i<frames: _draw_dual_metric_scene(fig,ax,df,scene,bg,text,grid,pp,dual_prepared)
             elif scene.get('chart')=='縦時系列年表': _draw_vertical_chronology_on(fig,ax,scene,bg,text,grid,pp)
