@@ -171,7 +171,7 @@ default_titles = ["上場買取再販4社の在庫", "各社の在庫キャッ�
 default_subtitles = ["販売用不動産（仕掛販売用不動産を含む）の期末残高", "販売用不動産の期末残高", "販売用不動産の期末残高÷売上高×12"]
 default_charts = ["積み上げ棒", "折れ線", "折れ線"]
 default_metrics = ["inventory", "inventory", "inventory_months"]
-chart_options = ["積み上げ棒", "折れ線", "棒グラフ", "100%積み上げ", "横比較ランキング", "2指標・企業横比較", "2指標・企業業績推移", "年表", "横進行年表", "業績連動年表", "縦時系列年表", "テキストカード一覧", "突出型・横比較"]
+chart_options = ["積み上げ棒", "折れ線", "棒グラフ", "100%積み上げ", "実績＋ガイダンス分離", "横比較ランキング", "2指標・企業横比較", "2指標・企業業績推移", "年表", "横進行年表", "業績連動年表", "縦時系列年表", "テキストカード一覧", "突出型・横比較"]
 
 scene_data = []
 for i in range(int(scene_count)):
@@ -368,6 +368,20 @@ for i in range(int(scene_count)):
             dual_color_b=cb.color_picker("指標Bの色","#E58A3A",key=f"financial_color_b_{i}")
             st.caption("年度・四半期を横軸、数値を縦軸に表示。左から順にアニメーションします。")
 
+        guidance_period = ""
+        guidance_gap = 1.8
+        guidance_label = "会社予想"
+        guidance_percent = False
+        if chart == "実績＋ガイダンス分離":
+            st.markdown("**実績＋会社ガイダンス（右端分離）**")
+            available_periods=scene_df["date"].dropna().astype(str).drop_duplicates().tolist()
+            guidance_period=st.selectbox("右端に分離するガイダンス期",available_periods,
+                index=max(0,len(available_periods)-1),key=f"guidance_period_{i}")
+            guidance_label=st.text_input("ガイダンスの表示名","会社予想",key=f"guidance_label_{i}")
+            guidance_gap=st.slider("実績とガイダンスの間隔",0.6,4.0,1.8,.1,key=f"guidance_gap_{i}")
+            guidance_percent=st.checkbox("100%積み上げで表示",value=False,key=f"guidance_percent_{i}")
+            st.caption("選択した期を右端に独立表示します。その他の期間は左側に時系列表示。company列が積み上げの内訳になります。")
+
         ranking_sort = "大きい順"
         ranking_reference = 0.0
         ranking_highlight = 3
@@ -480,7 +494,7 @@ for i in range(int(scene_count)):
             "timeline_start":timeline_start, "timeline_end":timeline_end, "timeline_note":timeline_note,
             "timeline_summary":timeline_summary, "timeline_summary_2":timeline_summary_2, "timeline_summary_size":timeline_summary_size,
             "timeline_bar_metric":timeline_bar_metric, "timeline_line_metric":timeline_line_metric, "timeline_line_axis":timeline_line_axis, "timeline_bar_color":timeline_bar_color, "timeline_line_color":timeline_line_color, "timeline_highlight_color":timeline_highlight_color, "timeline_highlight_alpha":timeline_highlight_alpha, "timeline_description_text_color":timeline_description_text_color, "timeline_description_accent_color":timeline_description_accent_color, "timeline_fiscal_year_end_month":timeline_fiscal_year_end_month, "timeline_travel_ratio":timeline_travel_ratio, "timeline_period_mapping":timeline_period_mapping, "financial_comment_delay":financial_comment_delay,
-            "financial_company":financial_company, "financial_chart_style":financial_chart_style, "financial_axis":financial_axis, "dual_metric_a":dual_metric_a, "dual_metric_b":dual_metric_b, "dual_mode":dual_mode, "dual_axis":dual_axis, "dual_sort":dual_sort, "dual_color_a":dual_color_a, "dual_color_b":dual_color_b, "ranking_sort":ranking_sort, "ranking_reference":ranking_reference, "ranking_highlight":ranking_highlight, "ranking_company_colors":ranking_company_colors, "ranking_company_icons":ranking_company_icons
+            "guidance_period":guidance_period, "guidance_gap":guidance_gap, "guidance_label":guidance_label, "guidance_percent":guidance_percent, "financial_company":financial_company, "financial_chart_style":financial_chart_style, "financial_axis":financial_axis, "dual_metric_a":dual_metric_a, "dual_metric_b":dual_metric_b, "dual_mode":dual_mode, "dual_axis":dual_axis, "dual_sort":dual_sort, "dual_color_a":dual_color_a, "dual_color_b":dual_color_b, "ranking_sort":ranking_sort, "ranking_reference":ranking_reference, "ranking_highlight":ranking_highlight, "ranking_company_colors":ranking_company_colors, "ranking_company_icons":ranking_company_icons
         })
 
 preview_scene = st.selectbox("プレビューするScene", range(1, len(scenes)+1), format_func=lambda x:f"Scene {x}")
