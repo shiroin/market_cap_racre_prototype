@@ -520,8 +520,14 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress,elaps
         if line_metric in df.columns and line_metric!=bar_metric: cols.append(line_metric)
         data=df[cols].copy()
         data['date']=data['date'].astype(str)
-        data[bar_metric]=pd.to_numeric(data[bar_metric],errors='coerce')
-        if line_metric in data.columns: data[line_metric]=pd.to_numeric(data[line_metric],errors='coerce')
+        # Google Sheets often exports formatted numbers as strings such as
+        # "1,049,224". Strip grouping separators before numeric conversion.
+        def parse_sheet_number(series):
+            cleaned=series.astype("string").str.replace(",", "", regex=False)
+            cleaned=cleaned.str.replace("，", "", regex=False).str.strip()
+            return pd.to_numeric(cleaned,errors='coerce')
+        data[bar_metric]=parse_sheet_number(data[bar_metric])
+        if line_metric in data.columns: data[line_metric]=parse_sheet_number(data[line_metric])
         data=data.dropna(subset=[bar_metric]).groupby('date',sort=False).sum(numeric_only=True)
         if data.empty: return
         labels=list(data.index)
