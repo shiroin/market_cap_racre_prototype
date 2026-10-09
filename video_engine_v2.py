@@ -728,10 +728,10 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress,elaps
                 edgecolor='none',alpha=description_opacity,zorder=6))
             fig.add_artist(FancyBboxPatch((card_x,card_bottom),.007,card_h,
                 boxstyle='round,pad=0,rounding_size=0.003',
-                transform=fig.transFigure,facecolor='#DA8729',
+                transform=fig.transFigure,facecolor=scene.get('timeline_description_accent_color',text),
                 edgecolor='none',alpha=description_opacity,zorder=7))
             fig.text(card_x+.025,card_top-.011,'\\n'.join(lines),
-                color='#233148',fontsize=font_size,fontweight='bold',
+                color=scene.get('timeline_description_text_color',text),fontsize=font_size,fontweight='bold',
                 ha='left',va='top',linespacing=1.15,
                 alpha=description_opacity,zorder=8)
     # One continuous pale line, pale stops, and exactly one moving ball.
