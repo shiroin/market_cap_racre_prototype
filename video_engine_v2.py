@@ -1506,6 +1506,35 @@ def _draw_dual_separated_guidance(fig,ax,df,scene,bg,text,grid,progress,elapsed=
         ha='center',va='bottom',fontsize=9,color=text,fontweight='bold')
     ax.grid(axis='y',color=grid,alpha=.35)
     ax.grid(axis='x',visible=False)
+    # Reveal labels only after both final periods have finished growing.
+    # Use a two-row mini-card per period in axes coordinates rather than
+    # attaching labels to the bar tips: this avoids collisions when two
+    # independent Y-axis scales put the tips at similar heights.
+    label_alpha=float(np.clip((p-.96)/.04,0,1))
+    if label_alpha>0:
+        from matplotlib.transforms import blended_transform_factory
+        from matplotlib.patches import FancyBboxPatch
+        import matplotlib.colors as mcolors
+        # Keep cards inside the plotting area, clear of the legend.
+        for j in ([len(xx)-2,len(xx)-1] if len(xx)>1 else [0]):
+            # Each compact card is positioned above the period's two bars.
+            # Horizontal separation between cards is based on actual X positions.
+            cx=float(xx[j])
+            card_width=min(.95, max(.65, gap*.45))
+            left=cx-card_width/2
+            card_y=.79 if j==len(xx)-1 else .59
+            trans=blended_transform_factory(ax.transData,ax.transAxes)
+            card=FancyBboxPatch((left,card_y),card_width,.17,
+                boxstyle='round,pad=0.02,rounding_size=0.06',
+                transform=trans,facecolor=bg,edgecolor=grid,
+                linewidth=.7,alpha=.96*label_alpha,zorder=9,clip_on=False)
+            ax.add_patch(card)
+            def label_number(v):
+                return f"{v:,.0f}" if abs(v)>=100 else f"{v:,.1f}"
+            for offset,value,color in [(.117,va[j],color_a),(.042,vb[j],color_b)]:
+                ax.text(cx,card_y+offset,label_number(value),
+                    transform=trans,ha='center',va='center',fontsize=8,
+                    color=color,fontweight='bold',alpha=label_alpha,zorder=10)
     from matplotlib.patches import Patch
     ax.legend([Patch(facecolor=color_a),Patch(facecolor=color_b)],[a,b],
         loc='upper left',bbox_to_anchor=(0,1.14),frameon=False,ncol=2,fontsize=9,labelcolor=text)
