@@ -374,6 +374,7 @@ for i in range(int(scene_count)):
         outlier_base = 0.0
         outlier_color = "#E55C45"
         outlier_normal_color = "#9A9A9A"
+        outlier_company_colors = {}
         if chart == "突出型・横比較":
             st.markdown("**突出型・横比較の演出**")
             st.caption("最新期の企業別数値を使用。最初は全項目を同じ高さに揃え、その後に実際の値まで伸ばします。")
@@ -381,8 +382,21 @@ for i in range(int(scene_count)):
             oc1,oc2=st.columns(2)
             outlier_color=oc1.color_picker("突出項目の色", "#E55C45", key=f"outlier_color_{i}")
             outlier_normal_color=oc2.color_picker("通常項目の色", "#9A9A9A", key=f"outlier_normal_color_{i}")
+            st.markdown("**項目別の色（個別指定が優先されます）**")
+            if "company" in scene_df.columns and metric in scene_df.columns:
+                available_names = scene_df[["company", metric]].dropna(subset=[metric]).groupby("company", sort=False).tail(1)["company"].astype(str).tolist()
+                available_names = list(dict.fromkeys(available_names))
+                if available_names:
+                    st.caption("各項目の色を自由に指定できます。未指定の項目は上の通常色／突出色を使います。")
+                    for color_idx, company_name in enumerate(available_names):
+                        enabled = st.checkbox(f"{company_name} の色を個別指定", value=False,
+                            key=f"outlier_custom_enabled_{i}_{company_name}")
+                        if enabled:
+                            outlier_company_colors[company_name] = st.color_picker(
+                                f"{company_name} の棒の色", "#4472C4",
+                                key=f"outlier_company_color_{i}_{company_name}")
         scenes.append({
-            "chart":chart, "outlier_base":outlier_base, "outlier_color":outlier_color, "outlier_normal_color":outlier_normal_color, "text_cards":text_cards, "metric":metric, "title":title, "subtitle":subtitle, "unit":unit, "source":source_text, "scene_note":scene_note, "scene_comment_1":scene_comment_1, "scene_comment_2":scene_comment_2, "scene_comment_size":scene_comment_size, "scene_comment_style":scene_comment_style, "scene_comment_delay":scene_comment_delay, "scene_comment_gap":scene_comment_gap,
+            "chart":chart, "outlier_base":outlier_base, "outlier_color":outlier_color, "outlier_normal_color":outlier_normal_color, "outlier_company_colors":outlier_company_colors, "text_cards":text_cards, "metric":metric, "title":title, "subtitle":subtitle, "unit":unit, "source":source_text, "scene_note":scene_note, "scene_comment_1":scene_comment_1, "scene_comment_2":scene_comment_2, "scene_comment_size":scene_comment_size, "scene_comment_style":scene_comment_style, "scene_comment_delay":scene_comment_delay, "scene_comment_gap":scene_comment_gap,
             "duration":duration, "hold":hold, "title_size":title_size, "subtitle_size":subtitle_size, "legend":legend, "end_labels":end_labels,
             "latest_values":latest_values, "end_label_size":end_label_size, "label_gap":label_gap,
             "value_decimals":value_decimals, "bar_animation":bar_animation, "data_labels":data_labels,
