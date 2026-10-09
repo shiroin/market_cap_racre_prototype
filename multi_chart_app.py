@@ -375,6 +375,7 @@ for i in range(int(scene_count)):
         outlier_color = "#E55C45"
         outlier_normal_color = "#9A9A9A"
         outlier_company_colors = {}
+        outlier_company_icons = {}
         if chart == "突出型・横比較":
             st.markdown("**突出型・横比較の演出**")
             st.caption("最新期の企業別数値を使用。最初は全項目を同じ高さに揃え、その後に実際の値まで伸ばします。")
@@ -395,8 +396,30 @@ for i in range(int(scene_count)):
                             outlier_company_colors[company_name] = st.color_picker(
                                 f"{company_name} の棒の色", "#4472C4",
                                 key=f"outlier_company_color_{i}_{company_name}")
+            st.markdown("**項目別の国旗・ロゴ**")
+            st.caption("各棒の下に表示します。国旗は絵文字、企業ロゴはPNG/JPG/WEBP画像を指定できます。")
+            if "company" in scene_df.columns and metric in scene_df.columns:
+                for company_name in available_names:
+                    icon_mode=st.selectbox(f"{company_name} のアイコン",
+                        ["なし","国旗・絵文字","ロゴ画像"],key=f"outlier_icon_mode_{i}_{company_name}")
+                    if icon_mode=="国旗・絵文字":
+                        emoji=st.text_input(f"{company_name} の国旗・絵文字",
+                            placeholder="🇯🇵",key=f"outlier_emoji_{i}_{company_name}")
+                        if emoji.strip():
+                            outlier_company_icons[company_name]={"type":"emoji","value":emoji.strip()}
+                    elif icon_mode=="ロゴ画像":
+                        upload=st.file_uploader(f"{company_name} のロゴ",
+                            type=["png","jpg","jpeg","webp"],
+                            key=f"outlier_logo_{i}_{company_name}")
+                        if upload is not None:
+                            import base64
+                            if upload.size > 1024*1024:
+                                st.warning(f"{company_name}: ロゴ画像は1MB以下にしてください。")
+                            else:
+                                outlier_company_icons[company_name]={"type":"image",
+                                    "value":base64.b64encode(upload.getvalue()).decode("ascii")}
         scenes.append({
-            "chart":chart, "outlier_base":outlier_base, "outlier_color":outlier_color, "outlier_normal_color":outlier_normal_color, "outlier_company_colors":outlier_company_colors, "text_cards":text_cards, "metric":metric, "title":title, "subtitle":subtitle, "unit":unit, "source":source_text, "scene_note":scene_note, "scene_comment_1":scene_comment_1, "scene_comment_2":scene_comment_2, "scene_comment_size":scene_comment_size, "scene_comment_style":scene_comment_style, "scene_comment_delay":scene_comment_delay, "scene_comment_gap":scene_comment_gap,
+            "chart":chart, "outlier_base":outlier_base, "outlier_color":outlier_color, "outlier_normal_color":outlier_normal_color, "outlier_company_colors":outlier_company_colors, "outlier_company_icons":outlier_company_icons, "text_cards":text_cards, "metric":metric, "title":title, "subtitle":subtitle, "unit":unit, "source":source_text, "scene_note":scene_note, "scene_comment_1":scene_comment_1, "scene_comment_2":scene_comment_2, "scene_comment_size":scene_comment_size, "scene_comment_style":scene_comment_style, "scene_comment_delay":scene_comment_delay, "scene_comment_gap":scene_comment_gap,
             "duration":duration, "hold":hold, "title_size":title_size, "subtitle_size":subtitle_size, "legend":legend, "end_labels":end_labels,
             "latest_values":latest_values, "end_label_size":end_label_size, "label_gap":label_gap,
             "value_decimals":value_decimals, "bar_animation":bar_animation, "data_labels":data_labels,
