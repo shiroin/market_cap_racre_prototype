@@ -281,8 +281,34 @@ def _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,progress,elaps
     ax.set_yticks(y); ax.set_yticklabels([]); ax.tick_params(axis='y',length=0,pad=0)
     # Draw labels in a fixed gutter inside the figure instead of Matplotlib y-tick labels.
     # This prevents long Japanese names from being clipped by the canvas boundary.
+    ranking_icons=scene.get('ranking_company_icons') or {}
+    if ranking_icons:
+        # Reserve a dedicated gutter for the image, separate from label text.
+        from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+        from io import BytesIO
+        from PIL import Image
+        import base64
+        ax.set_position([.34,.30,.56,.45] if fig.get_figheight()>fig.get_figwidth()*1.2 else [.29,.30,.62,.45])
     for yi,name in zip(y,names):
         ax.text(-.035,yi,name,transform=ax.get_yaxis_transform(),color=text,fontsize=label_fs,fontweight='bold',ha='right',va='center',clip_on=False)
+        spec=ranking_icons.get(name) or {}
+        if spec.get('type')=='emoji' and spec.get('value'):
+            ax.annotate(str(spec['value']),xy=(0,yi),
+                xycoords=ax.get_yaxis_transform(),xytext=(-105,0),
+                textcoords='offset points',ha='center',va='center',
+                fontsize=max(10,label_fs+2),annotation_clip=False)
+        elif spec.get('type')=='image' and spec.get('value'):
+            try:
+                logo=Image.open(BytesIO(base64.b64decode(spec['value']))).convert('RGBA')
+                logo.thumbnail((100,100))
+                zoom=min(24/max(1,max(logo.size)),.8)
+                image=OffsetImage(np.asarray(logo),zoom=zoom)
+                ax.add_artist(AnnotationBbox(image,(0,yi),
+                    xycoords=ax.get_yaxis_transform(),xybox=(-105,0),
+                    boxcoords='offset points',frameon=False,
+                    box_alignment=(.5,.5),annotation_clip=False))
+            except (ValueError,OSError,TypeError):
+                pass
     ax.invert_yaxis(); ax.set_xlim(0,xmax)
     ax.grid(axis='x',color=grid,linewidth=.8,alpha=.55); ax.grid(axis='y',visible=False); ax.set_xlabel(scene.get('unit',''),color=text,fontsize=8)
     ref=float(scene.get('ranking_reference',0) or 0)
