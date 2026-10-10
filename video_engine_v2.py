@@ -395,11 +395,22 @@ def _draw_ranking_race(fig,ax,df,scene,bg,text,grid,cmap,progress,elapsed=None):
         return
     dates=sorted(w['date'].astype(str).unique().tolist(),key=lambda v:(pd.to_datetime(v,errors='coerce') if pd.notna(pd.to_datetime(v,errors='coerce')) else pd.Timestamp.max,v))
     pivot=w.pivot_table(index='date',columns='company',values=metric,aggfunc='sum').reindex(dates).fillna(0)
-    pos=graph_p*max(0,len(dates)-1)
-    lo=min(int(pos),len(dates)-1)
-    hi=min(lo+1,len(dates)-1)
-    blend=pos-lo
-    vals=(1-blend)*pivot.iloc[lo]+blend*pivot.iloc[hi]
+    # Period-by-period motion: a brisk transition, then a stationary reading beat.
+    # The first beat grows from zero to the first period.
+    n_periods=len(dates)
+    position=min(graph_p*n_periods,n_periods-1e-9)
+    step=min(int(position),n_periods-1)
+    phase=position-step
+    move_fraction=float(np.clip(scene.get('race_move_fraction',.28),.08,.85))
+    move=float(np.clip(phase/move_fraction,0.,1.))
+    # Smooth arrival without a sudden stop, while keeping the move brisk.
+    blend=move*move*(3.-2.*move)
+    lo=max(0,step-1)
+    hi=step
+    if step==0:
+        vals=pivot.iloc[0]*blend
+    else:
+        vals=(1.-blend)*pivot.iloc[lo]+blend*pivot.iloc[hi]
     # Rank positions change continuously as interpolated values cross.
     # Pairwise soft comparisons avoid abrupt integer-rank jumps at snapshots.
     n_top=int(scene.get('race_top_n',10))
@@ -411,14 +422,14 @@ def _draw_ranking_race(fig,ax,df,scene,bg,text,grid,cmap,progress,elapsed=None):
     continuous_ranks=pd.Series(pairwise.sum(axis=1),index=vals.index)
     visible=continuous_ranks.nsmallest(n_top+2).index.tolist()
     rank_y=continuous_ranks
-    startup=float(np.clip(graph_t/max(.35,min(.9,duration*.14)),0.,1.))
+
     ax.set_position([.32,.28,.60,.53])
     xmax=max(1.,float(np.nanmax(pivot.to_numpy()))*1.12)
     colors=scene.get('ranking_company_colors') or {}
     for name in visible:
         yy=float(rank_y[name])
         if yy>n_top+.5: continue
-        value=max(0.,float(vals[name]))*startup
+        value=max(0.,float(vals[name]))
         opacity=float(np.clip(min(1.,(n_top+.35-yy)/.8),0.,1.))
         color=colors.get(name,cmap.get(name,'#3278C8'))
         ax.barh([yy],[value],color=color,height=.70,alpha=opacity,zorder=3)
@@ -435,7 +446,7 @@ def _draw_ranking_race(fig,ax,df,scene,bg,text,grid,cmap,progress,elapsed=None):
     fig.text(.075,.93,str(scene.get('title','時系列ランキングレース')),fontsize=scene.get('title_size',22),color=text,fontweight='bold',va='top')
     if scene.get('subtitle'):
         fig.text(.075,.865,str(scene['subtitle']),fontsize=10,color=text,alpha=.7,va='top')
-    shown=dates[lo] if blend<.5 else dates[hi]
+    shown=dates[hi]
     fig.text(.92,.18,str(shown),fontsize=20,color=text,fontweight='bold',ha='right')
     if scene.get('source'):
         fig.text(.075,.055,str(scene['source']),fontsize=7,color=text,alpha=.6)
