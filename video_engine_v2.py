@@ -343,6 +343,90 @@ def _energetic_reveal(values):
     return 1.-(1.-u)**3
 
 
+def _sequential_bars_data(df,scene):
+    metric=scene['metric']
+    w=df[['date','company',metric]].copy()
+    w[metric]=pd.to_numeric(w[metric].astype('string').str.replace(',','',regex=False),errors='coerce')
+    w=w.dropna(subset=['company',metric])
+    if w.empty:
+        return []
+    # Preserve first-appearance order, use the latest observation per company.
+    w=w.drop_duplicates('company',keep='last')
+    return [(str(row['company']),float(row[metric])) for _,row in w.iterrows()]
+
+
+def _sequential_bars_duration(df,scene):
+    data=_sequential_bars_data(df,scene)
+    comments=scene.get('sequential_comments') or {}
+    grow=max(.1,float(scene.get('sequential_reveal_seconds',.65)))
+    read=max(0.,float(scene.get('sequential_read_seconds',1.8)))
+    return max(.1,len(data)*grow+sum(read for name,_ in data if str(comments.get(name,'')).strip()))
+
+
+def _draw_sequential_bars(fig,ax,df,scene,bg,text,grid,cmap,progress):
+    from matplotlib.patches import FancyBboxPatch
+    ax.clear()
+    for other in list(fig.axes):
+        if other is not ax: other.remove()
+    for artist in list(fig.artists): artist.remove()
+    for artist in list(fig.texts): artist.remove()
+    for artist in list(fig.patches): artist.remove()
+    _style_axis(ax,bg,text,grid)
+    data=_sequential_bars_data(df,scene)
+    if not data:
+        fig.text(.5,.5,"表示可能なデータがありません",color=text,ha='center')
+        return
+    comments=scene.get('sequential_comments') or {}
+    grow=max(.1,float(scene.get('sequential_reveal_seconds',.65)))
+    read=max(0.,float(scene.get('sequential_read_seconds',1.8)))
+    t=float(np.clip(progress,0,1))*_sequential_bars_duration(df,scene)
+    fractions=[]
+    current_comment=''
+    comment_time=0.
+    for name,value in data:
+        portion=float(np.clip(t/grow,0.,1.))
+        # Fast start and soft arrival for each new bar.
+        fractions.append(portion*portion*(3.-2.*portion))
+        t-=grow
+        if t<0: break
+        comment=str(comments.get(name,'') or '').strip()
+        if comment:
+            if t<read:
+                current_comment=comment
+                comment_time=t
+                break
+            t-=read
+    n=len(data)
+    ax.set_position([.17,.33,.76,.40])
+    xmax=max(1.,max(0.,max(v for _,v in data))*1.18)
+    for j,(name,value) in enumerate(data):
+        if j>=len(fractions): break
+        shown=max(0.,value)*fractions[j]
+        color=(scene.get('ranking_company_colors') or {}).get(name,cmap.get(name,'#1877F2'))
+        ax.bar([j],[shown],color=color,width=.66,zorder=3)
+        ax.text(j,shown+xmax*.012,f"{shown:,.0f}{scene.get('unit','')}",
+            color=text,fontsize=max(7,11-.16*n),ha='center',va='bottom',fontweight='bold')
+    ax.set_xlim(-.65,n-.35)
+    ax.set_ylim(0,xmax)
+    ax.set_xticks(range(n),[name for name,_ in data],fontsize=max(6,10-.2*n))
+    ax.tick_params(axis='y',labelsize=8)
+    ax.grid(axis='y',color=grid,alpha=.35)
+    ax.grid(axis='x',visible=False)
+    fig.text(.075,.93,str(scene.get('title','逐次登場棒グラフ')),
+        color=text,fontsize=scene.get('title_size',22),fontweight='bold',va='top')
+    if scene.get('subtitle'):
+        fig.text(.075,.86,str(scene['subtitle']),color=text,fontsize=10,alpha=.7,va='top')
+    if current_comment:
+        alpha=float(np.clip(comment_time/.2,0.,1.))
+        fig.add_artist(FancyBboxPatch((.075,.12),.85,.105,
+            boxstyle='round,pad=0.008,rounding_size=.015',
+            transform=fig.transFigure,facecolor='#233653',edgecolor='none',alpha=alpha))
+        fig.text(.5,.172,current_comment,color='white',ha='center',va='center',
+            fontsize=scene.get('scene_comment_size',12),fontweight='bold',alpha=alpha,wrap=True)
+    if scene.get('source'):
+        fig.text(.075,.05,str(scene['source']),color=text,fontsize=7,alpha=.6)
+
+
 def _race_pause_points(scene):
     points=[]
     if 'race_comments' in scene:
@@ -1925,7 +2009,9 @@ def _draw_visual_timeline(fig,ax,scene,bg,text,grid,progress):
 
 def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='preview'):
     fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'),scene)
-    if scene.get('chart')=='時系列ランキングレース':
+    if scene.get('chart')=='逐次登場棒グラフ':
+        _draw_sequential_bars(fig,ax,df,scene,bg,text,grid,cmap,progress)
+    elif scene.get('chart')=='時系列ランキングレース':
         _draw_ranking_race(fig,ax,df,scene,bg,text,grid,cmap,progress)
     elif scene.get('chart')=='ビジュアル年表':
         _draw_visual_timeline(fig,ax,scene,bg,text,grid,progress)
@@ -1971,13 +2057,16 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
         extra=.55+(max(0.,float(scene.get('scene_comment_gap',.8)))+.55 if scene.get('scene_comment_1') and scene.get('scene_comment_2') else 0.)
         required=desc_time+delay+extra+0.4
         hold=max(hold,int(np.ceil(max(0.,required-float(scene.get('duration',2.5)))*fps)))
+    if scene.get('chart')=='逐次登場棒グラフ':
+        frames=max(2,int(_sequential_bars_duration(df,scene)*fps))
     if scene.get('chart')=='時系列ランキングレース':
         frames=max(2,int((float(scene.get('duration',2.5))+len(_race_pause_points(scene))*max(1.5,float(scene.get('race_pause_seconds',1.8))))*fps))
     fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'),scene)
     is_timeline=scene.get('chart') in ('年表','横進行年表','業績連動年表','縦時系列年表','ビジュアル年表'); is_ranking=scene.get('chart')=='横比較ランキング'
     dual_prepared = _prepare_dual_metric_scene(df,scene) if scene.get('chart')=='2指標・企業横比較' else None
-    if not is_timeline and not is_ranking and scene.get('chart') not in ('時系列ランキングレース','2指標・企業横比較','2指標・企業業績推移','実績＋ガイダンス分離','テキストカード一覧','突出型・横比較'): dates,companies,pivot=_prepare_scene(df,scene)
-    if scene.get('chart')=='時系列ランキングレース': _draw_ranking_race(fig,ax,df,scene,bg,text,grid,cmap,1/max(2,frames))
+    if not is_timeline and not is_ranking and scene.get('chart') not in ('時系列ランキングレース','逐次登場棒グラフ','2指標・企業横比較','2指標・企業業績推移','実績＋ガイダンス分離','テキストカード一覧','突出型・横比較'): dates,companies,pivot=_prepare_scene(df,scene)
+    if scene.get('chart')=='逐次登場棒グラフ': _draw_sequential_bars(fig,ax,df,scene,bg,text,grid,cmap,1/max(2,frames))
+    elif scene.get('chart')=='時系列ランキングレース': _draw_ranking_race(fig,ax,df,scene,bg,text,grid,cmap,1/max(2,frames))
     elif scene.get('chart')=='ビジュアル年表': _draw_visual_timeline(fig,ax,scene,bg,text,grid,1/max(2,frames))
     elif scene.get('chart')=='実績＋ガイダンス分離': _draw_separated_guidance(fig,ax,df,scene,bg,text,grid,cmap,1/max(2,frames))
     elif scene.get('chart')=='突出型・横比較': _draw_outlier_comparison_on(fig,ax,df,scene,bg,text,grid,1/max(2,frames))
@@ -2009,7 +2098,8 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
                 proc.stdin.write(financial_frame_cache)
                 continue
             pp=1. if i>=frames else (i+1)/frames
-            if scene.get('chart')=='時系列ランキングレース': _draw_ranking_race(fig,ax,df,scene,bg,text,grid,cmap,pp)
+            if scene.get('chart')=='逐次登場棒グラフ': _draw_sequential_bars(fig,ax,df,scene,bg,text,grid,cmap,pp)
+            elif scene.get('chart')=='時系列ランキングレース': _draw_ranking_race(fig,ax,df,scene,bg,text,grid,cmap,pp)
             elif scene.get('chart')=='ビジュアル年表': _draw_visual_timeline(fig,ax,scene,bg,text,grid,pp)
             elif scene.get('chart')=='実績＋ガイダンス分離': _draw_separated_guidance(fig,ax,df,scene,bg,text,grid,cmap,pp,i/fps)
             elif scene.get('chart')=='突出型・横比較': _draw_outlier_comparison_on(fig,ax,df,scene,bg,text,grid,pp)
