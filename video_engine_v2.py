@@ -1734,6 +1734,21 @@ def _draw_visual_timeline(fig,ax,scene,bg,text,grid,progress):
             ha='left',va='top',linespacing=1.4)
     if event.get('source'):
         fig.text(.075,.20,str(event['source']),color=text,fontsize=7,alpha=.65,va='top')
+    # Fade the event content out before switching, then fade the next event in.
+    # The title of the overall scene and the timeline rail remain visible.
+    from matplotlib.patches import Rectangle
+    fade_seconds=min(.15,event_time*.18)
+    if len(events)>1 and fade_seconds>0:
+        if idx<len(events)-1 and local_time>event_time-fade_seconds:
+            veil=(local_time-(event_time-fade_seconds))/fade_seconds
+        elif idx>0 and local_time<fade_seconds:
+            veil=1.-local_time/fade_seconds
+        else:
+            veil=0.
+        if veil>0:
+            fig.add_artist(Rectangle((0.,.155),1.,.675,
+                transform=fig.transFigure,facecolor=bg,
+                edgecolor='none',alpha=float(np.clip(veil,0,1)),zorder=30))
     # Keep events away from rail ends; ticks are interior, not endpoint labels.
     from datetime import timedelta
     from matplotlib.lines import Line2D
