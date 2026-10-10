@@ -171,7 +171,7 @@ default_titles = ["上場買取再販4社の在庫", "各社の在庫キャッ�
 default_subtitles = ["販売用不動産（仕掛販売用不動産を含む）の期末残高", "販売用不動産の期末残高", "販売用不動産の期末残高÷売上高×12"]
 default_charts = ["積み上げ棒", "折れ線", "折れ線"]
 default_metrics = ["inventory", "inventory", "inventory_months"]
-chart_options = ["積み上げ棒", "折れ線", "棒グラフ", "100%積み上げ", "実績＋ガイダンス分離", "横比較ランキング", "時系列ランキングレース", "2指標・企業横比較", "2指標・企業業績推移", "年表", "横進行年表", "業績連動年表", "ビジュアル年表", "縦時系列年表", "テキストカード一覧", "突出型・横比較"]
+chart_options = ["積み上げ棒", "折れ線", "棒グラフ", "100%積み上げ", "実績＋ガイダンス分離", "横比較ランキング", "時系列ランキングレース", "逐次登場棒グラフ", "2指標・企業横比較", "2指標・企業業績推移", "年表", "横進行年表", "業績連動年表", "ビジュアル年表", "縦時系列年表", "テキストカード一覧", "突出型・横比較"]
 
 scene_data = []
 for i in range(int(scene_count)):
@@ -232,6 +232,18 @@ for i in range(int(scene_count)):
                 comment = rca.text_area(f"コメント{j+1}",value="",key=f"race_comment_text_{i}_{j}",height=68)
                 at = rcb.slider(f"挿入位置{j+1}（進行率%）",0,100,min(95,round((j+1)*100/(race_comment_count+1))),key=f"race_comment_at_{i}_{j}")
                 race_comments.append({"text":comment,"at":at})
+        sequential_comments = {}
+        sequential_reveal_seconds = 0.65
+        sequential_read_seconds = 1.8
+        if chart == "逐次登場棒グラフ":
+            st.markdown("**逐次登場棒グラフ：1本ごとに任意コメント**")
+            st.caption("companyごとの最新値を、元データの登場順に1本ずつ表示します。コメントが空欄の棒は停止せず次へ進みます。")
+            sc1,sc2 = st.columns(2)
+            sequential_reveal_seconds = sc1.slider("1本の伸長時間（秒）",.2,2.0,.65,.05,key=f"sequential_reveal_{i}")
+            sequential_read_seconds = sc2.slider("コメントの読了時間（秒）",.5,5.0,1.8,.1,key=f"sequential_read_{i}")
+            if "company" in scene_df.columns:
+                for name in dict.fromkeys(scene_df["company"].dropna().astype(str)):
+                    sequential_comments[name] = st.text_area(f"{name} のコメント（任意）",value="",key=f"sequential_comment_{i}_{name}",height=65)
         c5, c6, c7, c7b = st.columns(4)
         duration = c5.slider("描画時間（秒）", .5, 90.0, 2.8, .1, key=f"duration_{i}")
         hold = c6.slider("静止時間（秒）", 0., 10., 1.2, .1, key=f"hold_{i}")
@@ -561,7 +573,7 @@ for i in range(int(scene_count)):
                                 outlier_company_icons[company_name]={"type":"image",
                                     "value":base64.b64encode(upload.getvalue()).decode("ascii")}
         scenes.append({
-            "chart":chart, "outlier_base":outlier_base, "outlier_color":outlier_color, "outlier_normal_color":outlier_normal_color, "outlier_company_colors":outlier_company_colors, "outlier_company_icons":outlier_company_icons, "text_cards":text_cards, "metric":metric, "title":title, "subtitle":subtitle, "unit":unit, "source":source_text, "scene_note":scene_note, "scene_comment_1":scene_comment_1, "scene_comment_2":scene_comment_2, "scene_comment_size":scene_comment_size, "scene_comment_style":scene_comment_style, "scene_comment_delay":scene_comment_delay, "scene_comment_gap":scene_comment_gap, "race_top_n":race_top_n, "race_pause_seconds":race_pause_seconds, "race_comments":race_comments,
+            "chart":chart, "outlier_base":outlier_base, "outlier_color":outlier_color, "outlier_normal_color":outlier_normal_color, "outlier_company_colors":outlier_company_colors, "outlier_company_icons":outlier_company_icons, "text_cards":text_cards, "metric":metric, "title":title, "subtitle":subtitle, "unit":unit, "source":source_text, "scene_note":scene_note, "scene_comment_1":scene_comment_1, "scene_comment_2":scene_comment_2, "scene_comment_size":scene_comment_size, "scene_comment_style":scene_comment_style, "scene_comment_delay":scene_comment_delay, "scene_comment_gap":scene_comment_gap, "race_top_n":race_top_n, "race_pause_seconds":race_pause_seconds, "race_comments":race_comments, "sequential_comments":sequential_comments, "sequential_reveal_seconds":sequential_reveal_seconds, "sequential_read_seconds":sequential_read_seconds,
             "duration":duration, "hold":hold, "title_size":title_size, "subtitle_size":subtitle_size, "legend":legend, "end_labels":end_labels,
             "latest_values":latest_values, "end_label_size":end_label_size, "label_gap":label_gap,
             "value_decimals":value_decimals, "bar_animation":bar_animation, "data_labels":data_labels,
