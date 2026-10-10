@@ -337,6 +337,12 @@ def _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,progress,elaps
         if r>0: ax.text(v*r+xmax*.012,i,f"{_fmt_value(v,decimals)}{scene.get('unit','')}",color=text,fontsize=max(6,min(9,10-.10*n)),fontweight='bold',ha='left',va='center',alpha=r,clip_on=False)
 
 
+def _energetic_reveal(values):
+    """Fast initial growth followed by a soft landing, always starting at zero."""
+    u=np.clip(values,0.,1.)
+    return 1.-(1.-u)**3
+
+
 def _race_pause_points(scene):
     points=[]
     if 'race_comments' in scene:
@@ -397,6 +403,9 @@ def _draw_ranking_race(fig,ax,df,scene,bg,text,grid,cmap,progress,elapsed=None):
     top=vals.sort_values(ascending=False).head(int(scene.get('race_top_n',10)))
     names=list(top.index)
     values=np.maximum(0.,top.to_numpy(dtype=float))
+    # Initial bars grow from zero rather than appearing at their first-period values.
+    startup=_energetic_reveal(np.clip(graph_t/max(.35,min(.9,duration*.14)),0.,1.))
+    values=values*startup
     ax.set_position([.32,.28,.60,.53])
     y=np.arange(len(names))
     colors=[(scene.get('ranking_company_colors') or {}).get(n,cmap.get(n,'#3278C8')) for n in names]
@@ -1485,7 +1494,7 @@ def _draw_company_financial_history(fig,ax,df,scene,bg,text,grid,progress,elapse
     n=len(dates)
     x=np.arange(n)
     p=float(np.clip(progress,0,1))
-    reveal=np.clip(p*n-x,0,1)
+    reveal=_energetic_reveal(np.clip(p*n-x,0,1))
     va=values_a*reveal
     vb=values_b*reveal
     color_a=scene.get('dual_color_a','#1877F2')
@@ -1574,7 +1583,7 @@ def _draw_dual_separated_guidance(fig,ax,df,scene,bg,text,grid,progress,elapsed=
     gx=len(history)-1+gap if history else 0.
     xx=np.r_[np.arange(len(history),dtype=float),[gx]]
     p=float(np.clip(progress,0,1))
-    reveal=np.clip(p*len(xx)-np.arange(len(xx)),0,1)
+    reveal=_energetic_reveal(np.clip(p*len(xx)-np.arange(len(xx)),0,1))
     color_a=scene.get('guidance_color_a','#1877F2')
     color_b=scene.get('guidance_color_b','#0AA89E')
     separate=scene.get('guidance_axis','左右別軸')=='左右別軸'
@@ -1696,7 +1705,7 @@ def _draw_separated_guidance(fig,ax,df,scene,bg,text,grid,cmap,progress,elapsed=
     xall=np.r_[xhist,[gx]]
     p=float(np.clip(progress,0,1))
     # Reveal historical periods first, then the separate guidance column.
-    reveal=np.clip(p*(len(historical)+1)-np.arange(len(historical)+1),0,1)
+    reveal=_energetic_reveal(np.clip(p*(len(historical)+1)-np.arange(len(historical)+1),0,1))
     hist_bottom=np.zeros(len(historical))
     guide_bottom=0.
     for company in companies:
