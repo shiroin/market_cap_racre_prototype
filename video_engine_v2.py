@@ -1744,7 +1744,7 @@ def _draw_visual_timeline(fig,ax,scene,bg,text,grid,progress):
             marker='o',markersize=7 if active else 4,
             markerfacecolor='#233653' if j<=idx else '#ABB7C5',
             markeredgecolor='none',linestyle='None',zorder=6))
-        if active or j==0 or j==len(years)-1:
+        if active or j==0 or j==len(dates)-1:
             fig.text(x,rail_y-.028,when.strftime('%Y/%m/%d'),color=text,fontsize=7,
                 ha='center',va='top')
     ax.set_axis_off()
