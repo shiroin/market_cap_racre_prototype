@@ -1771,6 +1771,14 @@ def _draw_visual_timeline(fig,ax,scene,bg,text,grid,progress):
         label=when.strftime('%Y') if span>=1460 else (
             when.strftime('%Y/%m') if span>=90 else when.strftime('%m/%d'))
         fig.text(x,rail_y-.023,label,color=text,fontsize=7,ha='center',va='top')
+    # Subtle stationary markers indicate every event's stopping position.
+    # These remain visible while the moving playhead travels between events.
+    for event_date_value in dates:
+        marker_x=date_x(event_date_value.toordinal())
+        fig.add_artist(Line2D([marker_x],[rail_y],
+            transform=fig.transFigure,marker='o',markersize=5,
+            markerfacecolor='#AEBBCB',markeredgecolor='none',
+            alpha=.55,linestyle='None',zorder=7))
     if idx==0:
         ordinal=dates[0].toordinal()
     else:
