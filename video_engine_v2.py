@@ -1779,6 +1779,13 @@ def _draw_visual_timeline(fig,ax,scene,bg,text,grid,progress):
             transform=fig.transFigure,marker='o',markersize=5,
             markerfacecolor='#AEBBCB',markeredgecolor='none',
             alpha=.55,linestyle='None',zorder=7))
+    # Show all future stopping positions as faint markers on the rail.
+    for stop_date in dates:
+        stop_x=date_x(stop_date.toordinal())
+        fig.add_artist(Line2D([stop_x],[rail_y],
+            transform=fig.transFigure,marker='o',markersize=7,
+            markerfacecolor='#B7C2CF',markeredgecolor='none',
+            alpha=.55,linestyle='None',zorder=7))
     if idx==0:
         ordinal=dates[0].toordinal()
     else:
