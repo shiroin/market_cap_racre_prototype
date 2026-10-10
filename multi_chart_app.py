@@ -171,7 +171,7 @@ default_titles = ["上場買取再販4社の在庫", "各社の在庫キャッ�
 default_subtitles = ["販売用不動産（仕掛販売用不動産を含む）の期末残高", "販売用不動産の期末残高", "販売用不動産の期末残高÷売上高×12"]
 default_charts = ["積み上げ棒", "折れ線", "折れ線"]
 default_metrics = ["inventory", "inventory", "inventory_months"]
-chart_options = ["積み上げ棒", "折れ線", "棒グラフ", "100%積み上げ", "実績＋ガイダンス分離", "横比較ランキング", "2指標・企業横比較", "2指標・企業業績推移", "年表", "横進行年表", "業績連動年表", "ビジュアル年表", "縦時系列年表", "テキストカード一覧", "突出型・横比較"]
+chart_options = ["積み上げ棒", "折れ線", "棒グラフ", "100%積み上げ", "実績＋ガイダンス分離", "横比較ランキング", "時系列ランキングレース", "2指標・企業横比較", "2指標・企業業績推移", "年表", "横進行年表", "業績連動年表", "ビジュアル年表", "縦時系列年表", "テキストカード一覧", "突出型・横比較"]
 
 scene_data = []
 for i in range(int(scene_count)):
@@ -217,6 +217,19 @@ for i in range(int(scene_count)):
         scene_comment_style = st.selectbox("下部コメントのデザイン", ["白抜き（濃紺背景）", "従来（文字のみ）"], key=f"scene_comment_style_{i}", help="白抜きでは濃紺の角丸ボックスに白文字で表示します。")
         scene_comment_delay = st.slider("グラフ完了後→下部コメント①まで（秒）", 0.0, 3.0, 0.7, 0.1, key=f"scene_comment_delay_{i}", help="グラフの描画が完了してから下部コメント①のフェード開始までの待ち時間です。")
         scene_comment_gap = st.slider("下部コメント①→②まで（秒）", 0.0, 3.0, 0.8, 0.1, key=f"scene_comment_gap_{i}", help="下部コメント①のフェード完了後から、下部コメント②のフェード開始までの待ち時間です。")
+        race_comment_at_1 = 40
+        race_comment_at_2 = 75
+        race_pause_seconds = 1.8
+        race_top_n = 10
+        if chart == "時系列ランキングレース":
+            st.markdown("**ランキングレース設定**")
+            st.caption("date・company・指標列の時系列データから順位の変化を動画化します。コメント入力時のみ指定位置で停止します。")
+            rc1,rc2 = st.columns(2)
+            race_top_n = rc1.slider("表示企業数",3,20,10,key=f"race_top_n_{i}")
+            race_pause_seconds = rc2.slider("コメント停止時間（秒）",1.5,2.0,1.8,.1,key=f"race_pause_{i}")
+            rp1,rp2 = st.columns(2)
+            race_comment_at_1 = rp1.slider("コメント①挿入位置（進行率%）",5,95,40,key=f"race_at_1_{i}")
+            race_comment_at_2 = rp2.slider("コメント②挿入位置（進行率%）",5,95,75,key=f"race_at_2_{i}")
         c5, c6, c7, c7b = st.columns(4)
         duration = c5.slider("描画時間（秒）", .5, 90.0, 2.8, .1, key=f"duration_{i}")
         hold = c6.slider("静止時間（秒）", 0., 10., 1.2, .1, key=f"hold_{i}")
@@ -546,7 +559,7 @@ for i in range(int(scene_count)):
                                 outlier_company_icons[company_name]={"type":"image",
                                     "value":base64.b64encode(upload.getvalue()).decode("ascii")}
         scenes.append({
-            "chart":chart, "outlier_base":outlier_base, "outlier_color":outlier_color, "outlier_normal_color":outlier_normal_color, "outlier_company_colors":outlier_company_colors, "outlier_company_icons":outlier_company_icons, "text_cards":text_cards, "metric":metric, "title":title, "subtitle":subtitle, "unit":unit, "source":source_text, "scene_note":scene_note, "scene_comment_1":scene_comment_1, "scene_comment_2":scene_comment_2, "scene_comment_size":scene_comment_size, "scene_comment_style":scene_comment_style, "scene_comment_delay":scene_comment_delay, "scene_comment_gap":scene_comment_gap,
+            "chart":chart, "outlier_base":outlier_base, "outlier_color":outlier_color, "outlier_normal_color":outlier_normal_color, "outlier_company_colors":outlier_company_colors, "outlier_company_icons":outlier_company_icons, "text_cards":text_cards, "metric":metric, "title":title, "subtitle":subtitle, "unit":unit, "source":source_text, "scene_note":scene_note, "scene_comment_1":scene_comment_1, "scene_comment_2":scene_comment_2, "scene_comment_size":scene_comment_size, "scene_comment_style":scene_comment_style, "scene_comment_delay":scene_comment_delay, "scene_comment_gap":scene_comment_gap, "race_top_n":race_top_n, "race_pause_seconds":race_pause_seconds, "race_comment_at_1":race_comment_at_1, "race_comment_at_2":race_comment_at_2,
             "duration":duration, "hold":hold, "title_size":title_size, "subtitle_size":subtitle_size, "legend":legend, "end_labels":end_labels,
             "latest_values":latest_values, "end_label_size":end_label_size, "label_gap":label_gap,
             "value_decimals":value_decimals, "bar_animation":bar_animation, "data_labels":data_labels,
