@@ -1648,7 +1648,10 @@ def _draw_visual_timeline(fig,ax,scene,bg,text,grid,progress):
     from matplotlib.patches import FancyBboxPatch
     from matplotlib.offsetbox import OffsetImage, AnnotationBbox
     from matplotlib import image as mpimg
-    events=sorted(scene.get('visual_events',[]),key=lambda e:int(e.get('year',0)))
+    from datetime import date
+    def event_date(e):
+        return date(int(e.get('year',2000)),int(e.get('month',1) or 1),int(e.get('day',1) or 1))
+    events=sorted(scene.get('visual_events',[]),key=event_date)
     ax.clear()
     for other in list(fig.axes):
         if other is not ax: other.remove()
@@ -1726,23 +1729,23 @@ def _draw_visual_timeline(fig,ax,scene,bg,text,grid,progress):
     if event.get('source'):
         fig.text(.075,.20,str(event['source']),color=text,fontsize=7,alpha=.65,va='top')
     # A fixed timeline stays visible while the active event advances.
-    years=[int(e.get('year',0)) for e in events]
-    lo,hi=min(years),max(years)
-    if hi==lo: hi=lo+1
+    dates=[event_date(e) for e in events]
+    lo,hi=min(dates),max(dates)
+    span=max(1,(hi-lo).days)
     x0,x1=.09,.91
     rail_y=.115
     from matplotlib.lines import Line2D
     fig.add_artist(Line2D([x0,x1],[rail_y,rail_y],transform=fig.transFigure,
         color='#9AA7B6',lw=1.5,zorder=5))
-    for j,year in enumerate(years):
-        x=x0+(x1-x0)*(year-lo)/(hi-lo)
+    for j,when in enumerate(dates):
+        x=x0+(x1-x0)*(when-lo).days/span
         active=j==idx
         fig.add_artist(Line2D([x],[rail_y],transform=fig.transFigure,
             marker='o',markersize=7 if active else 4,
             markerfacecolor='#233653' if j<=idx else '#ABB7C5',
             markeredgecolor='none',linestyle='None',zorder=6))
         if active or j==0 or j==len(years)-1:
-            fig.text(x,rail_y-.028,str(year),color=text,fontsize=7,
+            fig.text(x,rail_y-.028,when.strftime('%Y/%m/%d'),color=text,fontsize=7,
                 ha='center',va='top')
     ax.set_axis_off()
 
