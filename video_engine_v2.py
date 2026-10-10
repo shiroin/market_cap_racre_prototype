@@ -1663,7 +1663,8 @@ def _draw_visual_timeline(fig,ax,scene,bg,text,grid,progress):
         fig.text(.5,.5,"イベントを追加してください",ha='center',color=text)
         return
     p=float(np.clip(progress,0,1))
-    idx=min(len(events)-1,int(p*len(events)))
+    position=p*max(0,len(events)-1)
+    idx=min(len(events)-1,int(position+0.5))
     event=events[idx]
     title_color=scene.get('visual_title_color',text)
     fig.text(.075,.925,str(scene.get('title','ビジュアル年表')),
@@ -1737,16 +1738,23 @@ def _draw_visual_timeline(fig,ax,scene,bg,text,grid,progress):
     from matplotlib.lines import Line2D
     fig.add_artist(Line2D([x0,x1],[rail_y,rail_y],transform=fig.transFigure,
         color='#9AA7B6',lw=1.5,zorder=5))
-    for j,when in enumerate(dates):
-        x=x0+(x1-x0)*(when-lo).days/span
-        active=j==idx
-        fig.add_artist(Line2D([x],[rail_y],transform=fig.transFigure,
-            marker='o',markersize=7 if active else 4,
-            markerfacecolor='#233653' if j<=idx else '#ABB7C5',
-            markeredgecolor='none',linestyle='None',zorder=6))
-        if active or j==0 or j==len(dates)-1:
-            fig.text(x,rail_y-.028,when.strftime('%Y/%m/%d'),color=text,fontsize=7,
-                ha='center',va='top')
+    from datetime import timedelta
+    for k in range(5):
+        frac=k/4
+        tick=lo+timedelta(days=round((hi-lo).days*frac))
+        x=x0+(x1-x0)*frac
+        fig.add_artist(Line2D([x,x],[rail_y-.006,rail_y+.006],transform=fig.transFigure,color='#8495A9',lw=1.2,zorder=6))
+        label=tick.strftime('%Y') if span>=1460 else tick.strftime('%Y/%m') if span>=90 else tick.strftime('%m/%d')
+        fig.text(x,rail_y-.023,label,color=text,fontsize=7,ha='center',va='top')
+    if len(dates)>1:
+        left=min(len(dates)-2,int(position))
+        blend=position-left
+        blend=blend*blend*(3-2*blend)
+        ordinal=(1-blend)*dates[left].toordinal()+blend*dates[left+1].toordinal()
+    else:
+        ordinal=dates[0].toordinal()
+    x=x0+(x1-x0)*(ordinal-lo.toordinal())/span
+    fig.add_artist(Line2D([x],[rail_y],transform=fig.transFigure,marker='o',markersize=10,markerfacecolor='#233653',markeredgecolor='white',linestyle='None',zorder=8))
     ax.set_axis_off()
 
 
