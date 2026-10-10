@@ -339,11 +339,19 @@ def _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,progress,elaps
 
 def _race_pause_points(scene):
     points=[]
-    for k in (1,2):
-        comment=str(scene.get(f'scene_comment_{k}','') or '').strip()
-        if comment:
-            at=float(np.clip(scene.get(f'race_comment_at_{k}',40 if k==1 else 75),0,100))/100.
-            points.append((at,comment))
+    if 'race_comments' in scene:
+        for item in scene.get('race_comments',[]):
+            comment=str(item.get('text','') or '').strip()
+            if comment:
+                at=float(np.clip(item.get('at',50),0,100))/100.
+                points.append((at,comment))
+    else:
+        # Backwards compatibility with scenes saved before dynamic comments.
+        for k in (1,2):
+            comment=str(scene.get(f'scene_comment_{k}','') or '').strip()
+            if comment:
+                at=float(np.clip(scene.get(f'race_comment_at_{k}',40 if k==1 else 75),0,100))/100.
+                points.append((at,comment))
     return sorted(points,key=lambda item:item[0])
 
 
