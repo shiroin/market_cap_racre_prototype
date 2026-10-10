@@ -337,6 +337,86 @@ def _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,progress,elaps
         if r>0: ax.text(v*r+xmax*.012,i,f"{_fmt_value(v,decimals)}{scene.get('unit','')}",color=text,fontsize=max(6,min(9,10-.10*n)),fontweight='bold',ha='left',va='center',alpha=r,clip_on=False)
 
 
+def _race_pause_points(scene):
+    points=[]
+    for k in (1,2):
+        comment=str(scene.get(f'scene_comment_{k}','') or '').strip()
+        if comment:
+            at=float(np.clip(scene.get(f'race_comment_at_{k}',40 if k==1 else 75),0,100))/100.
+            points.append((at,comment))
+    return sorted(points,key=lambda item:item[0])
+
+
+def _draw_ranking_race(fig,ax,df,scene,bg,text,grid,cmap,progress,elapsed=None):
+    from matplotlib.patches import FancyBboxPatch
+    ax.clear()
+    for other in list(fig.axes):
+        if other is not ax: other.remove()
+    for artist in list(fig.artists): artist.remove()
+    for artist in list(fig.texts): artist.remove()
+    for artist in list(fig.patches): artist.remove()
+    _style_axis(ax,bg,text,grid)
+    duration=max(.1,float(scene.get('duration',2.8)))
+    pause=max(1.5,float(scene.get('race_pause_seconds',1.8)))
+    points=_race_pause_points(scene)
+    total=duration+len(points)*pause
+    t=float(np.clip(progress,0,1))*total if elapsed is None else max(0.,float(elapsed))
+    graph_t=t
+    active_comment=None
+    for at,comment in points:
+        start=at*duration
+        if graph_t<start: break
+        if graph_t<start+pause:
+            active_comment=(comment,graph_t-start)
+            graph_t=start
+            break
+        graph_t-=pause
+    graph_p=float(np.clip(graph_t/duration,0,1))
+    metric=scene['metric']
+    w=df[['date','company',metric]].copy()
+    w[metric]=pd.to_numeric(w[metric].astype('string').str.replace(',','',regex=False),errors='coerce')
+    w=w.dropna(subset=[metric,'date','company'])
+    if w.empty:
+        fig.text(.5,.5,"時系列データがありません",ha='center',color=text)
+        return
+    dates=sorted(w['date'].astype(str).unique().tolist(),key=lambda v:(pd.to_datetime(v,errors='coerce') if pd.notna(pd.to_datetime(v,errors='coerce')) else pd.Timestamp.max,v))
+    pivot=w.pivot_table(index='date',columns='company',values=metric,aggfunc='sum').reindex(dates).fillna(0)
+    pos=graph_p*max(0,len(dates)-1)
+    lo=min(int(pos),len(dates)-1)
+    hi=min(lo+1,len(dates)-1)
+    blend=pos-lo
+    vals=(1-blend)*pivot.iloc[lo]+blend*pivot.iloc[hi]
+    top=vals.sort_values(ascending=False).head(int(scene.get('race_top_n',10)))
+    names=list(top.index)
+    values=np.maximum(0.,top.to_numpy(dtype=float))
+    ax.set_position([.32,.28,.60,.53])
+    y=np.arange(len(names))
+    colors=[(scene.get('ranking_company_colors') or {}).get(n,cmap.get(n,'#3278C8')) for n in names]
+    ax.barh(y,values,color=colors,height=.70)
+    ax.set_yticks(y,names,fontsize=9)
+    ax.invert_yaxis()
+    ax.set_xlim(0,max(1.,float(pivot.to_numpy().max())*1.12))
+    ax.tick_params(axis='x',labelsize=8)
+    ax.grid(axis='x',color=grid,alpha=.35)
+    ax.grid(axis='y',visible=False)
+    for j,value in enumerate(values):
+        ax.text(value+ax.get_xlim()[1]*.012,j,f"{value:,.0f}",color=text,fontsize=9,va='center',clip_on=False)
+    fig.text(.075,.93,str(scene.get('title','時系列ランキングレース')),fontsize=scene.get('title_size',22),color=text,fontweight='bold',va='top')
+    if scene.get('subtitle'):
+        fig.text(.075,.865,str(scene['subtitle']),fontsize=10,color=text,alpha=.7,va='top')
+    shown=dates[lo] if blend<.5 else dates[hi]
+    fig.text(.92,.18,str(shown),fontsize=20,color=text,fontweight='bold',ha='right')
+    if scene.get('source'):
+        fig.text(.075,.055,str(scene['source']),fontsize=7,color=text,alpha=.6)
+    if active_comment:
+        comment,seconds=active_comment
+        alpha=float(np.clip(seconds/.25,0,1))
+        fig.add_artist(FancyBboxPatch((.075,.07),.85,.105,boxstyle='round,pad=0.008,rounding_size=.015',
+            transform=fig.transFigure,facecolor='#233653',edgecolor='none',alpha=alpha,zorder=20))
+        fig.text(.5,.123,comment,ha='center',va='center',color='white',
+            fontsize=int(scene.get('scene_comment_size',12)),fontweight='bold',alpha=alpha,zorder=21,wrap=True)
+
+
 def _timeline_events(scene):
     from datetime import date as _date
     import calendar
@@ -1791,7 +1871,9 @@ def _draw_visual_timeline(fig,ax,scene,bg,text,grid,progress):
 
 def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='preview'):
     fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'),scene)
-    if scene.get('chart')=='ビジュアル年表':
+    if scene.get('chart')=='時系列ランキングレース':
+        _draw_ranking_race(fig,ax,df,scene,bg,text,grid,cmap,progress)
+    elif scene.get('chart')=='ビジュアル年表':
         _draw_visual_timeline(fig,ax,scene,bg,text,grid,progress)
     elif scene.get('chart')=='実績＋ガイダンス分離':
         _draw_separated_guidance(fig,ax,df,scene,bg,text,grid,cmap,progress)
@@ -1835,11 +1917,14 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
         extra=.55+(max(0.,float(scene.get('scene_comment_gap',.8)))+.55 if scene.get('scene_comment_1') and scene.get('scene_comment_2') else 0.)
         required=desc_time+delay+extra+0.4
         hold=max(hold,int(np.ceil(max(0.,required-float(scene.get('duration',2.5)))*fps)))
+    if scene.get('chart')=='時系列ランキングレース':
+        frames=max(2,int((float(scene.get('duration',2.5))+len(_race_pause_points(scene))*max(1.5,float(scene.get('race_pause_seconds',1.8))))*fps))
     fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'),scene)
     is_timeline=scene.get('chart') in ('年表','横進行年表','業績連動年表','縦時系列年表','ビジュアル年表'); is_ranking=scene.get('chart')=='横比較ランキング'
     dual_prepared = _prepare_dual_metric_scene(df,scene) if scene.get('chart')=='2指標・企業横比較' else None
-    if not is_timeline and not is_ranking and scene.get('chart') not in ('2指標・企業横比較','2指標・企業業績推移','実績＋ガイダンス分離','テキストカード一覧','突出型・横比較'): dates,companies,pivot=_prepare_scene(df,scene)
-    if scene.get('chart')=='ビジュアル年表': _draw_visual_timeline(fig,ax,scene,bg,text,grid,1/max(2,frames))
+    if not is_timeline and not is_ranking and scene.get('chart') not in ('時系列ランキングレース','2指標・企業横比較','2指標・企業業績推移','実績＋ガイダンス分離','テキストカード一覧','突出型・横比較'): dates,companies,pivot=_prepare_scene(df,scene)
+    if scene.get('chart')=='時系列ランキングレース': _draw_ranking_race(fig,ax,df,scene,bg,text,grid,cmap,1/max(2,frames))
+    elif scene.get('chart')=='ビジュアル年表': _draw_visual_timeline(fig,ax,scene,bg,text,grid,1/max(2,frames))
     elif scene.get('chart')=='実績＋ガイダンス分離': _draw_separated_guidance(fig,ax,df,scene,bg,text,grid,cmap,1/max(2,frames))
     elif scene.get('chart')=='突出型・横比較': _draw_outlier_comparison_on(fig,ax,df,scene,bg,text,grid,1/max(2,frames))
     elif scene.get('chart')=='テキストカード一覧': _draw_text_cards_on(fig,ax,scene,bg,text,grid,1/max(2,frames))
@@ -1870,7 +1955,8 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
                 proc.stdin.write(financial_frame_cache)
                 continue
             pp=1. if i>=frames else (i+1)/frames
-            if scene.get('chart')=='ビジュアル年表': _draw_visual_timeline(fig,ax,scene,bg,text,grid,pp)
+            if scene.get('chart')=='時系列ランキングレース': _draw_ranking_race(fig,ax,df,scene,bg,text,grid,cmap,pp)
+            elif scene.get('chart')=='ビジュアル年表': _draw_visual_timeline(fig,ax,scene,bg,text,grid,pp)
             elif scene.get('chart')=='実績＋ガイダンス分離': _draw_separated_guidance(fig,ax,df,scene,bg,text,grid,cmap,pp,i/fps)
             elif scene.get('chart')=='突出型・横比較': _draw_outlier_comparison_on(fig,ax,df,scene,bg,text,grid,pp)
             elif scene.get('chart')=='テキストカード一覧': _draw_text_cards_on(fig,ax,scene,bg,text,grid,pp,i/fps)
