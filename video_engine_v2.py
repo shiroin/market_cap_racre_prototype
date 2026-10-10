@@ -400,24 +400,39 @@ def _draw_ranking_race(fig,ax,df,scene,bg,text,grid,cmap,progress,elapsed=None):
     hi=min(lo+1,len(dates)-1)
     blend=pos-lo
     vals=(1-blend)*pivot.iloc[lo]+blend*pivot.iloc[hi]
-    top=vals.sort_values(ascending=False).head(int(scene.get('race_top_n',10)))
-    names=list(top.index)
-    values=np.maximum(0.,top.to_numpy(dtype=float))
-    # Initial bars grow from zero rather than appearing at their first-period values.
+    # Smooth rank coordinates: interpolate each company's positions between
+    # adjacent snapshots, rather than abruptly re-sorting integer row indices.
+    n_top=int(scene.get('race_top_n',10))
+    before=pivot.iloc[lo].rank(method='first',ascending=False)-1.
+    after=pivot.iloc[hi].rank(method='first',ascending=False)-1.
+    # Smoothstep gives rank swaps a gentle acceleration and deceleration.
+    eased=blend*blend*(3.-2.*blend)
+    rank_y=(1.-eased)*before+eased*after
+    visible=rank_y.sort_values().head(n_top).index.tolist()
+    # Include crossing companies close to the cutoff so they can enter/exit smoothly.
+    visible=[name for name in rank_y.index if min(float(before[name]),float(after[name]))<n_top]
+    visible.sort(key=lambda name:float(rank_y[name]))
     startup=_energetic_reveal(np.clip(graph_t/max(.35,min(.9,duration*.14)),0.,1.))
-    values=values*startup
     ax.set_position([.32,.28,.60,.53])
-    y=np.arange(len(names))
-    colors=[(scene.get('ranking_company_colors') or {}).get(n,cmap.get(n,'#3278C8')) for n in names]
-    ax.barh(y,values,color=colors,height=.70)
-    ax.set_yticks(y,names,fontsize=9)
-    ax.invert_yaxis()
-    ax.set_xlim(0,max(1.,float(pivot.to_numpy().max())*1.12))
+    xmax=max(1.,float(np.nanmax(pivot.to_numpy()))*1.12)
+    colors=scene.get('ranking_company_colors') or {}
+    for name in visible:
+        yy=float(rank_y[name])
+        if yy>n_top+.5: continue
+        value=max(0.,float(vals[name]))*startup
+        opacity=float(np.clip(min(1.,(n_top+.35-yy)/.8),0.,1.))
+        color=colors.get(name,cmap.get(name,'#3278C8'))
+        ax.barh([yy],[value],color=color,height=.70,alpha=opacity,zorder=3)
+        ax.text(-xmax*.025,yy,str(name),fontsize=9,color=text,ha='right',va='center',
+            fontweight='bold',alpha=opacity,clip_on=False)
+        ax.text(value+xmax*.012,yy,f"{value:,.0f}",color=text,fontsize=9,
+            va='center',alpha=opacity,clip_on=False)
+    ax.set_yticks([])
+    ax.set_ylim(n_top-.25,-.8)
+    ax.set_xlim(0,xmax)
     ax.tick_params(axis='x',labelsize=8)
     ax.grid(axis='x',color=grid,alpha=.35)
     ax.grid(axis='y',visible=False)
-    for j,value in enumerate(values):
-        ax.text(value+ax.get_xlim()[1]*.012,j,f"{value:,.0f}",color=text,fontsize=9,va='center',clip_on=False)
     fig.text(.075,.93,str(scene.get('title','時系列ランキングレース')),fontsize=scene.get('title_size',22),color=text,fontweight='bold',va='top')
     if scene.get('subtitle'):
         fig.text(.075,.865,str(scene['subtitle']),fontsize=10,color=text,alpha=.7,va='top')
