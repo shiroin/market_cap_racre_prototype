@@ -420,8 +420,20 @@ def _draw_ranking_race(fig,ax,df,scene,bg,text,grid,cmap,progress,elapsed=None):
     pairwise=1./(1.+np.exp(-np.clip(differences,-40,40)))
     np.fill_diagonal(pairwise,0.)
     continuous_ranks=pd.Series(pairwise.sum(axis=1),index=vals.index)
-    visible=continuous_ranks.nsmallest(n_top+2).index.tolist()
-    rank_y=continuous_ranks
+    # Equal values produce equal soft ranks, which puts bars and labels on top
+    # of one another. Give ties a stable order and keep at least one row of
+    # separation for all visible bars, including during rank transitions.
+    stable_order={name:i for i,name in enumerate(pivot.columns)}
+    ordered=sorted(continuous_ranks.index,
+                   key=lambda name:(float(continuous_ranks[name]),stable_order[name]))
+    rank_positions={}
+    min_gap=0.90
+    for j,name in enumerate(ordered):
+        preferred=float(continuous_ranks[name])
+        rank_positions[name]=max(preferred,
+            rank_positions[ordered[j-1]]+min_gap if j else 0.)
+    visible=ordered[:n_top+2]
+    rank_y=pd.Series(rank_positions)
 
     ax.set_position([.32,.28,.60,.53])
     xmax=max(1.,float(np.nanmax(pivot.to_numpy()))*1.12)
