@@ -171,7 +171,7 @@ default_titles = ["上場買取再販4社の在庫", "各社の在庫キャッ�
 default_subtitles = ["販売用不動産（仕掛販売用不動産を含む）の期末残高", "販売用不動産の期末残高", "販売用不動産の期末残高÷売上高×12"]
 default_charts = ["積み上げ棒", "折れ線", "折れ線"]
 default_metrics = ["inventory", "inventory", "inventory_months"]
-chart_options = ["積み上げ棒", "折れ線", "棒グラフ", "100%積み上げ", "実績＋ガイダンス分離", "横比較ランキング", "2指標・企業横比較", "2指標・企業業績推移", "年表", "横進行年表", "業績連動年表", "縦時系列年表", "テキストカード一覧", "突出型・横比較"]
+chart_options = ["積み上げ棒", "折れ線", "棒グラフ", "100%積み上げ", "実績＋ガイダンス分離", "横比較ランキング", "2指標・企業横比較", "2指標・企業業績推移", "年表", "横進行年表", "業績連動年表", "ビジュアル年表", "縦時系列年表", "テキストカード一覧", "突出型・横比較"]
 
 scene_data = []
 for i in range(int(scene_count)):
@@ -242,6 +242,7 @@ for i in range(int(scene_count)):
                 card_color = st.color_picker("アクセント", "#C04A31" if card_i%2==0 else "#28577A", key=f"text_card_color_{i}_{card_i}")
                 if card_title.strip():
                     text_cards.append({"title":card_title.strip(),"description":card_description.strip(),"color":card_color})
+        visual_events = []
         timeline_events = []
         timeline_start = 2018
         timeline_end = 2025
@@ -288,6 +289,36 @@ for i in range(int(scene_count)):
             timeline_note = st.text_area("出典・補足注記", "出典・補足事項をここに入力できます。", key=f"timeline_note_{i}")
             if chart in ("横進行年表","業績連動年表"):
                 st.caption("イベントの badge 列を引用・補足ボックスとして表示します。各イベントの表示時間は描画時間÷イベント数で自動配分されます。")
+
+        if chart == "ビジュアル年表":
+            st.markdown("**ビジュアル年表：イベントごとに画像・コメント・グラフを切り替え**")
+            st.caption("各イベントのレイアウトを選択し、画像をアップロードするか、グラフの数値を入力してください。")
+            visual_count=st.number_input("イベント数",1,30,3,1,key=f"visual_count_{i}")
+            import base64
+            for event_i in range(int(visual_count)):
+                with st.expander(f"イベント {event_i+1}",expanded=event_i==0):
+                    e_year=st.number_input("年",1800,2200,2000+event_i*10,1,key=f"visual_year_{i}_{event_i}")
+                    e_era=st.text_input("時代・日付",f"{e_year}年",key=f"visual_era_{i}_{event_i}")
+                    e_title=st.text_input("タイトル",f"出来事 {event_i+1}",key=f"visual_title_{i}_{event_i}")
+                    e_layout=st.selectbox("レイアウト",["画像＋下部コメント","画像＋横コメント","グラフ＋下部コメント"],key=f"visual_layout_{i}_{event_i}")
+                    e_comment=st.text_area("コメント（改行可）",key=f"visual_comment_{i}_{event_i}")
+                    e_source=st.text_input("画像の出典・補足",key=f"visual_source_{i}_{event_i}")
+                    e_image=""
+                    if e_layout.startswith("画像"):
+                        upload=st.file_uploader("画像",type=["png","jpg","jpeg","webp"],key=f"visual_image_{i}_{event_i}")
+                        if upload:
+                            if upload.size>4*1024*1024:
+                                st.warning("画像は4MB以下にしてください。")
+                            else:
+                                e_image=base64.b64encode(upload.getvalue()).decode("ascii")
+                    e_chart_labels=""
+                    e_chart_values=""
+                    if e_layout.startswith("グラフ"):
+                        e_chart_labels=st.text_input("グラフ項目（カンマ区切り）","2019,2020,2021,2022",key=f"visual_labels_{i}_{event_i}")
+                        e_chart_values=st.text_input("グラフ数値（カンマ区切り）","100,120,150,210",key=f"visual_values_{i}_{event_i}")
+                    visual_events.append(dict(year=int(e_year),era=e_era,title=e_title,
+                        layout=e_layout,comment=e_comment,source=e_source,image=e_image,
+                        chart_labels=e_chart_labels,chart_values=e_chart_values))
 
         financial_comment_delay = 2.0
         timeline_bar_metric = metric
@@ -514,7 +545,7 @@ for i in range(int(scene_count)):
             "duration":duration, "hold":hold, "title_size":title_size, "subtitle_size":subtitle_size, "legend":legend, "end_labels":end_labels,
             "latest_values":latest_values, "end_label_size":end_label_size, "label_gap":label_gap,
             "value_decimals":value_decimals, "bar_animation":bar_animation, "data_labels":data_labels,
-            "data_label_size":data_label_size, "bar_gap":bar_gap, "timeline_events":timeline_events,
+            "data_label_size":data_label_size, "bar_gap":bar_gap, "visual_events":visual_events, "timeline_events":timeline_events,
             "timeline_start":timeline_start, "timeline_end":timeline_end, "timeline_note":timeline_note,
             "timeline_summary":timeline_summary, "timeline_summary_2":timeline_summary_2, "timeline_summary_size":timeline_summary_size,
             "timeline_bar_metric":timeline_bar_metric, "timeline_line_metric":timeline_line_metric, "timeline_line_axis":timeline_line_axis, "timeline_bar_color":timeline_bar_color, "timeline_line_color":timeline_line_color, "timeline_highlight_color":timeline_highlight_color, "timeline_highlight_alpha":timeline_highlight_alpha, "timeline_description_text_color":timeline_description_text_color, "timeline_description_accent_color":timeline_description_accent_color, "timeline_fiscal_year_end_month":timeline_fiscal_year_end_month, "timeline_travel_ratio":timeline_travel_ratio, "timeline_period_mapping":timeline_period_mapping, "financial_comment_delay":financial_comment_delay,
