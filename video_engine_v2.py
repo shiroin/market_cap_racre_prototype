@@ -400,19 +400,18 @@ def _draw_ranking_race(fig,ax,df,scene,bg,text,grid,cmap,progress,elapsed=None):
     hi=min(lo+1,len(dates)-1)
     blend=pos-lo
     vals=(1-blend)*pivot.iloc[lo]+blend*pivot.iloc[hi]
-    # Smooth rank coordinates: interpolate each company's positions between
-    # adjacent snapshots, rather than abruptly re-sorting integer row indices.
+    # Rank positions change continuously as interpolated values cross.
+    # Pairwise soft comparisons avoid abrupt integer-rank jumps at snapshots.
     n_top=int(scene.get('race_top_n',10))
-    before=pivot.iloc[lo].rank(method='first',ascending=False)-1.
-    after=pivot.iloc[hi].rank(method='first',ascending=False)-1.
-    # Smoothstep gives rank swaps a gentle acceleration and deceleration.
-    eased=blend*blend*(3.-2.*blend)
-    rank_y=(1.-eased)*before+eased*after
-    visible=rank_y.sort_values().head(n_top).index.tolist()
-    # Include crossing companies close to the cutoff so they can enter/exit smoothly.
-    visible=[name for name in rank_y.index if min(float(before[name]),float(after[name]))<n_top]
-    visible.sort(key=lambda name:float(rank_y[name]))
-    startup=_energetic_reveal(np.clip(graph_t/max(.35,min(.9,duration*.14)),0.,1.))
+    values=vals.to_numpy(dtype=float)
+    scale=max(float(np.nanmax(np.abs(pivot.to_numpy())))*.008,1e-9)
+    differences=(values[None,:]-values[:,None])/scale
+    pairwise=1./(1.+np.exp(-np.clip(differences,-40,40)))
+    np.fill_diagonal(pairwise,0.)
+    continuous_ranks=pd.Series(pairwise.sum(axis=1),index=vals.index)
+    visible=continuous_ranks.nsmallest(n_top+2).index.tolist()
+    rank_y=continuous_ranks
+    startup=float(np.clip(graph_t/max(.35,min(.9,duration*.14)),0.,1.))
     ax.set_position([.32,.28,.60,.53])
     xmax=max(1.,float(np.nanmax(pivot.to_numpy()))*1.12)
     colors=scene.get('ranking_company_colors') or {}
