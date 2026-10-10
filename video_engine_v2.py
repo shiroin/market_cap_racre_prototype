@@ -1682,7 +1682,6 @@ def _draw_visual_timeline(fig,ax,scene,bg,text,grid,progress):
             try:
                 image=Image.open(BytesIO(base64.b64decode(image_data))).convert('RGB')
                 from matplotlib.offsetbox import OffsetImage,AnnotationBbox
-                import numpy as np
                 pixels=np.asarray(image)
                 # Keep the image in a dedicated rectangle and preserve aspect.
                 x0,y0,w,h=(.075,.34,.85,.32) if layout=='画像＋下部コメント' else (.075,.32,.43,.34)
