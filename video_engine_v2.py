@@ -1663,8 +1663,13 @@ def _draw_visual_timeline(fig,ax,scene,bg,text,grid,progress):
         fig.text(.5,.5,"イベントを追加してください",ha='center',color=text)
         return
     p=float(np.clip(progress,0,1))
-    position=p*max(0,len(events)-1)
-    idx=min(len(events)-1,int(position+0.5))
+    duration=max(.1,float(scene.get('duration',2.8)))
+    event_time=duration/max(1,len(events))
+    idx=min(len(events)-1,int(p*len(events)))
+    local_time=max(0.,p*duration-idx*event_time)
+    travel_time=min(.3,event_time*.35)
+    blend=min(1.,local_time/max(.001,travel_time))
+    blend=blend*blend*(3.-2.*blend)
     event=events[idx]
     title_color=scene.get('visual_title_color',text)
     fig.text(.075,.925,str(scene.get('title','ビジュアル年表')),
@@ -1729,32 +1734,36 @@ def _draw_visual_timeline(fig,ax,scene,bg,text,grid,progress):
             ha='left',va='top',linespacing=1.4)
     if event.get('source'):
         fig.text(.075,.20,str(event['source']),color=text,fontsize=7,alpha=.65,va='top')
-    # A fixed timeline stays visible while the active event advances.
+    # Keep events away from rail ends; ticks are interior, not endpoint labels.
+    from datetime import timedelta
+    from matplotlib.lines import Line2D
     dates=[event_date(e) for e in events]
     lo,hi=min(dates),max(dates)
     span=max(1,(hi-lo).days)
     x0,x1=.09,.91
+    inset=.075
     rail_y=.115
-    from matplotlib.lines import Line2D
     fig.add_artist(Line2D([x0,x1],[rail_y,rail_y],transform=fig.transFigure,
         color='#9AA7B6',lw=1.5,zorder=5))
-    from datetime import timedelta
+    def date_x(when):
+        return x0+(x1-x0)*(inset+(1.-2.*inset)*(when-lo.toordinal())/span)
     for k in range(5):
-        frac=k/4
-        tick=lo+timedelta(days=round((hi-lo).days*frac))
-        x=x0+(x1-x0)*frac
-        fig.add_artist(Line2D([x,x],[rail_y-.006,rail_y+.006],transform=fig.transFigure,color='#8495A9',lw=1.2,zorder=6))
-        label=tick.strftime('%Y') if span>=1460 else tick.strftime('%Y/%m') if span>=90 else tick.strftime('%m/%d')
+        frac=(k+1)/6
+        when=lo+timedelta(days=round(span*frac))
+        x=date_x(when.toordinal())
+        fig.add_artist(Line2D([x,x],[rail_y-.006,rail_y+.006],
+            transform=fig.transFigure,color='#8495A9',lw=1.2,zorder=6))
+        label=when.strftime('%Y') if span>=1460 else (
+            when.strftime('%Y/%m') if span>=90 else when.strftime('%m/%d'))
         fig.text(x,rail_y-.023,label,color=text,fontsize=7,ha='center',va='top')
-    if len(dates)>1:
-        left=min(len(dates)-2,int(position))
-        blend=position-left
-        blend=blend*blend*(3-2*blend)
-        ordinal=(1-blend)*dates[left].toordinal()+blend*dates[left+1].toordinal()
-    else:
+    if idx==0:
         ordinal=dates[0].toordinal()
-    x=x0+(x1-x0)*(ordinal-lo.toordinal())/span
-    fig.add_artist(Line2D([x],[rail_y],transform=fig.transFigure,marker='o',markersize=10,markerfacecolor='#233653',markeredgecolor='white',linestyle='None',zorder=8))
+    else:
+        ordinal=(1.-blend)*dates[idx-1].toordinal()+blend*dates[idx].toordinal()
+    x=date_x(ordinal)
+    fig.add_artist(Line2D([x],[rail_y],transform=fig.transFigure,
+        marker='o',markersize=10,markerfacecolor='#233653',
+        markeredgecolor='white',markeredgewidth=1.2,linestyle='None',zorder=8))
     ax.set_axis_off()
 
 
