@@ -297,7 +297,12 @@ for i in range(int(scene_count)):
             import base64
             for event_i in range(int(visual_count)):
                 with st.expander(f"イベント {event_i+1}",expanded=event_i==0):
-                    e_year=st.number_input("年",1800,2200,2000+event_i*10,1,key=f"visual_year_{i}_{event_i}")
+                    date_cols=st.columns(3)
+                    e_year=date_cols[0].number_input("年",1800,2200,2000+event_i*10,1,key=f"visual_year_{i}_{event_i}")
+                    e_month=date_cols[1].number_input("月",1,12,1,1,key=f"visual_month_{i}_{event_i}")
+                    import calendar
+                    max_day=calendar.monthrange(int(e_year),int(e_month))[1]
+                    e_day=date_cols[2].number_input("日",1,max_day,1,1,key=f"visual_day_{i}_{event_i}")
                     e_era=st.text_input("時代・日付",f"{e_year}年",key=f"visual_era_{i}_{event_i}")
                     e_title=st.text_input("タイトル",f"出来事 {event_i+1}",key=f"visual_title_{i}_{event_i}")
                     e_layout=st.selectbox("レイアウト",["画像＋下部コメント","画像＋横コメント","グラフ＋下部コメント"],key=f"visual_layout_{i}_{event_i}")
@@ -316,7 +321,7 @@ for i in range(int(scene_count)):
                     if e_layout.startswith("グラフ"):
                         e_chart_labels=st.text_input("グラフ項目（カンマ区切り）","2019,2020,2021,2022",key=f"visual_labels_{i}_{event_i}")
                         e_chart_values=st.text_input("グラフ数値（カンマ区切り）","100,120,150,210",key=f"visual_values_{i}_{event_i}")
-                    visual_events.append(dict(year=int(e_year),era=e_era,title=e_title,
+                    visual_events.append(dict(year=int(e_year),month=int(e_month),day=int(e_day),era=e_era,title=e_title,
                         layout=e_layout,comment=e_comment,source=e_source,image=e_image,
                         chart_labels=e_chart_labels,chart_values=e_chart_values))
 
