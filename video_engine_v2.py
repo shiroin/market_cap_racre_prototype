@@ -1640,9 +1640,119 @@ def _draw_separated_guidance(fig,ax,df,scene,bg,text,grid,cmap,progress,elapsed=
     _draw_scene_comments(fig,scene,text,p,elapsed)
 
 
+def _draw_visual_timeline(fig,ax,scene,bg,text,grid,progress):
+    """Image-first event storytelling with a persistent chronological rail."""
+    import base64
+    from io import BytesIO
+    from PIL import Image
+    from matplotlib.patches import FancyBboxPatch
+    from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+    from matplotlib import image as mpimg
+    events=sorted(scene.get('visual_events',[]),key=lambda e:int(e.get('year',0)))
+    ax.clear()
+    for other in list(fig.axes):
+        if other is not ax: other.remove()
+    for artist in list(fig.artists): artist.remove()
+    for artist in list(fig.texts): artist.remove()
+    for artist in list(fig.patches): artist.remove()
+    ax.set_axis_off()
+    if not events:
+        fig.text(.5,.5,"イベントを追加してください",ha='center',color=text)
+        return
+    p=float(np.clip(progress,0,1))
+    idx=min(len(events)-1,int(p*len(events)))
+    event=events[idx]
+    title_color=scene.get('visual_title_color',text)
+    fig.text(.075,.925,str(scene.get('title','ビジュアル年表')),
+        color=title_color,fontsize=17,fontweight='bold',va='top')
+    subtitle=scene.get('subtitle','')
+    if subtitle: fig.text(.075,.872,str(subtitle),color=text,fontsize=9,va='top',alpha=.65)
+    fig.add_artist(FancyBboxPatch((.075,.770),.17,.043,
+        boxstyle='round,pad=0.003,rounding_size=0.009',
+        transform=fig.transFigure,facecolor='#233653',edgecolor='none'))
+    fig.text(.16,.792,str(event.get('era','')),color='white',
+        fontsize=10,fontweight='bold',ha='center',va='center')
+    fig.text(.075,.746,str(event.get('title','')),color=text,
+        fontsize=15,fontweight='bold',va='top')
+    layout=event.get('layout','画像＋下部コメント')
+    comment=str(event.get('comment','') or '')
+    if layout.startswith('画像'):
+        image_data=event.get('image','')
+        if image_data:
+            try:
+                image=Image.open(BytesIO(base64.b64decode(image_data))).convert('RGB')
+                from matplotlib.offsetbox import OffsetImage,AnnotationBbox
+                import numpy as np
+                pixels=np.asarray(image)
+                # Keep the image in a dedicated rectangle and preserve aspect.
+                x0,y0,w,h=(.075,.34,.85,.32) if layout=='画像＋下部コメント' else (.075,.32,.43,.34)
+                iax=fig.add_axes([x0,y0,w,h],zorder=3)
+                iax.imshow(pixels)
+                iax.set_axis_off()
+                iax.set_aspect('equal',adjustable='box')
+            except Exception:
+                fig.text(.5,.5,"画像を読み込めません",ha='center',color=text)
+        else:
+            fig.text(.40,.51,"画像をアップロードしてください",ha='center',color=text,alpha=.55)
+        if layout=='画像＋横コメント':
+            import textwrap
+            lines=[]
+            for paragraph in comment.splitlines():
+                lines.extend(textwrap.wrap(paragraph,width=17) or [''])
+            fig.text(.55,.62,'\\n'.join(lines),ha='left',va='top',
+                fontsize=10,color=text,linespacing=1.5)
+    else:
+        labels=[v.strip() for v in str(event.get('chart_labels','')).split(',')]
+        raw=str(event.get('chart_values','')).split(',')
+        try:
+            values=[float(v.strip()) for v in raw]
+            n=min(len(labels),len(values))
+            if n:
+                chart_ax=fig.add_axes([.15,.34,.75,.32],zorder=3)
+                chart_ax.bar(range(n),values[:n],color='#1877F2',width=.65)
+                chart_ax.set_xticks(range(n),labels[:n],fontsize=8)
+                chart_ax.tick_params(axis='y',labelsize=8,colors=text)
+                chart_ax.grid(axis='y',color=grid,alpha=.4)
+                chart_ax.set_axisbelow(True)
+                chart_ax.set_facecolor(bg)
+        except ValueError:
+            fig.text(.5,.5,"グラフ数値を確認してください",ha='center',color=text)
+    if layout!='画像＋横コメント' and comment:
+        import textwrap
+        lines=[]
+        for paragraph in comment.splitlines():
+            lines.extend(textwrap.wrap(paragraph,width=48) or [''])
+        fig.text(.075,.30,'\\n'.join(lines),color=text,fontsize=10,
+            ha='left',va='top',linespacing=1.4)
+    if event.get('source'):
+        fig.text(.075,.20,str(event['source']),color=text,fontsize=7,alpha=.65,va='top')
+    # A fixed timeline stays visible while the active event advances.
+    years=[int(e.get('year',0)) for e in events]
+    lo,hi=min(years),max(years)
+    if hi==lo: hi=lo+1
+    x0,x1=.09,.91
+    rail_y=.115
+    from matplotlib.lines import Line2D
+    fig.add_artist(Line2D([x0,x1],[rail_y,rail_y],transform=fig.transFigure,
+        color='#9AA7B6',lw=1.5,zorder=5))
+    for j,year in enumerate(years):
+        x=x0+(x1-x0)*(year-lo)/(hi-lo)
+        active=j==idx
+        fig.add_artist(Line2D([x],[rail_y],transform=fig.transFigure,
+            marker='o',markersize=7 if active else 4,
+            markerfacecolor='#233653' if j<=idx else '#ABB7C5',
+            markeredgecolor='none',linestyle='None',zorder=6))
+        if active or j==0 or j==len(years)-1:
+            fig.text(x,rail_y-.028,str(year),color=text,fontsize=7,
+                ha='center',va='top')
+    ax.set_axis_off()
+
+
 def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='preview'):
     fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'),scene)
-    if scene.get('chart')=='実績＋ガイダンス分離':
+    if scene.get('chart')=='ビジュアル年表':
+        _draw_visual_timeline(fig,ax,scene,bg,text,grid,progress)
+    elif scene.get('chart')=='実績＋ガイダンス分離':
         _draw_separated_guidance(fig,ax,df,scene,bg,text,grid,cmap,progress)
     elif scene.get('chart')=='突出型・横比較':
         _draw_outlier_comparison_on(fig,ax,df,scene,bg,text,grid,progress)
@@ -1685,10 +1795,11 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
         required=desc_time+delay+extra+0.4
         hold=max(hold,int(np.ceil(max(0.,required-float(scene.get('duration',2.5)))*fps)))
     fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'),scene)
-    is_timeline=scene.get('chart') in ('年表','横進行年表','業績連動年表','縦時系列年表'); is_ranking=scene.get('chart')=='横比較ランキング'
+    is_timeline=scene.get('chart') in ('年表','横進行年表','業績連動年表','縦時系列年表','ビジュアル年表'); is_ranking=scene.get('chart')=='横比較ランキング'
     dual_prepared = _prepare_dual_metric_scene(df,scene) if scene.get('chart')=='2指標・企業横比較' else None
     if not is_timeline and not is_ranking and scene.get('chart') not in ('2指標・企業横比較','2指標・企業業績推移','実績＋ガイダンス分離','テキストカード一覧','突出型・横比較'): dates,companies,pivot=_prepare_scene(df,scene)
-    if scene.get('chart')=='実績＋ガイダンス分離': _draw_separated_guidance(fig,ax,df,scene,bg,text,grid,cmap,1/max(2,frames))
+    if scene.get('chart')=='ビジュアル年表': _draw_visual_timeline(fig,ax,scene,bg,text,grid,1/max(2,frames))
+    elif scene.get('chart')=='実績＋ガイダンス分離': _draw_separated_guidance(fig,ax,df,scene,bg,text,grid,cmap,1/max(2,frames))
     elif scene.get('chart')=='突出型・横比較': _draw_outlier_comparison_on(fig,ax,df,scene,bg,text,grid,1/max(2,frames))
     elif scene.get('chart')=='テキストカード一覧': _draw_text_cards_on(fig,ax,scene,bg,text,grid,1/max(2,frames))
     elif scene.get('chart')=='2指標・企業業績推移': _draw_company_financial_history(fig,ax,df,scene,bg,text,grid,1/max(2,frames))
@@ -1718,7 +1829,8 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
                 proc.stdin.write(financial_frame_cache)
                 continue
             pp=1. if i>=frames else (i+1)/frames
-            if scene.get('chart')=='実績＋ガイダンス分離': _draw_separated_guidance(fig,ax,df,scene,bg,text,grid,cmap,pp,i/fps)
+            if scene.get('chart')=='ビジュアル年表': _draw_visual_timeline(fig,ax,scene,bg,text,grid,pp)
+            elif scene.get('chart')=='実績＋ガイダンス分離': _draw_separated_guidance(fig,ax,df,scene,bg,text,grid,cmap,pp,i/fps)
             elif scene.get('chart')=='突出型・横比較': _draw_outlier_comparison_on(fig,ax,df,scene,bg,text,grid,pp)
             elif scene.get('chart')=='テキストカード一覧': _draw_text_cards_on(fig,ax,scene,bg,text,grid,pp,i/fps)
             elif scene.get('chart')=='2指標・企業業績推移': _draw_company_financial_history(fig,ax,df,scene,bg,text,grid,pp,i/fps)
