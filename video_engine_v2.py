@@ -2007,6 +2007,80 @@ def _draw_visual_timeline(fig,ax,scene,bg,text,grid,progress):
     ax.set_axis_off()
 
 
+def _apply_global_scene_header(fig,scene,text,grid):
+    """Shared, size-aware header drawn after every scene's own artists."""
+    from matplotlib.patches import FancyBboxPatch
+    from matplotlib.lines import Line2D
+    from matplotlib.font_manager import FontProperties
+    from matplotlib.text import Text
+    title=str(scene.get('title','') or '')
+    subtitle=str(scene.get('subtitle','') or '')
+    # Remove scene-specific copies to avoid duplicated headers.
+    for artist in list(fig.texts):
+        if artist.get_text() in (title,subtitle) and artist.get_text():
+            artist.remove()
+    for artist in list(fig.artists):
+        if getattr(artist,'_ddkun_header',False):
+            artist.remove()
+    for artist in list(fig.patches):
+        if getattr(artist,'_ddkun_header',False):
+            artist.remove()
+    renderer=fig.canvas.get_renderer()
+    fig_width=fig.get_figwidth()*fig.dpi
+    fig_height=fig.get_figheight()*fig.dpi
+    from matplotlib.textpath import TextPath
+    # Renderer-based width checks support both Japanese and Latin glyphs.
+    def wrap_lines(raw,size,max_width):
+        output=[]
+        fp=FontProperties(size=size,weight='bold' if raw==title else 'normal')
+        for paragraph in raw.split('\n'):
+            if not paragraph:
+                output.append('')
+                continue
+            line=''
+            for char in paragraph:
+                trial=line+char
+                probe=Text(x=0,y=0,text=trial,fontproperties=fp)
+                probe.set_figure(fig)
+                if line and probe.get_window_extent(renderer=renderer).width>max_width:
+                    output.append(line)
+                    line=char
+                else:
+                    line=trial
+            output.append(line)
+        return output
+    # Reserve the right edge for the account badge, including on portrait.
+    max_width=fig_width*.85
+    ts=int(scene.get('title_size',22))
+    ss=int(scene.get('subtitle_size',12))
+    # Fit both blocks above the divider, preserving explicit line breaks.
+    for _ in range(45):
+        title_lines=wrap_lines(title,ts,max_width)
+        subtitle_lines=wrap_lines(subtitle,ss,max_width)
+        needed=(len(title_lines)*ts*1.17+len(subtitle_lines)*ss*1.28+9)/fig_height
+        if needed<=.135 or (ts<=10 and ss<=6): break
+        if ts>10: ts-=1
+        if ss>6: ss-=1
+    y=.955
+    if title:
+        fig.text(.075,y,'\n'.join(title_lines),fontsize=ts,color=text,
+            fontweight='bold',va='top',ha='left',linespacing=1.17,zorder=100)
+        y-=len(title_lines)*ts*1.17/fig_height+.007
+    if subtitle:
+        fig.text(.075,y,'\n'.join(subtitle_lines),fontsize=ss,color=text,
+            va='top',ha='left',linespacing=1.25,alpha=.75,zorder=100)
+    line=Line2D([.075,.925],[.805,.805],transform=fig.transFigure,
+        color=grid,alpha=.65,lw=.85,zorder=99)
+    line._ddkun_header=True
+    fig.add_artist(line)
+    badge=FancyBboxPatch((.784,.965),.14,.028,boxstyle='round,pad=0.005,rounding_size=.015',
+        transform=fig.transFigure,facecolor='#243D62',edgecolor='none',zorder=102)
+    badge._ddkun_header=True
+    fig.add_artist(badge)
+    fig.text(.854,.979,'@ddkun_',color='white',fontsize=max(7,min(10,fig_width/80)),
+        fontweight='bold',ha='center',va='center',zorder=103)
+
+
 def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='preview'):
     fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'),scene)
     if scene.get('chart')=='逐次登場棒グラフ':
@@ -2037,6 +2111,8 @@ def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='pr
         _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,progress)
     else:
         dates,companies,pivot=_prepare_scene(df,scene); _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress)
+    fig.canvas.draw()
+    _apply_global_scene_header(fig,scene,text,grid)
     return fig
 
 
@@ -2079,6 +2155,7 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
         (_draw_horizontal_timeline_on if scene.get('chart')=='横進行年表' else _draw_timeline_on)(fig,ax,scene,bg,text,grid,1/max(2,frames))
     elif is_ranking: _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,1/max(2,frames))
     else: _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,1/max(2,frames))
+    _apply_global_scene_header(fig,scene,text,grid)
     # Canvas dimensions are required by FFmpeg for every scene type.
     # Keep this outside the graph-only branch so timeline scenes initialize width/height too.
     fig.canvas.draw(); width,height=fig.canvas.get_width_height(); _log(f"scene start title={scene.get('title','')} quality={quality} canvas={width}x{height} frames={frames+hold}")
@@ -2115,6 +2192,8 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
             if scene.get('chart')=='2指標・企業横比較' and i>=frames and cached_dual_frame is not None:
                 proc.stdin.write(cached_dual_frame)
             else:
+                fig.canvas.draw()
+                _apply_global_scene_header(fig,scene,text,grid)
                 fig.canvas.draw()
                 frame_bytes = bytes(fig.canvas.buffer_rgba())
                 if scene.get('chart')=='業績連動年表': financial_frame_cache=frame_bytes
