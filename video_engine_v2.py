@@ -1749,48 +1749,40 @@ def _draw_visual_timeline(fig,ax,scene,bg,text,grid,progress):
             fig.add_artist(Rectangle((0.,.155),1.,.675,
                 transform=fig.transFigure,facecolor=bg,
                 edgecolor='none',alpha=float(np.clip(veil,0,1)),zorder=30))
-    # Keep events away from rail ends; ticks are interior, not endpoint labels.
-    from datetime import timedelta
+    # Equally spaced event stops and five evenly spaced interior scale ticks.
+    from datetime import date
     from matplotlib.lines import Line2D
     dates=[event_date(e) for e in events]
-    lo,hi=min(dates),max(dates)
-    span=max(1,(hi-lo).days)
     x0,x1=.09,.91
     inset=.075
     rail_y=.115
+    left=x0+(x1-x0)*inset
+    right=x1-(x1-x0)*inset
     fig.add_artist(Line2D([x0,x1],[rail_y,rail_y],transform=fig.transFigure,
         color='#9AA7B6',lw=1.5,zorder=5))
-    def date_x(when):
-        return x0+(x1-x0)*(inset+(1.-2.*inset)*(when-lo.toordinal())/span)
+    def event_x(position):
+        return (left+right)/2 if len(dates)==1 else left+(right-left)*position/(len(dates)-1)
     for k in range(5):
         frac=(k+1)/6
-        when=lo+timedelta(days=round(span*frac))
-        x=date_x(when.toordinal())
+        x=x0+(x1-x0)*frac
         fig.add_artist(Line2D([x,x],[rail_y-.006,rail_y+.006],
             transform=fig.transFigure,color='#8495A9',lw=1.2,zorder=6))
-        label=when.strftime('%Y') if span>=1460 else (
-            when.strftime('%Y/%m') if span>=90 else when.strftime('%m/%d'))
+        if len(dates)==1:
+            ordinal=dates[0].toordinal()
+        else:
+            pos=frac*(len(dates)-1)
+            j=min(len(dates)-2,int(pos))
+            ordinal=round(dates[j].toordinal()+(dates[j+1].toordinal()-dates[j].toordinal())*(pos-j))
+        tick=date.fromordinal(ordinal)
+        span=(dates[-1]-dates[0]).days
+        label=tick.strftime('%Y') if span>=1460 else (
+            tick.strftime('%Y/%m') if span>=90 else tick.strftime('%m/%d'))
         fig.text(x,rail_y-.023,label,color=text,fontsize=7,ha='center',va='top')
-    # Subtle stationary markers indicate every event's stopping position.
-    # These remain visible while the moving playhead travels between events.
-    for event_date_value in dates:
-        marker_x=date_x(event_date_value.toordinal())
-        fig.add_artist(Line2D([marker_x],[rail_y],
-            transform=fig.transFigure,marker='o',markersize=5,
-            markerfacecolor='#AEBBCB',markeredgecolor='none',
-            alpha=.55,linestyle='None',zorder=7))
-    # Show all future stopping positions as faint markers on the rail.
-    for stop_date in dates:
-        stop_x=date_x(stop_date.toordinal())
-        fig.add_artist(Line2D([stop_x],[rail_y],
-            transform=fig.transFigure,marker='o',markersize=7,
-            markerfacecolor='#B7C2CF',markeredgecolor='none',
-            alpha=.55,linestyle='None',zorder=7))
-    if idx==0:
-        ordinal=dates[0].toordinal()
-    else:
-        ordinal=(1.-blend)*dates[idx-1].toordinal()+blend*dates[idx].toordinal()
-    x=date_x(ordinal)
+    for j in range(len(dates)):
+        fig.add_artist(Line2D([event_x(j)],[rail_y],transform=fig.transFigure,
+            marker='o',markersize=7,markerfacecolor='#B7C2CF',
+            markeredgecolor='none',alpha=.55,linestyle='None',zorder=7))
+    x=event_x(0 if idx==0 else idx-1+blend)
     fig.add_artist(Line2D([x],[rail_y],transform=fig.transFigure,
         marker='o',markersize=10,markerfacecolor='#233653',
         markeredgecolor='white',markeredgewidth=1.2,linestyle='None',zorder=8))
