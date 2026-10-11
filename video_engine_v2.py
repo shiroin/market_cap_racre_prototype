@@ -70,7 +70,7 @@ def _draw_scene_comments(fig,scene,text,progress,elapsed=None):
         # A single reserved panel keeps the two staggered comments together.
         # Its opacity follows the first comment, so the panel never flashes early.
         panel_alpha=a1 if c1 else a2
-        panel_y,panel_h=_comment_panel_layout(fig,[c1,c2],size,.086,.236)
+        panel_y,panel_h=_comment_panel_layout(fig,[c1,c2],size,.105,.292)
         if panel_alpha>0:
             panel=FancyBboxPatch((.075,panel_y),.85,panel_h,boxstyle='round,pad=0.008,rounding_size=0.012',
                 transform=fig.transFigure,facecolor='#233653',edgecolor='none',alpha=panel_alpha,zorder=28)
@@ -83,10 +83,10 @@ def _draw_scene_comments(fig,scene,text,progress,elapsed=None):
                 ha='center',va='center',alpha=a2,zorder=30,wrap=True,linespacing=1.18)
     else:
         if c1 and a1>0:
-            fig.text(.075,.155,c1,color=text,fontsize=size,fontweight='bold',
+            fig.text(.075,.275,c1,color=text,fontsize=size,fontweight='bold',
                 ha='left',va='bottom',alpha=a1,zorder=30,wrap=True)
         if c2 and a2>0:
-            fig.text(.075,.107,c2,color=text,fontsize=size,fontweight='bold',
+            fig.text(.075,.225,c2,color=text,fontsize=size,fontweight='bold',
                 ha='left',va='bottom',alpha=a2,zorder=30,wrap=True)
 
 
@@ -164,10 +164,19 @@ def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress
     if scene.get('source'): fig.text(.075,.052,f"出典: {scene['source']}",color=text,fontsize=7,ha='left',alpha=.58)
     _draw_scene_comments(fig,scene,text,p,elapsed)
     if scene.get('scene_note'):
-        # Divider belongs between the comment zone and the footnote zone.
-        divider=plt.Line2D([.075,.925],[.060,.060],transform=fig.transFigure,color=grid,lw=.7,alpha=.70)
-        fig.add_artist(divider)
-        fig.text(.075,.036,scene['scene_note'],color=text,fontsize=5.4,ha='left',va='bottom',alpha=.52,wrap=True)
+        # Strict footer hierarchy: chart > comment > divider > note.
+        # Anchor the note by its TOP edge so multiline text cannot cross the divider.
+        import textwrap
+        note=str(scene['scene_note'])
+        lines=[]
+        for paragraph in note.splitlines():
+            lines.extend(textwrap.wrap(paragraph,width=76,break_long_words=True) or [''])
+        divider_y=.085
+        fig.add_artist(plt.Line2D([.075,.925],[divider_y,divider_y],
+            transform=fig.transFigure,color=grid,lw=.7,alpha=.70))
+        font_size=min(6.,max(3.5,fig.get_figheight()*72*.060/max(1,len(lines)*1.22)))
+        fig.text(.075,divider_y-.011,'\\n'.join(lines),color=text,fontsize=font_size,
+            ha='left',va='top',alpha=.62,linespacing=1.18)
     x=np.arange(len(dates),dtype=float); chart=scene['chart']; ymax=100. if chart=='100%積み上げ' else float(max(1.,pivot.sum(axis=1).max() if chart=='積み上げ棒' else pivot.to_numpy().max()))*1.22; ax.set_ylim(0,ymax)
     decimals=int(scene.get('value_decimals',0)); label_mode=scene.get('data_labels','自動'); mode=scene.get('bar_animation','左→右'); live_size=scene.get('end_label_size',8); gap=scene.get('label_gap',.055)
     bar_gap=float(np.clip(scene.get('bar_gap',.32),0,.95)); period_width=1.0-bar_gap
