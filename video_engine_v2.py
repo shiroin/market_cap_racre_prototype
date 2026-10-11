@@ -175,7 +175,7 @@ def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress
         fig.add_artist(plt.Line2D([.075,.925],[divider_y,divider_y],
             transform=fig.transFigure,color=grid,lw=.7,alpha=.70))
         font_size=min(6.,max(3.5,fig.get_figheight()*72*.060/max(1,len(lines)*1.22)))
-        fig.text(.075,divider_y-.011,'\\n'.join(lines),color=text,fontsize=font_size,
+        fig.text(.075,divider_y-.011,'\n'.join(lines),color=text,fontsize=font_size,
             ha='left',va='top',alpha=.62,linespacing=1.18)
     x=np.arange(len(dates),dtype=float); chart=scene['chart']; ymax=100. if chart=='100%積み上げ' else float(max(1.,pivot.sum(axis=1).max() if chart=='積み上げ棒' else pivot.to_numpy().max()))*1.22; ax.set_ylim(0,ymax)
     decimals=int(scene.get('value_decimals',0)); label_mode=scene.get('data_labels','自動'); mode=scene.get('bar_animation','左→右'); live_size=scene.get('end_label_size',8); gap=scene.get('label_gap',.055)
