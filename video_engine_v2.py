@@ -2017,7 +2017,7 @@ def _apply_global_scene_header(fig,scene,text,grid):
     subtitle=str(scene.get('subtitle','') or '')
     # Remove scene-specific copies to avoid duplicated headers.
     for artist in list(fig.texts):
-        if artist.get_text() in (title,subtitle) and artist.get_text():
+        if (artist.get_text() in (title,subtitle) and artist.get_text()) or getattr(artist,'_ddkun_header',False):
             artist.remove()
     for artist in list(fig.artists):
         if getattr(artist,'_ddkun_header',False):
@@ -2091,8 +2091,9 @@ def _apply_global_scene_header(fig,scene,text,grid):
         transform=fig.transFigure,facecolor='#243D62',edgecolor='none',zorder=102)
     badge._ddkun_header=True
     fig.add_artist(badge)
-    fig.text(.854,.979,'@ddkun_',color='white',fontsize=max(7,min(10,fig_width/80)),
+    badge_text=fig.text(.854,.979,'@ddkun_',color='white',fontsize=max(7,min(10,fig_width/80)),
         fontweight='bold',ha='center',va='center',zorder=103)
+    badge_text._ddkun_header=True
 
 
 def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='preview'):
