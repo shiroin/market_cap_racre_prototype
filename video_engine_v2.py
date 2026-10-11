@@ -56,10 +56,10 @@ def _draw_scene_comments(fig,scene,text,progress,elapsed=None):
     if not c1 and not c2: return
     size=int(scene.get('scene_comment_size',12))
     duration=max(.01,float(scene.get('duration',2.8)))
-    delay=max(0.,float(scene.get('scene_comment_delay',.7)))
+    delay=0.0  # Comments fade in immediately after the chart finishes.
     gap=max(0.,float(scene.get('scene_comment_gap',.8)))
     t=float(elapsed) if elapsed is not None else float(progress)*duration
-    fade=.45
+    fade=.30
     start1=duration+delay
     start2=start1+fade+gap if c1 else start1
     a1=float(ease_in_out(np.clip((t-start1)/fade,0,1))) if c1 else 0.
@@ -2053,22 +2053,36 @@ def _apply_global_scene_header(fig,scene,text,grid):
     max_width=fig_width*.85
     ts=int(scene.get('title_size',22))
     ss=int(scene.get('subtitle_size',12))
-    # Fit both blocks above the divider, preserving explicit line breaks.
-    for _ in range(45):
+    # Lay out using actual renderer extents, not estimated point heights.
+    # Keep a hard minimum gap between title and subtitle at every aspect ratio.
+    top=.953
+    divider_y=.805
+    min_gap_px=max(8.,fig_height*.012)
+    bottom_limit=divider_y*fig_height+max(8.,fig_height*.012)
+    title_artist=None
+    subtitle_artist=None
+    for _ in range(80):
         title_lines=wrap_lines(title,ts,max_width)
         subtitle_lines=wrap_lines(subtitle,ss,max_width)
-        needed=(len(title_lines)*ts*1.17+len(subtitle_lines)*ss*1.28+9)/fig_height
-        if needed<=.135 or (ts<=10 and ss<=6): break
-        if ts>10: ts-=1
-        if ss>6: ss-=1
-    y=.955
-    if title:
-        fig.text(.075,y,'\n'.join(title_lines),fontsize=ts,color=text,
-            fontweight='bold',va='top',ha='left',linespacing=1.17,zorder=100)
-        y-=len(title_lines)*ts*1.17/fig_height+.007
-    if subtitle:
-        fig.text(.075,y,'\n'.join(subtitle_lines),fontsize=ss,color=text,
-            va='top',ha='left',linespacing=1.25,alpha=.75,zorder=100)
+        if title_artist is not None: title_artist.remove()
+        if subtitle_artist is not None: subtitle_artist.remove()
+        title_artist=fig.text(.075,top,'\\n'.join(title_lines),fontsize=ts,color=text,
+            fontweight='bold',va='top',ha='left',linespacing=1.22,zorder=100) if title else None
+        fig.canvas.draw()
+        title_bottom=(title_artist.get_window_extent(renderer=fig.canvas.get_renderer()).y0
+            if title_artist is not None else top*fig_height)
+        subtitle_top=(title_bottom-min_gap_px)/fig_height
+        subtitle_artist=fig.text(.075,subtitle_top,'\\n'.join(subtitle_lines),fontsize=ss,color=text,
+            va='top',ha='left',linespacing=1.28,alpha=.75,zorder=100) if subtitle else None
+        fig.canvas.draw()
+        bottom=(subtitle_artist.get_window_extent(renderer=fig.canvas.get_renderer()).y0
+            if subtitle_artist is not None else title_bottom)
+        if bottom>=bottom_limit: break
+        if ts<=8 and ss<=5: break
+        if ts>8: ts-=1
+        if ss>5: ss-=1
+    # If exceptionally long text cannot fit, move the separator below the header
+    # instead of allowing the heading blocks to overlap.
     line=Line2D([.075,.925],[.805,.805],transform=fig.transFigure,
         color=grid,alpha=.65,lw=.85,zorder=99)
     line._ddkun_header=True
@@ -2119,7 +2133,7 @@ def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='pr
 def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
     started=time.monotonic(); frames=max(2,int(scene.get('duration',2.5)*fps)); hold=max(0,int(scene.get('hold',1.0)*fps))
     if scene.get('chart')=='テキストカード一覧' and (scene.get('scene_comment_1') or scene.get('scene_comment_2')):
-        delay=max(0.,float(scene.get('scene_comment_delay',.7)))
+        delay=0.0
         gap=max(0.,float(scene.get('scene_comment_gap',.8)))
         both=bool(scene.get('scene_comment_1')) and bool(scene.get('scene_comment_2'))
         required_hold=delay+.45+(gap+.45 if both else 0.)+.4
