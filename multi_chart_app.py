@@ -193,7 +193,7 @@ def _rich_style_gui(scene_index):
         field_name=st.selectbox("編集対象",list(fields),key=f"rich_field_{scene_index}")
         field=fields[field_name]
         content=str(st.session_state.get(field,""))
-        plain=re.sub(r"\\[(?:/|(?:color|size)=[^\\]]+)\\]","",content)
+        plain=re.sub(r"\[(?:/|(?:color|size)=[^\]]+)\]","",content)
         selected=st.text_input("装飾する文字（文章内の文字をコピーして入力）",key=f"rich_target_{scene_index}")
         col1,col2,col3=st.columns([1,1,1])
         color=col1.color_picker("文字色","#FF4444",key=f"rich_color_{scene_index}")
