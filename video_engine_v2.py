@@ -1437,7 +1437,8 @@ def _draw_dual_metric_scene(fig, ax, df, scene, bg, text, grid, progress, prepar
                 ha='left',va='top',alpha=.7)
         period_text=fig.text(.5,.755,'',fontsize=15,fontweight='bold',color=text,ha='center')
         fig.legend(handles=[Patch(color=color_a,label=str(a)),Patch(color=color_b,label=str(b))],
-            loc='lower center',bbox_to_anchor=(.5,.245),ncol=2,frameon=False,labelcolor=text,fontsize=scene.get('legend_size',14))
+            loc='lower center',bbox_to_anchor=(.5,.775),ncol=2,frameon=False,
+            labelcolor=text,fontsize=scene.get('legend_size',14))
         if not shared:
             fig.text(.5,.225,f"下軸: {a} / 上軸: {b}",color=text,fontsize=7,ha='center')
         note='\\n'.join(v for v in [str(scene.get('scene_note','') or '').strip(),
@@ -1733,8 +1734,12 @@ def _draw_company_financial_history(fig,ax,df,scene,bg,text,grid,progress,elapse
     from matplotlib.patches import Patch
     h1=Line2D([0],[0],color=color_a,lw=3) if style=='折れ線2本' else Patch(facecolor=color_a)
     h2=Patch(facecolor=color_b) if style=='並列棒' else Line2D([0],[0],color=color_b,lw=3)
-    ax.legend([h1,h2],[a,b],loc='upper left',bbox_to_anchor=(0,1.13),
-        frameon=False,ncol=2,fontsize=scene.get('legend_size',14),labelcolor=text)
+    # Keep the legend directly above the plot, but below the subtitle/divider.
+    # Place it in the graph's own band instead of the shared header band.
+    legend_y=1.035
+    ax.legend([h1,h2],[a,b],loc='lower left',bbox_to_anchor=(0,legend_y),
+        frameon=False,ncol=2,fontsize=scene.get('legend_size',14),labelcolor=text,
+        borderaxespad=0.,columnspacing=1.5,handlelength=1.6)
     fig.text(.075,.93,scene.get('title',company+'の業績推移'),color=text,
         fontsize=scene.get('title_size',22),fontweight='bold',ha='left')
     _draw_reference_subtitle(fig,scene,text,y=.885,fontsize=scene.get('subtitle_size',12))
