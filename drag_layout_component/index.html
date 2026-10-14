@@ -1,0 +1,40 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+body{margin:0;font-family:system-ui,sans-serif;background:#111827;color:#f9fafb}
+#bar{padding:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+button{background:#2563eb;color:white;border:0;border-radius:5px;padding:8px 13px;cursor:pointer}
+#stage{position:relative;margin:0 auto;max-width:100%;touch-action:none;user-select:none}
+#image{display:block;width:100%;height:auto;pointer-events:none}
+.part{position:absolute;border:2px dashed #f59e0b;background:#f59e0b20;color:#fff;font-size:12px;font-weight:700;padding:3px 5px;cursor:grab;box-sizing:border-box;min-width:64px;text-shadow:0 1px 3px #000}
+.part:active{cursor:grabbing}.part.active{border-color:#38bdf8;background:#0284c755}
+#info{padding:8px;font-size:12px;color:#d1d5db}
+</style></head><body><div id="bar"><b>ドラッグ配置エディター</b><button id="save">配置を反映</button><button id="reset">全て初期位置へ</button><span>枠をドラッグして移動 →「配置を反映」</span></div><div id="stage"><img id="image"/><div id="parts"></div></div><div id="info"></div>
+<script>
+let args={},positions={},drag=null;
+const defaults={title:[.075,.953],subtitle:[.075,.86],legend:[.15,.77],plot:[.09,.32],comment1:[.075,.275],comment2:[.075,.225]};
+const labels={title:"タイトル",subtitle:"サブタイトル",legend:"凡例",plot:"グラフ",comment1:"コメント①",comment2:"コメント②"};
+function send(value){parent.postMessage({isStreamlitMessage:true,type:"streamlit:setComponentValue",value:value,dataType:"json"},"*")}
+function height(){parent.postMessage({isStreamlitMessage:true,type:"streamlit:setFrameHeight",height:document.body.scrollHeight+8},"*")}
+function draw(){
+ const stage=document.getElementById("stage");stage.style.width=(args.width||640)+"px";
+ document.getElementById("image").src="data:image/png;base64,"+(args.image||"");
+ const root=document.getElementById("parts");root.innerHTML="";
+ for(const [key,label] of Object.entries(labels)){
+  if((key==="comment1"&&!args.comment1)||(key==="comment2"&&!args.comment2))continue;
+  const xy=positions[key]||{x:defaults[key][0],y:defaults[key][1]};
+  const el=document.createElement("div");el.className="part";el.textContent=label;
+  el.style.left=(xy.x*100)+"%";el.style.top=((1-xy.y)*100)+"%";
+  if(key==="plot"){el.style.width=((xy.w||.75)*100)+"%";el.style.height=((xy.h||.47)*100)+"%";el.style.background="transparent";el.style.pointerEvents="auto"}
+  root.appendChild(el);
+  el.addEventListener("pointerdown",e=>{e.preventDefault();el.setPointerCapture(e.pointerId);drag={key,el,px:e.clientX,py:e.clientY,x:xy.x,y:xy.y};el.classList.add("active")});
+  el.addEventListener("pointermove",e=>{if(!drag||drag.el!==el)return;const rect=stage.getBoundingClientRect();const x=Math.max(0,Math.min(1,drag.x+(e.clientX-drag.px)/rect.width));const y=Math.max(0,Math.min(1,drag.y-(e.clientY-drag.py)/rect.height));positions[key]={...positions[key],x,y};el.style.left=x*100+"%";el.style.top=(1-y)*100+"%";document.getElementById("info").textContent=label+" X: "+Math.round(x*100)+"% / Y: "+Math.round(y*100)+"%"});
+  el.addEventListener("pointerup",()=>{drag=null;el.classList.remove("active")});
+ }
+ height()
+}
+window.addEventListener("message",e=>{if(e.data.type==="streamlit:render"){args=e.data.args||{};positions=JSON.parse(JSON.stringify(args.positions||{}));draw()}});
+document.getElementById("image").onload=height;
+document.getElementById("save").onclick=()=>send({positions,action:"save"});
+document.getElementById("reset").onclick=()=>send({positions:{},action:"reset"});
+parent.postMessage({isStreamlitMessage:true,type:"streamlit:componentReady",apiVersion:1},"*");
+height();
+</script></body></html>
