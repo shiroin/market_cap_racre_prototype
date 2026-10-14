@@ -177,16 +177,31 @@ def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress
         font_size=min(6.,max(3.5,fig.get_figheight()*72*.060/max(1,len(lines)*1.22)))
         fig.text(.075,divider_y-.011,'\n'.join(lines),color=text,fontsize=font_size,
             ha='left',va='top',alpha=.62,linespacing=1.18)
-    x=np.arange(len(dates),dtype=float); chart=scene['chart']; ymax=100. if chart=='100%積み上げ' else float(max(1.,pivot.sum(axis=1).max() if chart=='積み上げ棒' else pivot.to_numpy().max()))*1.22; ax.set_ylim(0,ymax)
+    x=np.arange(len(dates),dtype=float); chart=scene['chart']
+    raw_values=pivot.to_numpy(dtype=float)
+    if chart in ('積み上げ棒','100%積み上げ'):
+        normalized=pivot.div(pivot.sum(axis=1).replace(0,np.nan),axis=0).fillna(0)*100 if chart=='100%積み上げ' else pivot
+        stack=normalized.to_numpy(dtype=float)
+        extrema=np.r_[stack.clip(min=0).sum(axis=1),stack.clip(max=0).sum(axis=1)]
+    else:
+        extrema=raw_values.ravel()
+    extrema=extrema[np.isfinite(extrema)]
+    low=min(0.,float(extrema.min())) if extrema.size else 0.
+    high=max(0.,float(extrema.max())) if extrema.size else 1.
+    span=max(high-low,1e-9)
+    ymin=low-span*.12 if low<0 else 0.
+    ymax=high+span*.20 if high>0 else span*.12
+    ax.set_ylim(ymin,ymax)
+    ax.axhline(0,color=grid,lw=.85,alpha=.7,zorder=1)
     decimals=int(scene.get('value_decimals',0)); label_mode=scene.get('data_labels','自動'); mode=scene.get('bar_animation','左→右'); live_size=scene.get('end_label_size',8); gap=scene.get('label_gap',.055)
     bar_gap=float(np.clip(scene.get('bar_gap',.32),0,.95)); period_width=1.0-bar_gap
 
     if chart in ('積み上げ棒','100%積み上げ'):
         shown=pivot.copy()
         if chart=='100%積み上げ': shown=shown.div(shown.sum(axis=1).replace(0,np.nan),axis=0).fillna(0)*100
-        reveal=_bar_reveal(p,len(dates),mode); bottom=np.zeros(len(dates)); segments=[]
+        reveal=_bar_reveal(p,len(dates),mode); positive_bottom=np.zeros(len(dates)); negative_bottom=np.zeros(len(dates)); segments=[]
         for company in companies:
-            raw=shown[company].to_numpy(float) if company in shown else np.zeros(len(dates)); vals=raw*reveal; centers=bottom+vals/2; ax.bar(x,vals,bottom=bottom,color=cmap[company],width=period_width,label=company,alpha=chart_a); segments.append((company,raw,vals,centers)); bottom+=vals
+            raw=shown[company].to_numpy(float) if company in shown else np.zeros(len(dates)); vals=raw*reveal; bottom=np.where(vals>=0,positive_bottom,negative_bottom); centers=bottom+vals/2; ax.bar(x,vals,bottom=bottom,color=cmap[company],width=period_width,label=company,alpha=chart_a); segments.append((company,raw,vals,centers)); positive_bottom+=np.maximum(vals,0); negative_bottom+=np.minimum(vals,0)
 
         # Reference-video motion: labels do NOT grow vertically with the bars.
         # They are already sitting at the full-value positions for the current date
@@ -230,7 +245,7 @@ def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress
             raw=pivot[company].to_numpy(float) if company in pivot else np.zeros(len(dates)); vals=raw*reveal; xpos=x+(i-(len(companies)-1)/2)*width; ax.bar(xpos,vals,width=width,color=cmap[company],label=company,alpha=chart_a); series.append((company,raw,vals,xpos))
             if label_mode!='なし' and p>=.45:
                 for k,val in enumerate(vals):
-                    if reveal[k]>=.96 and val>0 and label_mode in ('自動','すべて','合計のみ'): ax.text(xpos[k],val+ymax*.012,_fmt_value(val,decimals),color=text,ha='center',va='bottom',fontsize=scene.get('data_label_size',7),fontweight='bold',alpha=late_a,clip_on=False)
+                    if reveal[k]>=.96 and label_mode in ('自動','すべて','合計のみ'): ax.text(xpos[k],val+(1 if val>=0 else -1)*(ymax-ymin)*.012,_fmt_value(val,decimals),color=text,ha='center',va='bottom' if val>=0 else 'top',fontsize=scene.get('data_label_size',7),fontweight='bold',alpha=late_a,clip_on=False)
 
         # Reference-video motion for grouped bars: keep labels at the full bar-tip
         # heights instead of making them rise from zero with the reveal. Between
@@ -263,7 +278,7 @@ def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress
                 ax.plot(xs,ys,color=cmap[company],linewidth=2.8,solid_capstyle='round',alpha=chart_a); ax.scatter([end_x],[end_y],color=cmap[company],s=18,zorder=4,alpha=chart_a)
             endpoints.append((company,end_x,end_y))
         if scene.get('end_labels',True):
-            adjusted=_spread_label_positions([v for _,_,v in endpoints],0,ymax,gap)
+            adjusted=_spread_label_positions([v for _,_,v in endpoints],ymin,ymax,gap)
             for (company,end_x,actual_y),label_y in zip(endpoints,adjusted):
                 # The reference line charts also keep the label at the moving endpoint.
                 # A tiny vertical separation is used only when two series overlap.
@@ -338,7 +353,7 @@ def _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,progress,elaps
                     box_alignment=(.5,.5),annotation_clip=False))
             except (ValueError,OSError,TypeError):
                 pass
-    ax.invert_yaxis(); ax.set_xlim(0,xmax)
+    ax.invert_yaxis(); xmin=min(0.,float(np.nanmin(values))); span=max(xmax-xmin,1e-9); ax.set_xlim(xmin-span*.10,xmax)
     ax.grid(axis='x',color=grid,linewidth=.8,alpha=.55); ax.grid(axis='y',visible=False); ax.set_xlabel(scene.get('unit',''),color=text,fontsize=8)
     ref=float(scene.get('ranking_reference',0) or 0)
     if ref>0: ax.axvline(ref,color=text,lw=1,ls=(0,(2,3)),alpha=.48)
@@ -408,16 +423,16 @@ def _draw_sequential_bars(fig,ax,df,scene,bg,text,grid,cmap,progress):
             t-=read
     n=len(data)
     ax.set_position([.17,.33,.76,.40])
-    xmax=max(1.,max(0.,max(v for _,v in data))*1.18)
+    all_values=np.array([v for _,v in data],dtype=float); hi=max(0.,float(all_values.max())); lo=min(0.,float(all_values.min())); span=max(hi-lo,1e-9); xmax=hi+span*.18; xmin=lo-span*.12
     for j,(name,value) in enumerate(data):
         if j>=len(fractions): break
-        shown=max(0.,value)*fractions[j]
+        shown=value*fractions[j]
         color=(scene.get('ranking_company_colors') or {}).get(name,cmap.get(name,'#1877F2'))
         ax.bar([j],[shown],color=color,width=.66,zorder=3)
         ax.text(j,shown+xmax*.012,f"{shown:,.0f}{scene.get('unit','')}",
             color=text,fontsize=max(7,11-.16*n),ha='center',va='bottom',fontweight='bold')
     ax.set_xlim(-.65,n-.35)
-    ax.set_ylim(0,xmax)
+    ax.set_ylim(xmin,xmax)
     ax.set_xticks(range(n),[name for name,_ in data],fontsize=max(6,10-.2*n))
     ax.tick_params(axis='y',labelsize=8)
     ax.grid(axis='y',color=grid,alpha=.35)
@@ -530,12 +545,12 @@ def _draw_ranking_race(fig,ax,df,scene,bg,text,grid,cmap,progress,elapsed=None):
     rank_y=pd.Series(rank_positions)
 
     ax.set_position([.32,.28,.60,.53])
-    xmax=max(1.,float(np.nanmax(pivot.to_numpy()))*1.12)
+    all_race_values=pivot.to_numpy(dtype=float); race_hi=max(0.,float(np.nanmax(all_race_values))); race_lo=min(0.,float(np.nanmin(all_race_values))); race_span=max(race_hi-race_lo,1e-9); xmax=race_hi+race_span*.12; xmin=race_lo-race_span*.12
     colors=scene.get('ranking_company_colors') or {}
     for name in visible:
         yy=float(rank_y[name])
         if yy>n_top+.5: continue
-        value=max(0.,float(vals[name]))
+        value=float(vals[name])
         opacity=float(np.clip(min(1.,(n_top+.35-yy)/.8),0.,1.))
         color=colors.get(name,cmap.get(name,'#3278C8'))
         ax.barh([yy],[value],color=color,height=.70,alpha=opacity,zorder=3)
@@ -545,7 +560,7 @@ def _draw_ranking_race(fig,ax,df,scene,bg,text,grid,cmap,progress,elapsed=None):
             va='center',alpha=opacity,clip_on=False)
     ax.set_yticks([])
     ax.set_ylim(n_top-.25,-.8)
-    ax.set_xlim(0,xmax)
+    ax.set_xlim(xmin,xmax)
     ax.tick_params(axis='x',labelsize=8)
     ax.grid(axis='x',color=grid,alpha=.35)
     ax.grid(axis='y',visible=False)
@@ -1837,20 +1852,27 @@ def _draw_separated_guidance(fig,ax,df,scene,bg,text,grid,cmap,progress,elapsed=
     p=float(np.clip(progress,0,1))
     # Reveal historical periods first, then the separate guidance column.
     reveal=_energetic_reveal(np.clip(p*(len(historical)+1)-np.arange(len(historical)+1),0,1))
-    hist_bottom=np.zeros(len(historical))
-    guide_bottom=0.
+    hist_pos=np.zeros(len(historical)); hist_neg=np.zeros(len(historical))
+    guide_pos=0.; guide_neg=0.
     for company in companies:
         color=cmap.get(company,'#8496AE')
         hv=pivot.loc[historical,company].to_numpy(dtype=float) if historical else np.array([])
         gv=float(pivot.loc[guide,company])
         if len(historical):
-            ax.bar(xhist,hv*reveal[:-1],bottom=hist_bottom,width=.76,color=color,edgecolor=bg,linewidth=.4)
-            hist_bottom+=hv*reveal[:-1]
-        ax.bar([gx],[gv*reveal[-1]],bottom=[guide_bottom],width=.86,color=color,edgecolor=bg,linewidth=.4)
-        guide_bottom+=gv*reveal[-1]
+            shown=hv*reveal[:-1]
+            ax.bar(xhist,shown,bottom=np.where(shown>=0,hist_pos,hist_neg),width=.76,color=color,edgecolor=bg,linewidth=.4)
+            hist_pos+=np.maximum(shown,0); hist_neg+=np.minimum(shown,0)
+        shown_g=gv*reveal[-1]
+        ax.bar([gx],[shown_g],bottom=[guide_pos if shown_g>=0 else guide_neg],width=.86,color=color,edgecolor=bg,linewidth=.4)
+        guide_pos+=max(shown_g,0); guide_neg+=min(shown_g,0)
     totals=pivot.sum(axis=1).to_numpy(dtype=float)
-    ymax=max(1.,float(np.max(totals))*1.18)
-    ax.set_ylim(0,100 if scene.get('guidance_percent') else ymax)
+    stack=pivot.to_numpy(dtype=float)
+    positive=np.maximum(stack,0).sum(axis=1)
+    negative=np.minimum(stack,0).sum(axis=1)
+    low=min(0.,float(np.min(negative))); high=max(0.,float(np.max(positive)))
+    span=max(high-low,1e-9)
+    ax.set_ylim(low-span*.12 if low<0 else 0.,high+span*.18)
+    ax.axhline(0,color=grid,lw=.8,alpha=.65)
     ax.set_xlim(-.7,gx+.8)
     ax.set_xticks(xall)
     ax.set_xticklabels(historical+[guide],rotation=35,ha='right',fontsize=8,color=text)
