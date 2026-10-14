@@ -66,7 +66,12 @@ def _rich_lines(value, default_color, default_size):
 def _rich_draw(fig,raw,x,y,color,size,weight='normal',alpha=1.,align='left',valign='top',zorder=100,spacing=1.25):
     """Draw colored and resized spans with real renderer widths in figure coordinates."""
     from matplotlib.font_manager import FontProperties
-    renderer=fig.canvas.get_renderer()
+    renderer=fig.canvas.get_renderer() if hasattr(fig.canvas,'get_renderer') else None
+    if renderer is None:
+        from matplotlib.backends.backend_agg import FigureCanvasAgg
+        FigureCanvasAgg(fig)
+        fig.canvas.draw()
+        renderer=fig.canvas.get_renderer()
     fw,fh=fig.get_size_inches()*fig.dpi
     lines=_rich_lines(raw,color,size)
     heights=[max([span[2] for span in line]+[size])*fig.dpi/72*spacing for line in lines]
@@ -763,7 +768,12 @@ def _draw_safe_financial_header(fig,scene,text,progress):
     left=.075
     # Use the actual renderer to measure glyphs (including Japanese).
     fig.canvas.draw()
-    renderer=fig.canvas.get_renderer()
+    renderer=fig.canvas.get_renderer() if hasattr(fig.canvas,'get_renderer') else None
+    if renderer is None:
+        from matplotlib.backends.backend_agg import FigureCanvasAgg
+        FigureCanvasAgg(fig)
+        fig.canvas.draw()
+        renderer=fig.canvas.get_renderer()
     fig_h=fig.bbox.height
     fig_w=fig.bbox.width
     max_width=fig_w*.85
