@@ -139,9 +139,9 @@ def _draw_scene_comments(fig,scene,text,progress,elapsed=None):
             setattr(fig,'_ddkun_comment_role','comment2'); _rich_draw(fig,c2,.50,panel_y+panel_h*(.27 if c1 else .50),'white',size,weight='bold',alpha=a2,align='center',valign='center',zorder=30)
     else:
         if c1 and a1>0:
-            setattr(fig,'_ddkun_comment_role','comment1'); _rich_draw(fig,c1,.075,.275,text,size,weight='bold',alpha=a1,align='left',valign='bottom',zorder=30)
+            setattr(fig,'_ddkun_comment_role','comment1'); _rich_draw(fig,c1,.50,.275,text,size,weight='bold',alpha=a1,align='center',valign='bottom',zorder=30)
         if c2 and a2>0:
-            setattr(fig,'_ddkun_comment_role','comment2'); _rich_draw(fig,c2,.075,.225,text,size,weight='bold',alpha=a2,align='left',valign='bottom',zorder=30)
+            setattr(fig,'_ddkun_comment_role','comment2'); _rich_draw(fig,c2,.50,.225,text,size,weight='bold',alpha=a2,align='center',valign='bottom',zorder=30)
 
 
 def _style_axis(ax,bg,text,grid):
@@ -2127,10 +2127,10 @@ def _apply_global_scene_header(fig,scene,text,grid):
         for artist in list(fig.texts):
             if getattr(artist,'_ddkun_header',False): artist.remove()
         fig._ddkun_rich_role='title'
-        title_h,title_w=_rich_draw(fig,title,.075,.953,text,ts,weight='bold') if title else (0,0)
+        title_h,title_w=_rich_draw(fig,title,.50,.953,text,ts,weight='bold',align='center') if title else (0,0)
         subtitle_y=.953-(title_h+max(8.,fig_height*.012))/fig_height
         fig._ddkun_rich_role='subtitle'
-        sub_h,sub_w=_rich_draw(fig,subtitle,.075,subtitle_y,text,ss,alpha=.75) if subtitle else (0,0)
+        sub_h,sub_w=_rich_draw(fig,subtitle,.50,subtitle_y,text,ss,alpha=.75,align='center') if subtitle else (0,0)
         if max(title_w,sub_w)<=max_width and (subtitle_y*fig_height-sub_h)>=fig_height*.817: break
         if ts<=7 and ss<=5: break
         if ts>7: ts-=1
