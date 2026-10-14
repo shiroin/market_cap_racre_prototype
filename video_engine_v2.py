@@ -997,7 +997,7 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress,elaps
             fig.text(event_x,date_y,current['date'],color=text,fontsize=9,
                 fontweight='bold',ha='left',va='top',alpha=opacity)
         if current.get('title'):
-            fig.text(event_x,title_y,'\\n'.join(title_lines),color=text,fontsize=title_font,
+            fig.text(event_x,title_y,'\n'.join(title_lines),color=text,fontsize=title_font,
                 fontweight='bold',ha='left',va='top',alpha=opacity,linespacing=1.15)
         if current.get('description'):
             description=str(current['description']).strip()
@@ -2103,17 +2103,22 @@ def _apply_global_scene_header(fig,scene,text,grid):
     title_artist=None
     subtitle_artist=None
     for _ in range(80):
-        title_lines=wrap_lines(title,ts,max_width)
+        # Never insert automatic line breaks into titles. Respect only user-entered newlines.
+        title_lines=title.split('\n')
         subtitle_lines=wrap_lines(subtitle,ss,max_width)
+        title_width=max((Text(x=0,y=0,text=line,fontproperties=FontProperties(size=ts,weight='bold')).get_window_extent(renderer=renderer).width for line in title_lines),default=0)
+        if title_width>max_width and ts>6:
+            ts-=1
+            continue
         if title_artist is not None: title_artist.remove()
         if subtitle_artist is not None: subtitle_artist.remove()
-        title_artist=fig.text(.075,top,'\\n'.join(title_lines),fontsize=ts,color=text,
+        title_artist=fig.text(.075,top,'\n'.join(title_lines),fontsize=ts,color=text,
             fontweight='bold',va='top',ha='left',linespacing=1.22,zorder=100) if title else None
         fig.canvas.draw()
         title_bottom=(title_artist.get_window_extent(renderer=fig.canvas.get_renderer()).y0
             if title_artist is not None else top*fig_height)
         subtitle_top=(title_bottom-min_gap_px)/fig_height
-        subtitle_artist=fig.text(.075,subtitle_top,'\\n'.join(subtitle_lines),fontsize=ss,color=text,
+        subtitle_artist=fig.text(.075,subtitle_top,'\n'.join(subtitle_lines),fontsize=ss,color=text,
             va='top',ha='left',linespacing=1.28,alpha=.75,zorder=100) if subtitle else None
         fig.canvas.draw()
         bottom=(subtitle_artist.get_window_extent(renderer=fig.canvas.get_renderer()).y0
