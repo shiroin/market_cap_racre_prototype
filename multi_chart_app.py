@@ -258,6 +258,29 @@ for i in range(int(scene_count)):
         scene_comment_1 = cc1.text_area("下部コメント①", "", key=f"scene_comment_1_{i}", height=70, help="部分装飾: [color=#FF4444 size=20]重要[/]。色またはサイズのみでも指定できます。")
         scene_comment_2 = cc2.text_area("下部コメント②", "", key=f"scene_comment_2_{i}", height=70, help="部分装飾: [color=#FF4444 size=20]重要[/]。")
         _rich_style_gui(i)
+        with st.expander("📐 パーツの配置を調整（シーン別）",expanded=False):
+            st.caption("画面全体を0〜100%とした座標です。Xは左から、Yは下からの位置。プレビュー・PNG・MP4に共通反映します。")
+            layout_positions={}
+            for label,key,default_x,default_y in [
+                ("タイトル","title",7.5,95.3),
+                ("サブタイトル","subtitle",7.5,86.0),
+                ("凡例","legend",15.0,77.0),
+                ("グラフ本体","plot",9.0,32.0),
+                ("下部コメント①","comment1",7.5,27.5),
+                ("下部コメント②","comment2",7.5,22.5),
+            ]:
+                enabled=st.checkbox(f"{label}の位置を指定",value=False,key=f"layout_enable_{key}_{i}")
+                if enabled:
+                    lx,ly=st.columns(2)
+                    x=lx.slider(f"{label} X（%）",0.0,100.0,float(default_x),0.5,key=f"layout_x_{key}_{i}")
+                    y=ly.slider(f"{label} Y（%）",0.0,100.0,float(default_y),0.5,key=f"layout_y_{key}_{i}")
+                    layout_positions[key]={"x":x/100,"y":y/100}
+                    if key=="plot":
+                        lw,lh=st.columns(2)
+                        width=lw.slider("グラフ幅（%）",10.0,100.0,75.0,0.5,key=f"layout_w_{i}")
+                        height=lh.slider("グラフ高さ（%）",10.0,90.0,47.0,0.5,key=f"layout_h_{i}")
+                        layout_positions[key].update({"w":width/100,"h":height/100})
+
         scene_comment_size = st.slider("下部コメントサイズ", 8, 24, 12, key=f"scene_comment_size_{i}")
         scene_comment_style = st.selectbox("下部コメントのデザイン", ["白抜き（濃紺背景）", "従来（文字のみ）"], key=f"scene_comment_style_{i}", help="白抜きでは濃紺の角丸ボックスに白文字で表示します。")
         scene_comment_delay = st.slider("グラフ完了後→下部コメント①まで（秒）", 0.0, 3.0, 0.7, 0.1, key=f"scene_comment_delay_{i}", help="グラフの描画が完了してから下部コメント①のフェード開始までの待ち時間です。")
@@ -620,7 +643,7 @@ for i in range(int(scene_count)):
                                 outlier_company_icons[company_name]={"type":"image",
                                     "value":base64.b64encode(upload.getvalue()).decode("ascii")}
         scenes.append({
-            "chart":chart, "outlier_base":outlier_base, "outlier_color":outlier_color, "outlier_normal_color":outlier_normal_color, "outlier_company_colors":outlier_company_colors, "outlier_company_icons":outlier_company_icons, "text_cards":text_cards, "metric":metric, "title":title, "subtitle":subtitle, "unit":unit, "source":source_text, "scene_note":scene_note, "scene_comment_1":scene_comment_1, "scene_comment_2":scene_comment_2, "scene_comment_size":scene_comment_size, "scene_comment_style":scene_comment_style, "scene_comment_delay":scene_comment_delay, "scene_comment_gap":scene_comment_gap, "race_top_n":race_top_n, "race_pause_seconds":race_pause_seconds, "race_comments":race_comments, "sequential_comments":sequential_comments, "sequential_reveal_seconds":sequential_reveal_seconds, "sequential_read_seconds":sequential_read_seconds,
+            "chart":chart, "layout_positions":layout_positions, "outlier_base":outlier_base, "outlier_color":outlier_color, "outlier_normal_color":outlier_normal_color, "outlier_company_colors":outlier_company_colors, "outlier_company_icons":outlier_company_icons, "text_cards":text_cards, "metric":metric, "title":title, "subtitle":subtitle, "unit":unit, "source":source_text, "scene_note":scene_note, "scene_comment_1":scene_comment_1, "scene_comment_2":scene_comment_2, "scene_comment_size":scene_comment_size, "scene_comment_style":scene_comment_style, "scene_comment_delay":scene_comment_delay, "scene_comment_gap":scene_comment_gap, "race_top_n":race_top_n, "race_pause_seconds":race_pause_seconds, "race_comments":race_comments, "sequential_comments":sequential_comments, "sequential_reveal_seconds":sequential_reveal_seconds, "sequential_read_seconds":sequential_read_seconds,
             "duration":duration, "hold":hold, "title_size":title_size, "subtitle_size":subtitle_size, "legend":legend, "legend_size":legend_size, "end_labels":end_labels,
             "latest_values":latest_values, "end_label_size":end_label_size, "label_gap":label_gap,
             "value_decimals":value_decimals, "bar_animation":bar_animation, "data_labels":data_labels,
