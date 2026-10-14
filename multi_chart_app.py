@@ -297,6 +297,7 @@ for i in range(int(scene_count)):
         subtitle_size = c7b.slider("サブタイトルサイズ", 6, 32, 12, key=f"subtitle_size_{i}")
         c8, c9, c10 = st.columns(3)
         legend = c8.checkbox("凡例", chart != "折れ線", key=f"legend_{i}")
+        legend_size = c8.slider("凡例の文字サイズ", 8, 28, 14, key=f"legend_size_{i}")
         end_labels = c9.checkbox("右端ラベル", chart == "折れ線", key=f"end_labels_{i}")
         latest_values = c10.checkbox("最新値を表示", True, key=f"latest_{i}")
         c11, c12, c13 = st.columns(3)
@@ -620,7 +621,7 @@ for i in range(int(scene_count)):
                                     "value":base64.b64encode(upload.getvalue()).decode("ascii")}
         scenes.append({
             "chart":chart, "outlier_base":outlier_base, "outlier_color":outlier_color, "outlier_normal_color":outlier_normal_color, "outlier_company_colors":outlier_company_colors, "outlier_company_icons":outlier_company_icons, "text_cards":text_cards, "metric":metric, "title":title, "subtitle":subtitle, "unit":unit, "source":source_text, "scene_note":scene_note, "scene_comment_1":scene_comment_1, "scene_comment_2":scene_comment_2, "scene_comment_size":scene_comment_size, "scene_comment_style":scene_comment_style, "scene_comment_delay":scene_comment_delay, "scene_comment_gap":scene_comment_gap, "race_top_n":race_top_n, "race_pause_seconds":race_pause_seconds, "race_comments":race_comments, "sequential_comments":sequential_comments, "sequential_reveal_seconds":sequential_reveal_seconds, "sequential_read_seconds":sequential_read_seconds,
-            "duration":duration, "hold":hold, "title_size":title_size, "subtitle_size":subtitle_size, "legend":legend, "end_labels":end_labels,
+            "duration":duration, "hold":hold, "title_size":title_size, "subtitle_size":subtitle_size, "legend":legend, "legend_size":legend_size, "end_labels":end_labels,
             "latest_values":latest_values, "end_label_size":end_label_size, "label_gap":label_gap,
             "value_decimals":value_decimals, "bar_animation":bar_animation, "data_labels":data_labels,
             "data_label_size":data_label_size, "bar_gap":bar_gap, "visual_events":visual_events, "timeline_events":timeline_events,
