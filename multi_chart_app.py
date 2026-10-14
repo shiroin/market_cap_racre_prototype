@@ -284,6 +284,14 @@ for i in range(int(scene_count)):
                 except Exception as exc:
                     st.error(f"Scene {i+1} のシートを読み込めません: {exc}")
                     st.stop()
+        # Each worksheet can contain a different set of companies. Extend the
+        # global palette so renderers never index a missing company color.
+        for company_name in scene_df["company"].dropna().astype(str).unique():
+            if company_name not in cmap:
+                cmap[company_name] = palette[len(cmap) % len(palette)]
+        if scene_df.empty or not any(scene_df[c].notna().any() for c in scene_metric_columns):
+            st.error(f"Scene {i+1}: このシートには描画可能な数値がありません。列名・数値を確認してください。")
+            st.stop()
         scene_data.append(scene_df)
         c1, c2 = st.columns(2)
         default_chart = default_charts[i] if i < 3 else "折れ線"
@@ -740,7 +748,7 @@ except Exception as e:
 st.markdown("**サムネイル画像**")
 thumbnail_progress = st.slider("サムネイルのアニメーション位置", 0.0, 1.0, 0.30, 0.05, help="タイトル・軸・補足は常時表示し、データ本体をどこまで描画した状態でPNGにするか指定します。")
 try:
-    thumbnail = render_story_frame(cleaned, scenes[preview_scene-1], ratio, bg, text, grid, cmap, thumbnail_progress, "high")
+    thumbnail = render_story_frame(scene_data[preview_scene-1], scenes[preview_scene-1], ratio, bg, text, grid, cmap, thumbnail_progress, "high")
     thumbnail_buffer = io.BytesIO()
     thumbnail.savefig(thumbnail_buffer, format="png", facecolor=thumbnail.get_facecolor(), bbox_inches=None, pad_inches=0)
     thumbnail_buffer.seek(0)
