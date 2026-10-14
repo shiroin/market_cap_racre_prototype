@@ -69,11 +69,27 @@ DEFAULT_COLORS = PALETTES["定番"]
 
 
 def clean_data(df):
-    if not {"date", "company"}.issubset(df.columns):
+    """Normalize both long-form and wide-form worksheets to date/company/metrics."""
+    out=df.copy()
+    out.columns=[str(c).strip() if not str(c).startswith("Unnamed:") else "" for c in out.columns]
+    out=out.dropna(axis=0,how="all").dropna(axis=1,how="all")
+    if "date" not in out.columns:
+        first=out.columns[0]
+        out=out.rename(columns={first:"date"})
+    if "company" not in out.columns:
+        metrics=[c for c in out.columns if c!="date" and str(c).strip()]
+        if not metrics:
+            raise ValueError("date列と数値列が必要です。")
+        # Wide sheets (date + multiple metrics) are plotted as one series per metric.
+        out=out.melt(id_vars=["date"],value_vars=metrics,var_name="company",value_name="value")
+    if not {"date","company"}.issubset(out.columns):
         raise ValueError("date / company 列が必要です。")
-    out = df.copy()
-    out["date"] = out["date"].astype(str)
-    out["company"] = out["company"].astype(str)
+    out=out.dropna(subset=["date","company"])
+    out["date"]=out["date"].astype(str).str.strip()
+    out["company"]=out["company"].astype(str).str.strip()
+    for col in out.columns:
+        if col not in ("date","company"):
+            out[col]=pd.to_numeric(out[col],errors="coerce")
     return out
 
 
@@ -240,6 +256,15 @@ for i in range(int(scene_count)):
     with st.expander(f"Scene {i+1}", expanded=i == 0):
         scene_df = cleaned
         scene_metric_columns = metric_columns
+        if source == "ファイルアップロード" and uploaded is not None and Path(uploaded.name).suffix.lower() in (".xlsx",".xls"):
+            selected_sheet=st.selectbox("このシーンの参照シート",excel.sheet_names,index=excel.sheet_names.index(sheet),key=f"scene_excel_sheet_{i}")
+            if selected_sheet!=sheet:
+                try:
+                    scene_df=clean_data(pd.read_excel(excel,sheet_name=selected_sheet))
+                    scene_metric_columns=[col for col in scene_df.columns if col not in ("date","company")]
+                except Exception as exc:
+                    st.error(f"Scene {i+1} のシート読み込みに失敗: {exc}")
+                    st.stop()
         if source == "Google Sheets" and url:
             sheet_gid = st.text_input("参照シートのgid", value="", key=f"scene_sheet_gid_{i}",
                 help="Google Sheetsのタブを開いたURLの #gid= に続く数字を入力。空欄なら共通データを使用します。")
