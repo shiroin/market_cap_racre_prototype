@@ -11,12 +11,27 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
+from streamlit.runtime.scriptrunner import get_script_run_ctx
 from matplotlib import font_manager
 
 from video_engine_v2 import render_story_frame, save_scene_v2, concat_with_crossfade
 
 st.set_page_config(page_title="複数グラフ動画ジェネレーター", layout="wide")
-_drag_editor=components.declare_component("scene_drag_editor",path=str(Path(__file__).resolve().parent/"drag_layout_component"))
+# This page is executed through exec(..., globals()) by the multipage wrapper.
+# Give the component registry a real module object, rather than __name__ == "__main__".
+import sys
+import types
+_drag_module = sys.modules.get("ddkun_drag_component")
+if _drag_module is None:
+    _drag_module = types.ModuleType("ddkun_drag_component")
+    _drag_module.__file__ = str(Path(__file__).resolve())
+    sys.modules["ddkun_drag_component"] = _drag_module
+_drag_module.__dict__["components"] = components
+exec(
+    compile('_drag_editor = components.declare_component("scene_drag_editor", path=' + repr(str(Path(__file__).resolve().parent/"drag_layout_component")) + ')', _drag_module.__file__, "exec"),
+    _drag_module.__dict__,
+)
+_drag_editor = _drag_module._drag_editor
 
 
 def setup_jp_font():
