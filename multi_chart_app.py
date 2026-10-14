@@ -92,10 +92,13 @@ def clean_data(df):
             # Spreadsheet cells may be strings such as "1,234", "−1,234.5"
             # or full-width "１，２３４". Normalize before numeric conversion.
             raw=out[col].astype("string").str.normalize("NFKC").str.strip()
-            raw=raw.str.replace(r"[\\u2212\\u2010-\\u2015]", "-", regex=True)
+            raw=raw.str.replace("−", "-", regex=False).str.replace("–", "-", regex=False)
             raw=raw.str.replace(",", "", regex=False)
-            raw=raw.str.replace(r"^\\(([-+]?\\d+(?:\\.\\d+)?)\\)$", r"-\\1", regex=True)
-            raw=raw.str.replace(r"^[-—–]$", "", regex=True)
+            # Accounting negatives: (1,234) -> -1234
+            negative=raw.str.startswith("(") & raw.str.endswith(")")
+            raw=raw.str.replace("(", "", regex=False).str.replace(")", "", regex=False)
+            raw=raw.where(~negative, "-" + raw)
+            raw=raw.replace({"-": pd.NA, "": pd.NA})
             out[col]=pd.to_numeric(raw,errors="coerce")
     return out
 
