@@ -2048,8 +2048,17 @@ def _apply_global_scene_header(fig,scene,text,grid):
     title=str(scene.get('title','') or '')
     subtitle=str(scene.get('subtitle','') or '')
     # Remove scene-specific copies to avoid duplicated headers.
+    # Scene renderers may draw a manually wrapped subtitle, which differs
+    # from the original string. Remove those copies as well.
+    def same_header_text(rendered, original):
+        if not original: return False
+        def normalize(value):
+            return ''.join(str(value).replace('\\\\n','\n').split())
+        return normalize(rendered)==normalize(original)
     for artist in list(fig.texts):
-        if (artist.get_text() in (title,subtitle) and artist.get_text()) or getattr(artist,'_ddkun_header',False):
+        if (same_header_text(artist.get_text(),title) or
+            same_header_text(artist.get_text(),subtitle) or
+            getattr(artist,'_ddkun_header',False)):
             artist.remove()
     for artist in list(fig.artists):
         if getattr(artist,'_ddkun_header',False):
