@@ -89,7 +89,14 @@ def clean_data(df):
     out["company"]=out["company"].astype(str).str.strip()
     for col in out.columns:
         if col not in ("date","company"):
-            out[col]=pd.to_numeric(out[col],errors="coerce")
+            # Spreadsheet cells may be strings such as "1,234", "−1,234.5"
+            # or full-width "１，２３４". Normalize before numeric conversion.
+            raw=out[col].astype("string").str.normalize("NFKC").str.strip()
+            raw=raw.str.replace(r"[\\u2212\\u2010-\\u2015]", "-", regex=True)
+            raw=raw.str.replace(",", "", regex=False)
+            raw=raw.str.replace(r"^\\(([-+]?\\d+(?:\\.\\d+)?)\\)$", r"-\\1", regex=True)
+            raw=raw.str.replace(r"^[-—–]$", "", regex=True)
+            out[col]=pd.to_numeric(raw,errors="coerce")
     return out
 
 
