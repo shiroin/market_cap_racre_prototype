@@ -83,8 +83,8 @@ def _rich_draw(fig,raw,x,y,color,size,weight='normal',alpha=1.,align='left',vali
         left=x*fw-(sum(widths)/2 if align=='center' else sum(widths) if align=='right' else 0)
         for (t,c,sz),w in zip(line,widths):
             artist=fig.text(left/fw,(top-h*.10)/fh,t,color=c,fontsize=sz,fontweight=weight,ha='left',va='top',alpha=alpha,zorder=zorder)
-            artist._ddkun_header=True
             artist._ddkun_rich_role=getattr(fig,'_ddkun_rich_role',None)
+            artist._ddkun_header=artist._ddkun_rich_role in ('title','subtitle')
             artist._ddkun_comment_role=getattr(fig,'_ddkun_comment_role',None)
             artists.append(artist)
             left+=w
@@ -114,7 +114,7 @@ def _draw_scene_comments(fig,scene,text,progress,elapsed=None):
     if not c1 and not c2: return
     size=int(scene.get('scene_comment_size',12))
     duration=max(.01,float(scene.get('duration',2.8)))
-    delay=0.0  # Comments fade in immediately after the chart finishes.
+    delay=max(0.,float(scene.get('scene_comment_delay',0.7)))
     gap=max(0.,float(scene.get('scene_comment_gap',.8)))
     t=float(elapsed) if elapsed is not None else float(progress)*duration
     fade=.05
@@ -2193,7 +2193,15 @@ def _apply_scene_layout(fig,scene):
             legend._loc=2  # upper left
 
 
+def _scene_colors(scene,cmap):
+    """Allow each scene to override the global company palette."""
+    overrides=scene.get('bar_company_colors') or {}
+    if not overrides: return cmap
+    return {**cmap,**{name:color for name,color in overrides.items() if isinstance(color,str) and color.startswith('#')}}
+
+
 def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='preview'):
+    cmap=_scene_colors(scene,cmap)
     fig,ax=_make_canvas(ratio,bg,quality,scene.get('chart'),scene)
     if scene.get('chart')=='逐次登場棒グラフ':
         _draw_sequential_bars(fig,ax,df,scene,bg,text,grid,cmap,progress)
@@ -2230,6 +2238,7 @@ def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='pr
 
 
 def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
+    cmap=_scene_colors(scene,cmap)
     started=time.monotonic(); frames=max(2,int(scene.get('duration',2.5)*fps)); hold=max(0,int(scene.get('hold',1.0)*fps))
     if scene.get('chart')=='テキストカード一覧' and (scene.get('scene_comment_1') or scene.get('scene_comment_2')):
         delay=0.0
