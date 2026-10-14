@@ -2106,7 +2106,7 @@ def _apply_global_scene_header(fig,scene,text,grid):
         # Never insert automatic line breaks into titles. Respect only user-entered newlines.
         title_lines=title.split('\n')
         subtitle_lines=wrap_lines(subtitle,ss,max_width)
-        title_width=max((Text(x=0,y=0,text=line,fontproperties=FontProperties(size=ts,weight='bold')).get_window_extent(renderer=renderer).width for line in title_lines),default=0)
+        title_width=max((renderer.get_text_width_height_descent(line,FontProperties(size=ts,weight='bold'),ismath=False)[0] for line in title_lines),default=0)
         if title_width>max_width and ts>6:
             ts-=1
             continue
