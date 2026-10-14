@@ -265,6 +265,13 @@ for i in range(int(scene_count)):
         chart = c1.selectbox("グラフ種類", chart_options, index=chart_options.index(default_chart), key=f"chart_{i}")
         preferred = default_metrics[i] if i < 3 and default_metrics[i] in scene_metric_columns else scene_metric_columns[0]
         metric = c2.selectbox("指標列", scene_metric_columns, index=scene_metric_columns.index(preferred), key=f"metric_{i}", disabled=chart in ("年表","横進行年表","縦時系列年表"))
+        bar_company_colors={}
+        if chart in ("棒グラフ","積み上げ棒","100%積み上げ","逐次登場棒グラフ"):
+            with st.expander("🎨 棒グラフの色（シーン別）",expanded=False):
+                st.caption("企業・系列ごとに自由に色を設定できます。変更はこのシーンのプレビュー・PNG・MP4に反映します。")
+                for company in dict.fromkeys(scene_df["company"].dropna().astype(str)):
+                    bar_company_colors[company]=st.color_picker(
+                        str(company),cmap.get(company,"#1877F2"),key=f"bar_company_color_{i}_{company}")
         title = st.text_area("タイトル（改行可能・部分装飾対応）", default_titles[i] if i < 3 else f"Scene {i+1}", key=f"title_{i}", height=80)
         subtitle = st.text_area("サブタイトル（部分装飾対応）", default_subtitles[i] if i < 3 else "", key=f"subtitle_{i}", height=80, help="部分装飾: [color=#FF4444 size=24]強調したい文字[/]。色だけ・サイズだけも指定可能です。")
         c3, c4 = st.columns(2)
@@ -661,7 +668,7 @@ for i in range(int(scene_count)):
                                 outlier_company_icons[company_name]={"type":"image",
                                     "value":base64.b64encode(upload.getvalue()).decode("ascii")}
         scenes.append({
-            "chart":chart, "layout_positions":layout_positions, "outlier_base":outlier_base, "outlier_color":outlier_color, "outlier_normal_color":outlier_normal_color, "outlier_company_colors":outlier_company_colors, "outlier_company_icons":outlier_company_icons, "text_cards":text_cards, "metric":metric, "title":title, "subtitle":subtitle, "unit":unit, "source":source_text, "scene_note":scene_note, "scene_comment_1":scene_comment_1, "scene_comment_2":scene_comment_2, "scene_comment_size":scene_comment_size, "scene_comment_style":scene_comment_style, "scene_comment_delay":scene_comment_delay, "scene_comment_gap":scene_comment_gap, "race_top_n":race_top_n, "race_pause_seconds":race_pause_seconds, "race_comments":race_comments, "sequential_comments":sequential_comments, "sequential_reveal_seconds":sequential_reveal_seconds, "sequential_read_seconds":sequential_read_seconds,
+            "chart":chart, "bar_company_colors":bar_company_colors, "layout_positions":layout_positions, "outlier_base":outlier_base, "outlier_color":outlier_color, "outlier_normal_color":outlier_normal_color, "outlier_company_colors":outlier_company_colors, "outlier_company_icons":outlier_company_icons, "text_cards":text_cards, "metric":metric, "title":title, "subtitle":subtitle, "unit":unit, "source":source_text, "scene_note":scene_note, "scene_comment_1":scene_comment_1, "scene_comment_2":scene_comment_2, "scene_comment_size":scene_comment_size, "scene_comment_style":scene_comment_style, "scene_comment_delay":scene_comment_delay, "scene_comment_gap":scene_comment_gap, "race_top_n":race_top_n, "race_pause_seconds":race_pause_seconds, "race_comments":race_comments, "sequential_comments":sequential_comments, "sequential_reveal_seconds":sequential_reveal_seconds, "sequential_read_seconds":sequential_read_seconds,
             "duration":duration, "hold":hold, "title_size":title_size, "subtitle_size":subtitle_size, "legend":legend, "legend_size":legend_size, "end_labels":end_labels,
             "latest_values":latest_values, "end_label_size":end_label_size, "label_gap":label_gap,
             "value_decimals":value_decimals, "bar_animation":bar_animation, "data_labels":data_labels,
