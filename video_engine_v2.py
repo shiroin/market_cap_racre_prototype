@@ -33,6 +33,57 @@ def fade_window(p,start=0,end=.18):
 
 
 
+import re
+
+_RICH_TAG = re.compile(r'\\[(/|color=#[0-9a-fA-F]{6}(?:\\s+size=\\d{1,3})?|size=\\d{1,3}(?:\\s+color=#[0-9a-fA-F]{6})?)\\]')
+
+def _rich_plain(value):
+    return _RICH_TAG.sub('',str(value or ''))
+
+def _rich_lines(value, default_color, default_size):
+    """Inline [color=#FF4444 size=20]text[/] styling; newline is preserved."""
+    state=(default_color,float(default_size))
+    stack=[]
+    lines=[[]]
+    for part in _RICH_TAG.split(str(value or '')):
+        if not part: continue
+        if part=='/':
+            state=stack.pop() if stack else (default_color,float(default_size))
+        elif part.startswith(('color=','size=')):
+            stack.append(state)
+            color,size=state
+            for key,val in re.findall(r'(color|size)=(#[0-9a-fA-F]{6}|\\d{1,3})',part):
+                if key=='color': color=val
+                else: size=max(5,min(90,int(val)))
+            state=(color,size)
+        else:
+            chunks=part.split('\\n')
+            for j,chunk in enumerate(chunks):
+                if j: lines.append([])
+                if chunk: lines[-1].append((chunk,*state))
+    return lines
+
+def _rich_draw(fig,raw,x,y,color,size,weight='normal',alpha=1.,align='left',valign='top',zorder=100,spacing=1.25):
+    """Draw colored and resized spans with real renderer widths in figure coordinates."""
+    from matplotlib.font_manager import FontProperties
+    renderer=fig.canvas.get_renderer()
+    fw,fh=fig.get_size_inches()*fig.dpi
+    lines=_rich_lines(raw,color,size)
+    heights=[max([span[2] for span in line]+[size])*fig.dpi/72*spacing for line in lines]
+    total=sum(heights)
+    top=y*fh+(total/2 if valign=='center' else total if valign=='bottom' else 0)
+    artists=[]
+    for line,h in zip(lines,heights):
+        widths=[renderer.get_text_width_height_descent(t,FontProperties(size=sz,weight=weight),ismath=False)[0] for t,c,sz in line]
+        left=x*fw-(sum(widths)/2 if align=='center' else sum(widths) if align=='right' else 0)
+        for (t,c,sz),w in zip(line,widths):
+            artist=fig.text(left/fw,(top-h*.10)/fh,t,color=c,fontsize=sz,fontweight=weight,ha='left',va='top',alpha=alpha,zorder=zorder)
+            artist._ddkun_header=True
+            artists.append(artist)
+            left+=w
+        top-=h
+    return total, max([sum(renderer.get_text_width_height_descent(t,FontProperties(size=sz,weight=weight),ismath=False)[0] for t,c,sz in line) for line in lines]+[0])
+
 def _draw_reference_subtitle(fig,scene,text,accent='#16718C',y=.885,fontsize=8,alpha=1.0):
     subtitle=str(scene.get('subtitle','') or '').strip()
     if not subtitle: return
@@ -76,18 +127,14 @@ def _draw_scene_comments(fig,scene,text,progress,elapsed=None):
                 transform=fig.transFigure,facecolor='#233653',edgecolor='none',alpha=panel_alpha,zorder=28)
             fig.add_artist(panel)
         if c1 and a1>0:
-            fig.text(.50,panel_y+panel_h*(.73 if c2 else .50),c1,color='white',fontsize=size,fontweight='bold',
-                ha='center',va='center',alpha=a1,zorder=30,wrap=True,linespacing=1.18)
+            _rich_draw(fig,c1,.50,panel_y+panel_h*(.73 if c2 else .50),'white',size,weight='bold',alpha=a1,align='center',valign='center',zorder=30)
         if c2 and a2>0:
-            fig.text(.50,panel_y+panel_h*(.27 if c1 else .50),c2,color='white',fontsize=size,fontweight='bold',
-                ha='center',va='center',alpha=a2,zorder=30,wrap=True,linespacing=1.18)
+            _rich_draw(fig,c2,.50,panel_y+panel_h*(.27 if c1 else .50),'white',size,weight='bold',alpha=a2,align='center',valign='center',zorder=30)
     else:
         if c1 and a1>0:
-            fig.text(.075,.275,c1,color=text,fontsize=size,fontweight='bold',
-                ha='left',va='bottom',alpha=a1,zorder=30,wrap=True)
+            _rich_draw(fig,c1,.075,.275,text,size,weight='bold',alpha=a1,align='left',valign='bottom',zorder=30)
         if c2 and a2>0:
-            fig.text(.075,.225,c2,color=text,fontsize=size,fontweight='bold',
-                ha='left',va='bottom',alpha=a2,zorder=30,wrap=True)
+            _rich_draw(fig,c2,.075,.225,text,size,weight='bold',alpha=a2,align='left',valign='bottom',zorder=30)
 
 
 def _style_axis(ax,bg,text,grid):
@@ -2040,96 +2087,36 @@ def _draw_visual_timeline(fig,ax,scene,bg,text,grid,progress):
 
 
 def _apply_global_scene_header(fig,scene,text,grid):
-    """Shared, size-aware header drawn after every scene's own artists."""
+    """One rich-text header shared by all chart types."""
     from matplotlib.patches import FancyBboxPatch
     from matplotlib.lines import Line2D
-    from matplotlib.font_manager import FontProperties
-    from matplotlib.text import Text
     title=str(scene.get('title','') or '')
     subtitle=str(scene.get('subtitle','') or '')
-    # Remove scene-specific copies to avoid duplicated headers.
-    # Scene renderers may draw a manually wrapped subtitle, which differs
-    # from the original string. Remove those copies as well.
-    def same_header_text(rendered, original):
-        if not original: return False
-        def normalize(value):
-            return ''.join(str(value).replace('\\\\n','\n').split())
-        return normalize(rendered)==normalize(original)
     for artist in list(fig.texts):
-        if (same_header_text(artist.get_text(),title) or
-            same_header_text(artist.get_text(),subtitle) or
-            getattr(artist,'_ddkun_header',False)):
+        plain=_rich_plain(artist.get_text())
+        if (getattr(artist,'_ddkun_header',False) or
+            (plain and plain in (_rich_plain(title),_rich_plain(subtitle)))):
             artist.remove()
-    for artist in list(fig.artists):
-        if getattr(artist,'_ddkun_header',False):
-            artist.remove()
-    for artist in list(fig.patches):
-        if getattr(artist,'_ddkun_header',False):
-            artist.remove()
-    renderer=fig.canvas.get_renderer()
+    for collection in (fig.artists,fig.patches):
+        for artist in list(collection):
+            if getattr(artist,'_ddkun_header',False): artist.remove()
+    fig.canvas.draw()
     fig_width=fig.get_figwidth()*fig.dpi
     fig_height=fig.get_figheight()*fig.dpi
-    from matplotlib.textpath import TextPath
-    # Renderer-based width checks support both Japanese and Latin glyphs.
-    def wrap_lines(raw,size,max_width):
-        output=[]
-        fp=FontProperties(size=size,weight='bold' if raw==title else 'normal')
-        for paragraph in raw.split('\n'):
-            if not paragraph:
-                output.append('')
-                continue
-            line=''
-            for char in paragraph:
-                trial=line+char
-                probe=Text(x=0,y=0,text=trial,fontproperties=fp)
-                probe.set_figure(fig)
-                if line and probe.get_window_extent(renderer=renderer).width>max_width:
-                    output.append(line)
-                    line=char
-                else:
-                    line=trial
-            output.append(line)
-        return output
-    # Reserve the right edge for the account badge, including on portrait.
     max_width=fig_width*.85
     ts=int(scene.get('title_size',22))
     ss=int(scene.get('subtitle_size',12))
-    # Lay out using actual renderer extents, not estimated point heights.
-    # Keep a hard minimum gap between title and subtitle at every aspect ratio.
-    top=.953
-    divider_y=.805
-    min_gap_px=max(8.,fig_height*.012)
-    bottom_limit=divider_y*fig_height+max(8.,fig_height*.012)
-    title_artist=None
-    subtitle_artist=None
-    for _ in range(80):
-        # Never insert automatic line breaks into titles. Respect only user-entered newlines.
-        title_lines=title.split('\n')
-        subtitle_lines=wrap_lines(subtitle,ss,max_width)
-        title_width=max((renderer.get_text_width_height_descent(line,FontProperties(size=ts,weight='bold'),ismath=False)[0] for line in title_lines),default=0)
-        if title_width>max_width and ts>6:
-            ts-=1
-            continue
-        if title_artist is not None: title_artist.remove()
-        if subtitle_artist is not None: subtitle_artist.remove()
-        title_artist=fig.text(.075,top,'\n'.join(title_lines),fontsize=ts,color=text,
-            fontweight='bold',va='top',ha='left',linespacing=1.22,zorder=100) if title else None
-        fig.canvas.draw()
-        title_bottom=(title_artist.get_window_extent(renderer=fig.canvas.get_renderer()).y0
-            if title_artist is not None else top*fig_height)
-        subtitle_top=(title_bottom-min_gap_px)/fig_height
-        subtitle_artist=fig.text(.075,subtitle_top,'\n'.join(subtitle_lines),fontsize=ss,color=text,
-            va='top',ha='left',linespacing=1.28,alpha=.75,zorder=100) if subtitle else None
-        fig.canvas.draw()
-        bottom=(subtitle_artist.get_window_extent(renderer=fig.canvas.get_renderer()).y0
-            if subtitle_artist is not None else title_bottom)
-        if bottom>=bottom_limit: break
-        if ts<=8 and ss<=5: break
-        if ts>8: ts-=1
+    for _ in range(45):
+        for artist in list(fig.texts):
+            if getattr(artist,'_ddkun_header',False): artist.remove()
+        title_h,title_w=_rich_draw(fig,title,.075,.953,text,ts,weight='bold') if title else (0,0)
+        subtitle_y=.953-(title_h+max(8.,fig_height*.012))/fig_height
+        sub_h,sub_w=_rich_draw(fig,subtitle,.075,subtitle_y,text,ss,alpha=.75) if subtitle else (0,0)
+        if max(title_w,sub_w)<=max_width and (subtitle_y*fig_height-sub_h)>=fig_height*.817: break
+        if ts<=7 and ss<=5: break
+        if ts>7: ts-=1
         if ss>5: ss-=1
-    # If exceptionally long text cannot fit, move the separator below the header
-    # instead of allowing the heading blocks to overlap.
-    line=Line2D([.075,.925],[.805,.805],transform=fig.transFigure,
+        line=Line2D([.075,.925],[.805,.805],transform=fig.transFigure,
         color=grid,alpha=.65,lw=.85,zorder=99)
     line._ddkun_header=True
     fig.add_artist(line)
