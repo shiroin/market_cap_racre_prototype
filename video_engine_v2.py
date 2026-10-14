@@ -342,7 +342,7 @@ def _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress
     ax.set_xticklabels([dates[i] for i in tick_idx],color=text,alpha=chart_a)
     ax.set_ylabel(scene.get('unit',''),color=text,fontsize=9,alpha=chart_a)
     if scene.get('legend',False):
-        leg=ax.legend(frameon=False,fontsize=8,ncol=2,loc='upper left')
+        leg=ax.legend(frameon=False,fontsize=scene.get('legend_size',14),ncol=2,loc='upper left')
         for t in leg.get_texts(): t.set_color(text); t.set_alpha(chart_a)
 
 
@@ -1437,7 +1437,7 @@ def _draw_dual_metric_scene(fig, ax, df, scene, bg, text, grid, progress, prepar
                 ha='left',va='top',alpha=.7)
         period_text=fig.text(.5,.755,'',fontsize=15,fontweight='bold',color=text,ha='center')
         fig.legend(handles=[Patch(color=color_a,label=str(a)),Patch(color=color_b,label=str(b))],
-            loc='lower center',bbox_to_anchor=(.5,.245),ncol=2,frameon=False,labelcolor=text,fontsize=9)
+            loc='lower center',bbox_to_anchor=(.5,.245),ncol=2,frameon=False,labelcolor=text,fontsize=scene.get('legend_size',14))
         if not shared:
             fig.text(.5,.225,f"下軸: {a} / 上軸: {b}",color=text,fontsize=7,ha='center')
         note='\\n'.join(v for v in [str(scene.get('scene_note','') or '').strip(),
@@ -1734,7 +1734,7 @@ def _draw_company_financial_history(fig,ax,df,scene,bg,text,grid,progress,elapse
     h1=Line2D([0],[0],color=color_a,lw=3) if style=='折れ線2本' else Patch(facecolor=color_a)
     h2=Patch(facecolor=color_b) if style=='並列棒' else Line2D([0],[0],color=color_b,lw=3)
     ax.legend([h1,h2],[a,b],loc='upper left',bbox_to_anchor=(0,1.13),
-        frameon=False,ncol=2,fontsize=9,labelcolor=text)
+        frameon=False,ncol=2,fontsize=scene.get('legend_size',14),labelcolor=text)
     fig.text(.075,.93,scene.get('title',company+'の業績推移'),color=text,
         fontsize=scene.get('title_size',22),fontweight='bold',ha='left')
     _draw_reference_subtitle(fig,scene,text,y=.885,fontsize=scene.get('subtitle_size',12))
