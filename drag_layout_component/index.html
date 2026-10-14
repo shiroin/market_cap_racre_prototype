@@ -23,10 +23,10 @@ function draw(){
   const xy=positions[key]||{x:defaults[key][0],y:defaults[key][1]};
   const el=document.createElement("div");el.className="part";el.textContent=label;
   el.style.left=(xy.x*100)+"%";el.style.top=((1-xy.y)*100)+"%";
-  if(key==="plot"){el.style.width=((xy.w||.75)*100)+"%";el.style.height=((xy.h||.47)*100)+"%";el.style.background="transparent";el.style.pointerEvents="auto"}
+  if(key==="plot"){el.style.top=((1-xy.y-(xy.h||.47))*100)+"%";el.style.width=((xy.w||.75)*100)+"%";el.style.height=((xy.h||.47)*100)+"%";el.style.background="transparent";el.style.pointerEvents="auto"}
   root.appendChild(el);
   el.addEventListener("pointerdown",e=>{e.preventDefault();el.setPointerCapture(e.pointerId);drag={key,el,px:e.clientX,py:e.clientY,x:xy.x,y:xy.y};el.classList.add("active")});
-  el.addEventListener("pointermove",e=>{if(!drag||drag.el!==el)return;const rect=stage.getBoundingClientRect();const x=Math.max(0,Math.min(1,drag.x+(e.clientX-drag.px)/rect.width));const y=Math.max(0,Math.min(1,drag.y-(e.clientY-drag.py)/rect.height));positions[key]={...positions[key],x,y};el.style.left=x*100+"%";el.style.top=(1-y)*100+"%";document.getElementById("info").textContent=label+" X: "+Math.round(x*100)+"% / Y: "+Math.round(y*100)+"%"});
+  el.addEventListener("pointermove",e=>{if(!drag||drag.el!==el)return;const rect=stage.getBoundingClientRect();const x=Math.max(0,Math.min(1-(key==="plot"?(positions[key]?.w||.75):0),drag.x+(e.clientX-drag.px)/rect.width));const y=Math.max((key==="plot"?(positions[key]?.h||.47):0),Math.min(1,drag.y-(e.clientY-drag.py)/rect.height));positions[key]={...positions[key],x,y};el.style.left=x*100+"%";el.style.top=(1-y-(key==="plot"?(positions[key].h||.47):0))*100+"%";document.getElementById("info").textContent=label+" X: "+Math.round(x*100)+"% / Y: "+Math.round(y*100)+"%"});
   el.addEventListener("pointerup",()=>{drag=null;el.classList.remove("active")});
  }
  height()
