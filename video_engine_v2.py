@@ -79,6 +79,8 @@ def _rich_draw(fig,raw,x,y,color,size,weight='normal',alpha=1.,align='left',vali
         for (t,c,sz),w in zip(line,widths):
             artist=fig.text(left/fw,(top-h*.10)/fh,t,color=c,fontsize=sz,fontweight=weight,ha='left',va='top',alpha=alpha,zorder=zorder)
             artist._ddkun_header=True
+            artist._ddkun_rich_role=getattr(fig,'_ddkun_rich_role',None)
+            artist._ddkun_comment_role=getattr(fig,'_ddkun_comment_role',None)
             artists.append(artist)
             left+=w
         top-=h
@@ -127,14 +129,14 @@ def _draw_scene_comments(fig,scene,text,progress,elapsed=None):
                 transform=fig.transFigure,facecolor='#233653',edgecolor='none',alpha=panel_alpha,zorder=28)
             fig.add_artist(panel)
         if c1 and a1>0:
-            _rich_draw(fig,c1,.50,panel_y+panel_h*(.73 if c2 else .50),'white',size,weight='bold',alpha=a1,align='center',valign='center',zorder=30)
+            setattr(fig,'_ddkun_comment_role','comment1'); _rich_draw(fig,c1,.50,panel_y+panel_h*(.73 if c2 else .50),'white',size,weight='bold',alpha=a1,align='center',valign='center',zorder=30)
         if c2 and a2>0:
-            _rich_draw(fig,c2,.50,panel_y+panel_h*(.27 if c1 else .50),'white',size,weight='bold',alpha=a2,align='center',valign='center',zorder=30)
+            setattr(fig,'_ddkun_comment_role','comment2'); _rich_draw(fig,c2,.50,panel_y+panel_h*(.27 if c1 else .50),'white',size,weight='bold',alpha=a2,align='center',valign='center',zorder=30)
     else:
         if c1 and a1>0:
-            _rich_draw(fig,c1,.075,.275,text,size,weight='bold',alpha=a1,align='left',valign='bottom',zorder=30)
+            setattr(fig,'_ddkun_comment_role','comment1'); _rich_draw(fig,c1,.075,.275,text,size,weight='bold',alpha=a1,align='left',valign='bottom',zorder=30)
         if c2 and a2>0:
-            _rich_draw(fig,c2,.075,.225,text,size,weight='bold',alpha=a2,align='left',valign='bottom',zorder=30)
+            setattr(fig,'_ddkun_comment_role','comment2'); _rich_draw(fig,c2,.075,.225,text,size,weight='bold',alpha=a2,align='left',valign='bottom',zorder=30)
 
 
 def _style_axis(ax,bg,text,grid):
@@ -2114,13 +2116,16 @@ def _apply_global_scene_header(fig,scene,text,grid):
     for _ in range(45):
         for artist in list(fig.texts):
             if getattr(artist,'_ddkun_header',False): artist.remove()
+        fig._ddkun_rich_role='title'
         title_h,title_w=_rich_draw(fig,title,.075,.953,text,ts,weight='bold') if title else (0,0)
         subtitle_y=.953-(title_h+max(8.,fig_height*.012))/fig_height
+        fig._ddkun_rich_role='subtitle'
         sub_h,sub_w=_rich_draw(fig,subtitle,.075,subtitle_y,text,ss,alpha=.75) if subtitle else (0,0)
         if max(title_w,sub_w)<=max_width and (subtitle_y*fig_height-sub_h)>=fig_height*.817: break
         if ts<=7 and ss<=5: break
         if ts>7: ts-=1
         if ss>5: ss-=1
+    fig._ddkun_rich_role=None
     line=Line2D([.075,.925],[.805,.805],transform=fig.transFigure,
         color=grid,alpha=.65,lw=.85,zorder=99)
     line._ddkun_header=True
@@ -2132,6 +2137,50 @@ def _apply_global_scene_header(fig,scene,text,grid):
     badge_text=fig.text(.854,.979,'@ddkun_',color='white',fontsize=max(7,min(10,fig_width/80)),
         fontweight='bold',ha='center',va='center',zorder=103)
     badge_text._ddkun_header=True
+
+
+def _apply_scene_layout(fig,scene):
+    """Apply optional normalized GUI coordinates to preview, PNG and video frames."""
+    layout=scene.get('layout_positions') or {}
+    if not layout: return
+    def pos(name):
+        p=layout.get(name)
+        return p if isinstance(p,dict) and 'x' in p and 'y' in p else None
+    def move_text(artist,p):
+        artist.set_position((float(p['x']),float(p['y'])))
+    for name,tag in [('title','title'),('subtitle','subtitle')]:
+        p=pos(name)
+        if p:
+            candidates=[a for a in fig.texts if getattr(a,'_ddkun_rich_role',None)==tag]
+            if candidates:
+                dx=float(p['x'])-min(a.get_position()[0] for a in candidates)
+                dy=float(p['y'])-max(a.get_position()[1] for a in candidates)
+                for a in candidates:
+                    x,y=a.get_position(); a.set_position((x+dx,y+dy))
+    for name,needle in [('comment1',str(scene.get('scene_comment_1','') or '')),('comment2',str(scene.get('scene_comment_2','') or ''))]:
+        p=pos(name)
+        if p and needle:
+            candidates=[a for a in fig.texts if getattr(a,'_ddkun_comment_role',None)==name]
+            if candidates:
+                dx=float(p['x'])-min(a.get_position()[0] for a in candidates)
+                dy=float(p['y'])-max(a.get_position()[1] for a in candidates)
+                for a in candidates:
+                    x,y=a.get_position(); a.set_position((x+dx,y+dy))
+    p=pos('plot')
+    if p and fig.axes:
+        w=float(p.get('w',fig.axes[0].get_position().width))
+        h=float(p.get('h',fig.axes[0].get_position().height))
+        original=fig.axes[0].get_position()
+        for axis in fig.axes:
+            current=axis.get_position()
+            if abs(current.x0-original.x0)<.002 and abs(current.y0-original.y0)<.002:
+                axis.set_position([float(p['x']),float(p['y']),w,h])
+    p=pos('legend')
+    if p:
+        legends=list(fig.legends)+[a.get_legend() for a in fig.axes if a.get_legend() is not None]
+        for legend in legends:
+            legend.set_bbox_to_anchor((float(p['x']),float(p['y'])),transform=fig.transFigure)
+            legend._loc=2  # upper left
 
 
 def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='preview'):
@@ -2166,6 +2215,7 @@ def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='pr
         dates,companies,pivot=_prepare_scene(df,scene); _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress)
     fig.canvas.draw()
     _apply_global_scene_header(fig,scene,text,grid)
+    _apply_scene_layout(fig,scene)
     return fig
 
 
@@ -2209,6 +2259,7 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
     elif is_ranking: _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,1/max(2,frames))
     else: _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,1/max(2,frames))
     _apply_global_scene_header(fig,scene,text,grid)
+    _apply_scene_layout(fig,scene)
     # Canvas dimensions are required by FFmpeg for every scene type.
     # Keep this outside the graph-only branch so timeline scenes initialize width/height too.
     fig.canvas.draw(); width,height=fig.canvas.get_width_height(); _log(f"scene start title={scene.get('title','')} quality={quality} canvas={width}x{height} frames={frames+hold}")
