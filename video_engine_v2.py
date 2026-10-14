@@ -117,6 +117,9 @@ def _draw_scene_comments(fig,scene,text,progress,elapsed=None):
     delay=max(0.,float(scene.get('scene_comment_delay',0.7)))
     gap=max(0.,float(scene.get('scene_comment_gap',.8)))
     t=float(elapsed) if elapsed is not None else float(progress)*duration
+    if elapsed is None and float(progress)>=.999:
+        # Final still previews show both comments, even if the configured reveal is later.
+        t=max(t,duration+delay+gap+.10)
     fade=.05
     completion_ratio=.82 if scene.get('chart') in ('棒グラフ','積み上げ棒','100%積み上げ') else 1.0
     start1=duration*completion_ratio+delay
@@ -2240,6 +2243,14 @@ def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='pr
 def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
     cmap=_scene_colors(scene,cmap)
     started=time.monotonic(); frames=max(2,int(scene.get('duration',2.5)*fps)); hold=max(0,int(scene.get('hold',1.0)*fps))
+    if scene.get('chart') in ('棒グラフ','積み上げ棒','100%積み上げ','折れ線') and (scene.get('scene_comment_1') or scene.get('scene_comment_2')):
+        # Reserve enough frames for delayed comments to actually appear in MP4.
+        completion=.82 if scene.get('chart')!='折れ線' else 1.
+        delay=max(0.,float(scene.get('scene_comment_delay',.7)))
+        gap=max(0.,float(scene.get('scene_comment_gap',.8)))
+        second=bool(scene.get('scene_comment_1')) and bool(scene.get('scene_comment_2'))
+        needed=float(scene.get('duration',2.5))*completion+delay+(gap+.05 if second else 0.)+.5
+        hold=max(hold,int(np.ceil(max(0.,needed-float(scene.get('duration',2.5)))*fps)))
     if scene.get('chart')=='テキストカード一覧' and (scene.get('scene_comment_1') or scene.get('scene_comment_2')):
         delay=0.0
         gap=max(0.,float(scene.get('scene_comment_gap',.8)))
