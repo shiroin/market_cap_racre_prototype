@@ -1,5 +1,6 @@
 import io
 import re
+import base64
 import shutil
 import tempfile
 from pathlib import Path
@@ -9,11 +10,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 from matplotlib import font_manager
 
 from video_engine_v2 import render_story_frame, save_scene_v2, concat_with_crossfade
 
 st.set_page_config(page_title="複数グラフ動画ジェネレーター", layout="wide")
+_drag_editor=components.declare_component("scene_drag_editor",path=str(Path(__file__).resolve().parent/"drag_layout_component"))
 
 
 def setup_jp_font():
@@ -654,12 +657,36 @@ for i in range(int(scene_count)):
             "guidance_display":guidance_display, "guidance_metric_a":guidance_metric_a, "guidance_metric_b":guidance_metric_b, "guidance_company":guidance_company, "guidance_axis":guidance_axis, "guidance_color_a":guidance_color_a, "guidance_color_b":guidance_color_b, "guidance_unit_a":guidance_unit_a, "guidance_unit_b":guidance_unit_b, "guidance_period":guidance_period, "guidance_gap":guidance_gap, "guidance_label":guidance_label, "guidance_percent":guidance_percent, "financial_company":financial_company, "financial_chart_style":financial_chart_style, "financial_axis":financial_axis, "dual_metric_a":dual_metric_a, "dual_metric_b":dual_metric_b, "dual_mode":dual_mode, "dual_axis":dual_axis, "dual_sort":dual_sort, "dual_color_a":dual_color_a, "dual_color_b":dual_color_b, "ranking_sort":ranking_sort, "ranking_reference":ranking_reference, "ranking_highlight":ranking_highlight, "ranking_company_colors":ranking_company_colors, "ranking_company_icons":ranking_company_icons
         })
 
+for _scene_idx,_scene in enumerate(scenes):
+    _saved=st.session_state.get(f'drag_layout_{_scene_idx}')
+    if _saved is not None:
+        _scene['layout_positions']=_saved
+
 preview_scene = st.selectbox("プレビューするScene", range(1, len(scenes)+1), format_func=lambda x:f"Scene {x}")
 preview_progress = st.slider("アニメーション位置", .05, 1.0, 1.0, .05)
 try:
     preview = render_story_frame(scene_data[preview_scene-1], scenes[preview_scene-1], ratio, bg, text, grid, cmap, preview_progress, "preview")
     st.pyplot(preview, use_container_width=False)
+    import io
+    _drag_png=io.BytesIO()
+    preview.savefig(_drag_png,format="png",facecolor=preview.get_facecolor(),bbox_inches=None,pad_inches=0)
+    _drag_width,_drag_height=preview.canvas.get_width_height()
     plt.close(preview)
+    with st.expander("🖱️ ドラッグでパーツを移動（直接編集）",expanded=False):
+        st.caption("枠をマウスで動かし、「配置を反映」を押すとプレビュー・PNG・MP4に適用します。")
+        _drag_result=_drag_editor(
+            image=base64.b64encode(_drag_png.getvalue()).decode("ascii"),
+            width=min(760,_drag_width),
+            positions=scenes[preview_scene-1].get("layout_positions") or {},
+            comment1=bool(scenes[preview_scene-1].get("scene_comment_1")),
+            comment2=bool(scenes[preview_scene-1].get("scene_comment_2")),
+            key=f"drag_editor_{preview_scene}")
+        if isinstance(_drag_result,dict) and _drag_result.get("action") in ("save","reset"):
+            _new_positions=_drag_result.get("positions") or {}
+            _key=f"drag_layout_{preview_scene-1}"
+            if st.session_state.get(_key)!=_new_positions:
+                st.session_state[_key]=_new_positions
+                st.rerun()
 except Exception as e:
     st.warning(f"プレビューできません: {e}")
 
