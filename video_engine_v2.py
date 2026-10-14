@@ -35,7 +35,7 @@ def fade_window(p,start=0,end=.18):
 
 import re
 
-_RICH_TAG = re.compile(r'\\[(/|color=#[0-9a-fA-F]{6}(?:\\s+size=\\d{1,3})?|size=\\d{1,3}(?:\\s+color=#[0-9a-fA-F]{6})?)\\]')
+_RICH_TAG = re.compile(r'\[(/|color=#[0-9a-fA-F]{6}(?:\s+size=\d{1,3})?|size=\d{1,3}(?:\s+color=#[0-9a-fA-F]{6})?)\]')
 
 def _rich_plain(value):
     return _RICH_TAG.sub('',str(value or ''))
@@ -52,12 +52,12 @@ def _rich_lines(value, default_color, default_size):
         elif part.startswith(('color=','size=')):
             stack.append(state)
             color,size=state
-            for key,val in re.findall(r'(color|size)=(#[0-9a-fA-F]{6}|\\d{1,3})',part):
+            for key,val in re.findall(r'(color|size)=(#[0-9a-fA-F]{6}|\d{1,3})',part):
                 if key=='color': color=val
                 else: size=max(5,min(90,int(val)))
             state=(color,size)
         else:
-            chunks=part.split('\\n')
+            chunks=part.split('\n')
             for j,chunk in enumerate(chunks):
                 if j: lines.append([])
                 if chunk: lines[-1].append((chunk,*state))
@@ -2116,7 +2116,7 @@ def _apply_global_scene_header(fig,scene,text,grid):
         if ts<=7 and ss<=5: break
         if ts>7: ts-=1
         if ss>5: ss-=1
-        line=Line2D([.075,.925],[.805,.805],transform=fig.transFigure,
+    line=Line2D([.075,.925],[.805,.805],transform=fig.transFigure,
         color=grid,alpha=.65,lw=.85,zorder=99)
     line._ddkun_header=True
     fig.add_artist(line)
