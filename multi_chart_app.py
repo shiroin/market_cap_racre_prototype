@@ -173,8 +173,52 @@ default_charts = ["積み上げ棒", "折れ線", "折れ線"]
 default_metrics = ["inventory", "inventory", "inventory_months"]
 chart_options = ["積み上げ棒", "折れ線", "棒グラフ", "100%積み上げ", "実績＋ガイダンス分離", "横比較ランキング", "時系列ランキングレース", "逐次登場棒グラフ", "2指標・企業横比較", "2指標・企業業績推移", "年表", "横進行年表", "業績連動年表", "ビジュアル年表", "縦時系列年表", "テキストカード一覧", "突出型・横比較"]
 
+def _apply_pending_rich_edit(scene_index):
+    pending=st.session_state.pop(f"rich_pending_{scene_index}",None)
+    if pending:
+        key=pending["field"]
+        st.session_state[key]=pending["value"]
+
+
+def _rich_style_gui(scene_index):
+    """Point-and-click inline styling without requiring users to type markup."""
+    with st.expander("🎨 文章内の文字色・サイズをGUIで変更",expanded=False):
+        st.caption("対象欄と強調したい文字列を選び、色・サイズを設定して「適用」を押してください。タグを手入力する必要はありません。")
+        fields={
+            "タイトル":f"title_{scene_index}",
+            "サブタイトル":f"subtitle_{scene_index}",
+            "下部コメント①":f"scene_comment_1_{scene_index}",
+            "下部コメント②":f"scene_comment_2_{scene_index}",
+        }
+        field_name=st.selectbox("編集対象",list(fields),key=f"rich_field_{scene_index}")
+        field=fields[field_name]
+        content=str(st.session_state.get(field,""))
+        plain=re.sub(r"\\[(?:/|(?:color|size)=[^\\]]+)\\]","",content)
+        selected=st.text_input("装飾する文字（文章内の文字をコピーして入力）",key=f"rich_target_{scene_index}")
+        col1,col2,col3=st.columns([1,1,1])
+        color=col1.color_picker("文字色","#FF4444",key=f"rich_color_{scene_index}")
+        size=col2.number_input("文字サイズ",min_value=5,max_value=90,value=24,step=1,key=f"rich_size_{scene_index}")
+        occurrence=col3.number_input("何番目の一致を装飾",min_value=1,max_value=100,value=1,step=1,key=f"rich_occurrence_{scene_index}")
+        if st.button("選んだ文字に適用",key=f"rich_apply_{scene_index}",type="primary"):
+            if not selected:
+                st.warning("装飾したい文字を入力してください。")
+            else:
+                matches=list(re.finditer(re.escape(selected),content))
+                if len(matches)<occurrence:
+                    st.warning("指定した文字列が見つかりません。既に装飾した部分は、タグごと削除してから再設定してください。")
+                else:
+                    match=matches[occurrence-1]
+                    replacement=f"[color={color} size={int(size)}]{selected}[/]"
+                    updated=content[:match.start()]+replacement+content[match.end():]
+                    st.session_state[f"rich_pending_{scene_index}"]={"field":field,"value":updated}
+                    st.rerun()
+        if plain:
+            st.caption("現在の文章: "+plain[:240])
+
+
 scene_data = []
 for i in range(int(scene_count)):
+    _apply_pending_rich_edit(i)
     with st.expander(f"Scene {i+1}", expanded=i == 0):
         scene_df = cleaned
         scene_metric_columns = metric_columns
@@ -213,6 +257,7 @@ for i in range(int(scene_count)):
         cc1,cc2 = st.columns(2)
         scene_comment_1 = cc1.text_area("下部コメント①", "", key=f"scene_comment_1_{i}", height=70, help="部分装飾: [color=#FF4444 size=20]重要[/]。色またはサイズのみでも指定できます。")
         scene_comment_2 = cc2.text_area("下部コメント②", "", key=f"scene_comment_2_{i}", height=70, help="部分装飾: [color=#FF4444 size=20]重要[/]。")
+        _rich_style_gui(i)
         scene_comment_size = st.slider("下部コメントサイズ", 8, 24, 12, key=f"scene_comment_size_{i}")
         scene_comment_style = st.selectbox("下部コメントのデザイン", ["白抜き（濃紺背景）", "従来（文字のみ）"], key=f"scene_comment_style_{i}", help="白抜きでは濃紺の角丸ボックスに白文字で表示します。")
         scene_comment_delay = st.slider("グラフ完了後→下部コメント①まで（秒）", 0.0, 3.0, 0.7, 0.1, key=f"scene_comment_delay_{i}", help="グラフの描画が完了してから下部コメント①のフェード開始までの待ち時間です。")
