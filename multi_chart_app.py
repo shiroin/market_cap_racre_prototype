@@ -28,7 +28,7 @@ if _drag_module is None:
     sys.modules["ddkun_drag_component"] = _drag_module
 _drag_module.__dict__["components"] = components
 exec(
-    compile('_drag_editor = components.declare_component("scene_drag_editor", path=' + repr(str(Path(__file__).resolve().parent/"drag_layout_component")) + ')', _drag_module.__file__, "exec"),
+    compile('_drag_editor = components.declare_component("scene_drag_editor", path=' + repr(str(Path.cwd()/"drag_layout_component")) + ')', _drag_module.__file__, "exec"),
     _drag_module.__dict__,
 )
 _drag_editor = _drag_module._drag_editor
