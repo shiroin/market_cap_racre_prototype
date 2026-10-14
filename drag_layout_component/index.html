@@ -1,8 +1,8 @@
 <!doctype html><html><head><meta charset="utf-8"><style>
-body{margin:0;font-family:system-ui,sans-serif;background:#111827;color:#f9fafb}
+body{margin:0;font-family:system-ui,sans-serif;background:#111827;color:#f9fafb;min-height:700px}
 #bar{padding:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 button{background:#2563eb;color:white;border:0;border-radius:5px;padding:8px 13px;cursor:pointer}
-#stage{position:relative;margin:0 auto;max-width:100%;touch-action:none;user-select:none}
+#stage{position:relative;margin:0 auto;max-width:100%;min-height:540px;touch-action:none;user-select:none}
 #image{display:block;width:100%;height:auto;pointer-events:none}
 .part{position:absolute;border:2px dashed #f59e0b;background:#f59e0b20;color:#fff;font-size:12px;font-weight:700;padding:3px 5px;cursor:grab;box-sizing:border-box;min-width:64px;text-shadow:0 1px 3px #000}
 .part:active{cursor:grabbing}.part.active{border-color:#38bdf8;background:#0284c755}
@@ -13,7 +13,7 @@ let args={},positions={},drag=null;
 const defaults={title:[.075,.953],subtitle:[.075,.86],legend:[.15,.77],plot:[.09,.32],comment1:[.075,.275],comment2:[.075,.225]};
 const labels={title:"タイトル",subtitle:"サブタイトル",legend:"凡例",plot:"グラフ",comment1:"コメント①",comment2:"コメント②"};
 function send(value){parent.postMessage({isStreamlitMessage:true,type:"streamlit:setComponentValue",value:value,dataType:"json"},"*")}
-function height(){parent.postMessage({isStreamlitMessage:true,type:"streamlit:setFrameHeight",height:document.body.scrollHeight+8},"*")}
+function height(){parent.postMessage({isStreamlitMessage:true,type:"streamlit:setFrameHeight",height:Math.max(720,document.body.scrollHeight+32)},"*")}
 function draw(){
  const stage=document.getElementById("stage");stage.style.width=(args.width||640)+"px";
  document.getElementById("image").src="data:image/png;base64,"+(args.image||"");
@@ -32,9 +32,11 @@ function draw(){
  height()
 }
 window.addEventListener("message",e=>{if(e.data.type==="streamlit:render"){args=e.data.args||{};positions=JSON.parse(JSON.stringify(args.positions||{}));draw()}});
-document.getElementById("image").onload=height;
+document.getElementById("image").onload=()=>{document.getElementById("stage").style.minHeight="0";height()};
+document.getElementById("image").onerror=()=>{document.getElementById("info").textContent="プレビュー画像を読み込めませんでした。";height()};
 document.getElementById("save").onclick=()=>send({positions,action:"save"});
 document.getElementById("reset").onclick=()=>send({positions:{},action:"reset"});
 parent.postMessage({isStreamlitMessage:true,type:"streamlit:componentReady",apiVersion:1},"*");
 height();
+setTimeout(height,100);
 </script></body></html>
