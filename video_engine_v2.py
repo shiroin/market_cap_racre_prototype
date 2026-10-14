@@ -2308,6 +2308,8 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
             else:
                 fig.canvas.draw()
                 _apply_global_scene_header(fig,scene,text,grid)
+                # Redrawn frame headers and legends must receive the same layout as preview.
+                _apply_scene_layout(fig,scene)
                 fig.canvas.draw()
                 frame_bytes = bytes(fig.canvas.buffer_rgba())
                 if scene.get('chart')=='業績連動年表': financial_frame_cache=frame_bytes
