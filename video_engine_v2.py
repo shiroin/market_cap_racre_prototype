@@ -2112,11 +2112,21 @@ def _apply_global_scene_header(fig,scene,text,grid):
     from matplotlib.lines import Line2D
     title=str(scene.get('title','') or '')
     subtitle=str(scene.get('subtitle','') or '')
+    # Remove legacy titles, including fragments and axes-level titles, before
+    # drawing the single canonical scene header.
+    header_values={_rich_plain(v).strip() for v in (title,subtitle) if _rich_plain(v).strip()}
     for artist in list(fig.texts):
-        plain=_rich_plain(artist.get_text())
+        plain=_rich_plain(artist.get_text()).strip()
         if (getattr(artist,'_ddkun_header',False) or
-            (plain and plain in (_rich_plain(title),_rich_plain(subtitle)))):
+            getattr(artist,'_ddkun_rich_role',None) in ('title','subtitle') or
+            (plain and plain in header_values)):
             artist.remove()
+    for axis in fig.axes:
+        for artist in list(axis.texts):
+            if _rich_plain(artist.get_text()).strip() in header_values:
+                artist.remove()
+        if _rich_plain(axis.get_title()).strip() in header_values:
+            axis.set_title('')
     for collection in (fig.artists,fig.patches):
         for artist in list(collection):
             if getattr(artist,'_ddkun_header',False): artist.remove()
