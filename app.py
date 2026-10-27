@@ -316,6 +316,8 @@ def generate(data, output):
         frac = min(1, (local+1)/frames_each[idx])
         return idx, idx, ease(frac)
 
+    fig.suptitle(title,y=title_y,color=text_color,fontsize=title_fontsize,fontweight="bold")
+
     def draw(frame):
         ax.clear(); ax.set_facecolor(bg); ax.axis("off")
         ax.set_xlim(-.75, bar_gap + .75); ax.set_ylim(0,ymax)
@@ -357,7 +359,7 @@ def generate(data, output):
             ax.text(bar_gap/2,ymax*added_text_y,f"+ {names[active]}  {vals[active]:,.1f}{unit}",
                     ha="center",color=added_text_color,fontsize=added_fontsize,fontweight="bold")
 
-        fig.suptitle(title,y=title_y,color=text_color,fontsize=title_fontsize,fontweight="bold")
+
 
     ani=FuncAnimation(fig,draw,frames=total_frames,interval=1000/fps)
     ani.save(output,writer=FFMpegWriter(fps=fps,bitrate=5000))
