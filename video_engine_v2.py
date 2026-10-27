@@ -764,8 +764,8 @@ def _draw_vertical_chronology_on(fig,ax,scene,bg,text,grid,progress):
 
 def _draw_safe_financial_header(fig,scene,text,progress):
     """Place subtitle below the measured title bbox, never at a fixed Y."""
-    title=str(scene.get('title','業績と年表') or '')
-    subtitle=str(scene.get('subtitle','') or '').strip()
+    title=str(scene.get('title','業績と年表') or '').replace('\\n','\n')
+    subtitle=str(scene.get('subtitle','') or '').replace('\\n','\n').strip()
     title_size=float(scene.get('title_size',22))
     subtitle_size=float(scene.get('subtitle_size',12))
     left=.075
@@ -798,8 +798,8 @@ def _draw_safe_financial_header(fig,scene,text,progress):
                 else:
                     current=candidate
             result.append(current)
-        return '\\n'.join(result)
-    title_text=fig.text(left,.955,wrap_to_width(title,title_size,'bold'),
+        return '\n'.join(result)
+    title_text=fig.text(left,.955,title,
         color=text,fontsize=title_size,fontweight='bold',
         ha='left',va='top',linespacing=1.20,zorder=24)
     title_box=title_text.get_window_extent(renderer=renderer)
@@ -1040,7 +1040,7 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress,elaps
         from matplotlib.patches import FancyBboxPatch
         def wrap_event(value,capacity):
             result=[]
-            for paragraph in str(value or '').replace('\\\\n','\\n').split('\\n'):
+            for paragraph in str(value or '').replace('\\n','\n').split('\n'):
                 line=''; cells=0
                 for char in paragraph:
                     width=2 if unicodedata.east_asian_width(char) in ('F','W') else 1
@@ -2245,7 +2245,8 @@ def render_story_frame(df,scene,ratio,bg,text,grid,cmap,progress=1.0,quality='pr
     else:
         dates,companies,pivot=_prepare_scene(df,scene); _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,progress)
     fig.canvas.draw()
-    _apply_global_scene_header(fig,scene,text,grid)
+    if scene.get('chart')!='業績連動年表':
+        _apply_global_scene_header(fig,scene,text,grid)
     _apply_scene_layout(fig,scene)
     return fig
 
@@ -2298,7 +2299,8 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
         (_draw_horizontal_timeline_on if scene.get('chart')=='横進行年表' else _draw_timeline_on)(fig,ax,scene,bg,text,grid,1/max(2,frames))
     elif is_ranking: _draw_horizontal_ranking_on(fig,ax,df,scene,bg,text,grid,cmap,1/max(2,frames))
     else: _draw_scene_on(fig,ax,dates,companies,pivot,scene,bg,text,grid,cmap,1/max(2,frames))
-    _apply_global_scene_header(fig,scene,text,grid)
+    if scene.get('chart')!='業績連動年表':
+        _apply_global_scene_header(fig,scene,text,grid)
     _apply_scene_layout(fig,scene)
     # Canvas dimensions are required by FFmpeg for every scene type.
     # Keep this outside the graph-only branch so timeline scenes initialize width/height too.
@@ -2337,7 +2339,8 @@ def save_scene_v2(df,scene,path,ratio,fps,bg,text,grid,cmap,quality='standard'):
                 proc.stdin.write(cached_dual_frame)
             else:
                 fig.canvas.draw()
-                _apply_global_scene_header(fig,scene,text,grid)
+                if scene.get('chart')!='業績連動年表':
+                    _apply_global_scene_header(fig,scene,text,grid)
                 # Redrawn frame headers and legends must receive the same layout as preview.
                 _apply_scene_layout(fig,scene)
                 fig.canvas.draw()
