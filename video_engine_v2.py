@@ -1050,7 +1050,7 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress,elaps
                 result.append(line)
             return result
         # Title and description share one column and never overlap.
-        title_lines=wrap_event(current.get('title',''),27)
+        title_lines=str(current.get('title','') or '').replace('\\n','\n').split('\n')
         title_font=14.
         title_step=title_font/72/fig.get_figheight()*1.32
         title_height=max(1,len(title_lines))*title_step
@@ -1062,7 +1062,7 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress,elaps
             fig.text(event_x,title_y,'\n'.join(title_lines),color=text,fontsize=title_font,
                 fontweight='bold',ha='left',va='top',alpha=opacity,linespacing=1.15)
         if current.get('description'):
-            description=str(current['description']).strip()
+            description=str(current['description']).replace('\\n','\n').strip()
             card_x=.09
             card_w=.82
             # Financial chart starts at y=.60; keep a small safety gap.
@@ -1093,7 +1093,7 @@ def _draw_financial_timeline_on(fig,ax,df,scene,bg,text,grid,cmap,progress,elaps
                 transform=fig.transFigure,
                 facecolor=scene.get('timeline_description_accent_color',text),
                 edgecolor='none',alpha=description_opacity,zorder=7))
-            fig.text(card_x+.025,desc_top-.009,'\\n'.join(lines),
+            fig.text(card_x+.025,desc_top-.009,'\n'.join(lines),
                 color=scene.get('timeline_description_text_color',text),
                 fontsize=font_size,fontweight='bold',ha='left',va='top',
                 linespacing=1.15,alpha=description_opacity,zorder=8)
